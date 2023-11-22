@@ -195,7 +195,7 @@ async fn main() {
             (&format!("{}", config.ip), BLUE, vec![]),
             (":", CYAN, vec![BOLD]),
             (&format!("{}\n", config.port), VIOLET, vec![]),
-            (&format!("http://{}:{}", config.ip, config.port), CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+            (&format!("http://{}:{}", config.ip, config.port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
         ], NewLine);
         print_fancy(&[
             ("\nHardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
