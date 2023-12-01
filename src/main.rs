@@ -1,13 +1,17 @@
-use axum::{response::Html, routing::get, Router};
-use tower_http::services::ServeDir;
-use serde::{Deserialize, Serialize};
-use toml;
+mod config;
+mod routes;
+mod utils;
+mod media;
+mod constants;
+
+use crate::config::read_config;
+use crate::routes::app;
+use std::env;
+use crate::constants::*;
+
 use std::fs;
 use std::path::Path;
-use std::env;
 use std::io::{self};
-use std::collections::HashMap;
-use rand::seq::SliceRandom;
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
@@ -15,133 +19,6 @@ use solarized::{
     BOLD, UNDERLINED, ITALIC,
     PrintMode::NewLine,
 };
-
-static IMAGE_DATA: &[u8] = include_bytes!("thing.png");
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    ip: String,
-    port: u16,
-    routes: HashMap<String, Vec<String>>,
-}
-
-fn read_config() -> Option<Config> {
-    let contents = match fs::read_to_string("config.toml") {
-        Ok(c) => c,
-        Err(e) => {
-            print_fancy(&[
-                ("Error reading config file in read_config\n", ORANGE, vec![]),
-                (&format!("{}", e), RED, vec![BOLD])
-            ], NewLine);
-            return None;
-        }
-    };
-    match toml::from_str(&contents) {
-        Ok(config) => Some(config),
-        Err(e) => {
-            print_fancy(&[
-                ("Error parsing config file in read_config", ORANGE, vec![]),
-                (&format!("{}", e), RED, vec![BOLD])
-            ], NewLine);
-            None
-        }
-    }
-}
-
-fn read_media_files(dir: &str) -> std::io::Result<Vec<String>> {
-    let paths = fs::read_dir(dir)?;
-    let mut files = Vec::new();
-    for path in paths {
-        let path = path?.path();
-        if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
-                files.push(file_name.to_string());
-            }
-        }
-    }
-    Ok(files)
-}
-
-fn is_video_file(file_name: &str) -> bool {
-    file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg")
-}
-
-fn get_video_mime_type(file_name: &str) -> &str {
-    if file_name.ends_with(".mp4") {
-        "mp4"
-    } else if file_name.ends_with(".webm") {
-        "webm"
-    } else if file_name.ends_with(".ogg") {
-        "ogg"
-    } else {
-        "unknown"
-    }
-}
-
-async fn render_html_with_media(file_path: &str, media_dir: &str, media_route: &str) -> Html<String> {
-    let mut content = fs::read_to_string(file_path)
-        .unwrap_or_else(|_| "<h1>Error loading page</h1>".to_string());
-    if let Some(end_body_index) = content.find("\n</body>") {
-        let mut media_files = read_media_files(media_dir)
-            .unwrap_or_else(|_| vec![]);
-        let mut rng = rand::thread_rng();
-        media_files.shuffle(&mut rng);
-        let media_tags = media_files.into_iter().map(|file| {
-            if is_video_file(&file) {
-                format!("
-                    <video controls><source src='/static/{}/{}' type='video/{}'></video>
-                    {}", media_route, file, get_video_mime_type(&file), file)
-            } else {
-                format!("<img src='/static/{}/{}'>", media_route, file)
-            }
-        }).collect::<Vec<_>>().join("\n");
-        content.insert_str(end_body_index, &media_tags);
-    }
-    Html(content)
-}
-
-async fn render_html(file_path: &str) -> Html<String> {
-    let content = fs::read_to_string(file_path)
-        .unwrap_or_else(|_| "<h1>Error loading page</h1>".to_string());
-    Html(content)
-}
-
-async fn root() -> Html<String> {
-    render_html("static/home.html").await
-}
-
-fn app(config: &Config) -> Router {
-    let mut router = Router::new()
-        .route("/", get(root));
-    for (path, settings) in &config.routes {
-        if let Some(file_path) = settings.get(0) {
-            let media_route = path.trim_start_matches('/');
-            if let Some(media_dir) = settings.get(1) {
-                let file_clone = file_path.clone();
-                let media_dir_clone = media_dir.clone();
-                let media_route_clone = media_route.to_string();
-                router = router.route(path, get(move || {
-                    let file = file_clone.clone();
-                    let media = media_dir_clone.clone();
-                    let route = media_route_clone.clone();
-                    async move {
-                        render_html_with_media(&file, &media, &route).await
-                    }
-                }));
-                let serve_dir = ServeDir::new(media_dir);
-                router = router.nest_service(&format!("/static/{}", media_route), serve_dir);
-            } else {
-                let file_clone = file_path.clone();
-                router = router.route(path, get(move || {
-                    async move {
-                        render_html(&file_clone).await
-                    }
-                }));
-            }
-        }
-    }
-    router
-}
 
 #[tokio::main]
 async fn main() {
