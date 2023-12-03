@@ -190,7 +190,11 @@ port = 12345
             match fs::write("config.toml", example_config) {
                 Ok(_) => {
                     print_fancy(&[
-                        ("Example config.toml file has been created.", CYAN, vec![]),
+                        ("Example ", CYAN, vec![]),
+                        ("config.toml", VIOLET, vec![]),
+                        (" file has been ", CYAN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
@@ -205,8 +209,11 @@ port = 12345
                 match fs::create_dir_all(&templates) {
                     Ok(_) => {
                         print_fancy(&[
-                            ("static folder created ", CYAN, vec![]),
-                            ("successfully", GREEN, vec![]),
+                            ("The ", CYAN, vec![]),
+                            ("static", VIOLET, vec![]),
+                            (" folder has been ", CYAN, vec![]),
+                            ("created", GREEN, vec![]),
+                            (".", CYAN, vec![]),
                         ], NewLine);
                     }
                     Err(e) => println!("Error creating static: {:?}", e),
@@ -221,8 +228,11 @@ port = 12345
                 match fs::create_dir_all(&media) {
                     Ok(_) => {
                         print_fancy(&[
-                            ("media folder created ", CYAN, vec![]),
-                            ("successfully", GREEN, vec![]),
+                            ("The ", CYAN, vec![]),
+                            ("static/media", VIOLET, vec![]),
+                            (" folder has been ", CYAN, vec![]),
+                            ("created", GREEN, vec![]),
+                            (".", CYAN, vec![]),
                         ], NewLine);
                     }
                     Err(e) => {
@@ -241,7 +251,8 @@ port = 12345
                         ("Example ", CYAN, vec![]),
                         ("home.html", VIOLET, vec![]),
                         (" file has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
@@ -256,7 +267,8 @@ port = 12345
                         ("Example ", CYAN, vec![]),
                         ("stuff.html", VIOLET, vec![]),
                         (" file has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
@@ -274,7 +286,8 @@ port = 12345
                         ("Example ", CYAN, vec![]),
                         ("stuff.html", VIOLET, vec![]),
                         (" file has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
@@ -290,8 +303,11 @@ port = 12345
             match std::fs::write(image_path, IMAGE_DATA) {
                 Ok(_) => {
                     print_fancy(&[
-                        ("Image saved to ", CYAN, vec![]),
+                        ("Image ", CYAN, vec![]),
                         (&format!("{}", image_path), VIOLET, vec![]),
+                        (" has been ", CYAN, vec![]),
+                        ("saved", GREEN, vec![]),
+                        (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
@@ -303,8 +319,11 @@ port = 12345
             }
             let path = env::current_dir().expect("asdf");
             print_fancy(&[
-                ("Files created in ", CYAN, vec![]),
+                ("Setup in ", CYAN, vec![]),
                 (&format!("{}", path.display()), VIOLET, vec![]),
+                (" is ", CYAN, vec![]),
+                ("complete", GREEN, vec![]),
+                (".", CYAN, vec![]),
             ], NewLine);
         }
     }
