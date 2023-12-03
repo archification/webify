@@ -173,6 +173,20 @@ port = 12345
 </body>
 </html>
 "#;
+            let example_error = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>guacamole</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    This page does not exist.
+</body>
+</html>
+"#;
             match fs::write("config.toml", example_config) {
                 Ok(_) => {
                     print_fancy(&[
@@ -237,6 +251,24 @@ port = 12345
                 }
             }
             match fs::write("static/stuff.html", example_stuff) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Example ", CYAN, vec![]),
+                        ("stuff.html", VIOLET, vec![]),
+                        (" file has been ", CYAN, vec![]),
+                        ("created.", GREEN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Failed to create example ", ORANGE, vec![]),
+                        ("stuff.html", VIOLET, vec![]),
+                        (" file: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
+            match fs::write("static/error.html", example_error) {
                 Ok(_) => {
                     print_fancy(&[
                         ("Example ", CYAN, vec![]),
