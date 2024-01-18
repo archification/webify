@@ -1,6 +1,10 @@
 use axum::response::Html;
 use std::fs;
-use crate::utils::{read_media_files, is_video_file, is_audio_file, get_video_mime_type, get_audio_mime_type};
+use crate::utils::{
+    read_media_files,
+    is_video_file, is_audio_file, is_pdf_file,
+    get_video_mime_type, get_audio_mime_type
+};
 use rand::seq::SliceRandom;
 use solarized::{print_fancy, RED, BOLD, PrintMode::NewLine};
 
@@ -41,6 +45,8 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 format!("<video controls><source src='/static/{}/{}' type='video/{}'></video>{}", media_route, file, get_video_mime_type(&file), file)
             } else if is_audio_file(&file) {
                 format!("<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", media_route, file, get_audio_mime_type(&file))
+            } else if is_pdf_file(&file) {
+                format!("<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", media_route, file)
             } else {
                 format!("<img src='/static/{}/{}'>", media_route, file)
             }

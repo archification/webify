@@ -22,6 +22,10 @@ pub fn is_audio_file(file_name: &str) -> bool {
     file_name.ends_with(".mp3") || file_name.ends_with(".wav")
 }
 
+pub fn is_pdf_file(file_name: &str) -> bool {
+    file_name.ends_with(".pdf")
+}
+
 pub fn get_video_mime_type(file_name: &str) -> &str {
     if file_name.ends_with(".mp4") {
         "mp4"
