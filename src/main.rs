@@ -126,68 +126,7 @@ async fn main() {
         let input = input.trim().to_lowercase();
         if input == "y" || input == "yes" {
             clear();
-            let example_config = r#"ip = "127.0.0.1"
-port = 12345
-
-[routes]
-"/something" = ["static/home.html"]
-"/stuff" = ["static/stuff.html", "static/media"]
-"#;
-            let example_home = r#"<!doctype html>
-<html lang="en-US">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    something
-    <a href="/stuff">stuff</a>
-</body>
-</html>
-"#;
-            let example_stuff = r#"<!doctype html>
-<html lang="en-US">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
-    <style>
-    img, video {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-    }
-    </style>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <div class="container">
-        <h1>Welcome to the stuff page.</h1>
-        <p>This page shows media files.</p>
-    </div>
-</body>
-</html>
-"#;
-            let example_error = r#"<!doctype html>
-<html lang="en-US">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    This page does not exist.
-</body>
-</html>
-"#;
-            match fs::write("config.toml", example_config) {
+            match fs::write("config.toml", EXAMPLE_CONFIG) {
                 Ok(_) => {
                     print_fancy(&[
                         ("Example ", CYAN, vec![]),
@@ -245,7 +184,7 @@ port = 12345
             } else {
                 println!("media folder exists");
             }
-            match fs::write("static/home.html", example_home) {
+            match fs::write("static/home.html", EXAMPLE_HOME) {
                 Ok(_) => {
                     print_fancy(&[
                         ("Example ", CYAN, vec![]),
@@ -261,7 +200,7 @@ port = 12345
                     ], NewLine);
                 }
             }
-            match fs::write("static/stuff.html", example_stuff) {
+            match fs::write("static/stuff.html", EXAMPLE_STUFF) {
                 Ok(_) => {
                     print_fancy(&[
                         ("Example ", CYAN, vec![]),
@@ -280,7 +219,7 @@ port = 12345
                     ], NewLine);
                 }
             }
-            match fs::write("static/error.html", example_error) {
+            match fs::write("static/error.html", EXAMPLE_ERROR) {
                 Ok(_) => {
                     print_fancy(&[
                         ("Example ", CYAN, vec![]),
