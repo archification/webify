@@ -219,6 +219,25 @@ async fn main() {
                     ], NewLine);
                 }
             }
+            match fs::write("static/pdf.html", EXAMPLE_PDF) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Example ", CYAN, vec![]),
+                        ("pdf.html", VIOLET, vec![]),
+                        (" file has been ", CYAN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Failed to create example ", ORANGE, vec![]),
+                        ("pdf.html", VIOLET, vec![]),
+                        (" file: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
             match fs::write("static/error.html", EXAMPLE_ERROR) {
                 Ok(_) => {
                     print_fancy(&[
@@ -244,6 +263,43 @@ async fn main() {
                     print_fancy(&[
                         ("Image ", CYAN, vec![]),
                         (&format!("{}", image_path), VIOLET, vec![]),
+                        (" has been ", CYAN, vec![]),
+                        ("saved", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Failed to write image: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
+            let pdf_path = "static/documents/asdf.pdf";
+            let pdf_dir = Path::new("static/documents");
+            if !pdf_dir.exists() {
+                match fs::create_dir_all(pdf_dir) {
+                    Ok(_) => {
+                        print_fancy(&[
+                            ("The ", CYAN, vec![]),
+                            ("static/documents", VIOLET, vec![]),
+                            (" folder has been ", CYAN, vec![]),
+                            ("created", GREEN, vec![]),
+                            (".", CYAN, vec![]),
+                        ], NewLine);
+                    }
+                    Err(e) => println!("Error creating static/documents: {:?}", e),
+                }
+            } else {
+                print_fancy(&[
+                    ("static/documents folder exists", ORANGE, vec![]),
+                ], NewLine);
+            }
+            match std::fs::write(pdf_path, PDF_DATA) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Document ", CYAN, vec![]),
+                        (&format!("{}", pdf_path), VIOLET, vec![]),
                         (" has been ", CYAN, vec![]),
                         ("saved", GREEN, vec![]),
                         (".", CYAN, vec![]),
