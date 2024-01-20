@@ -61,8 +61,7 @@ async fn main() {
         &[VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA],
         NewLine
     );
-    let config_option = read_config();
-    if let Some(config) = config_option {
+    let config_option = read_config(); if let Some(config) = config_option {
         print_fancy(&[
             ("config.yml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
@@ -105,11 +104,16 @@ async fn main() {
             ("\nServer running in ", CYAN, vec![]),
             (&format!("{}", path.display()), VIOLET, vec![]),
         ], NewLine);
+        let router = app(&config);
         let address = format!("{}:{}", config.ip, config.port);
+        let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
+        axum::serve(listener, router).await.unwrap();
+        /*
         axum::Server::bind(&address.parse().unwrap())
             .serve(app(&config).into_make_service())
             .await
             .unwrap();
+        */
     } else {
         print_fancy(&[
             ("Failed to read configuration\n", ORANGE, vec![]),
