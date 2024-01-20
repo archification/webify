@@ -67,13 +67,30 @@ async fn main() {
             ("config.yml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
         ], NewLine);
-        print_fancy(&[
-            ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-            (&format!("{}", config.ip), BLUE, vec![]),
-            (":", CYAN, vec![BOLD]),
-            (&format!("{}\n", config.port), VIOLET, vec![]),
-            (&format!("http://{}:{}", config.ip, config.port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-        ], NewLine);
+        if config.ssl_enabled {
+            print_fancy(&[
+                ("\nSSL", GREEN, vec![]),
+                (" is ", CYAN, vec![]),
+                ("Enabled\n", GREEN, vec![]),
+                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("{}", config.ip), BLUE, vec![]),
+                (":", CYAN, vec![BOLD]),
+                (&format!("{}\n", config.ssl_port), VIOLET, vec![]),
+                (&format!("https://{}:{}\n", config.ip, config.ssl_port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+            ], NewLine);
+        } else {
+            print_fancy(&[
+                ("\nSSL", YELLOW, vec![]),
+                (" is ", CYAN, vec![]),
+                ("NOT", RED, vec![BOLD, ITALIC]),
+                (" Enabled\n", ORANGE, vec![]),
+                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("{}", config.ip), BLUE, vec![]),
+                (":", CYAN, vec![BOLD]),
+                (&format!("{}\n", config.port), VIOLET, vec![]),
+                (&format!("http://{}:{}", config.ip, config.port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+            ], NewLine);
+        }
         print_fancy(&[
             ("\nHardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
             ("/", BLUE, vec![]),
@@ -105,14 +122,6 @@ async fn main() {
             ("\nServer running in ", CYAN, vec![]),
             (&format!("{}", path.display()), VIOLET, vec![]),
         ], NewLine);
-        /*
-        let router = app(&config);
-        let address = format!("{}:{}", config.ip, config.port);
-        let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
-        axum::serve(listener, router).await.unwrap();
-        */
-
-        let config = read_config().expect("Failed to read configuration");
         let app = app(&config);
         if config.ssl_enabled {
             let ssl_config = RustlsConfig::from_pem_file(
@@ -131,7 +140,6 @@ async fn main() {
                 let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
                 axum::serve(listener, app).await.unwrap();
         }
-
     } else {
         print_fancy(&[
             ("Failed to read configuration\n", ORANGE, vec![]),
