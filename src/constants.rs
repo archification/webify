@@ -1,4 +1,5 @@
 pub static IMAGE_DATA: &[u8] = include_bytes!("thing.png");
+pub static VIDEO_DATA: &[u8] = include_bytes!("dancingcrab.webm");
 pub static PDF_DATA: &[u8] = include_bytes!("asdf.pdf");
 pub static EXAMPLE_CONFIG: &str = r#"ip = "127.0.0.1"
 port = 12345
@@ -18,7 +19,10 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-    something
+    <h1>PDF Document</h1>
+    <a href="/pdf">documents</a>
+
+    <h1>Image and Video</h1>
     <a href="/stuff">stuff</a>
 </body>
 </html>
@@ -41,6 +45,12 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+    <h1>PDF Document</h1>
+    <a href="/pdf">documents</a>
+
+    <h1>Home Page</h1>
+    <a href="/something">home</a>
+
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
         <p>This page shows media files.</p>
@@ -58,7 +68,11 @@ pub static EXAMPLE_PDF: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-    <p>guacamole is good</p>
+    <h1>Image and Video</h1>
+    <a href="/stuff">stuff</a>
+
+    <h1>Home Page</h1>
+    <a href="/something">home</a>
 </body>
 </html>
 "#;

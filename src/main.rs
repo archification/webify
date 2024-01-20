@@ -279,6 +279,24 @@ async fn main() {
                     ], NewLine);
                 }
             }
+            let video_path = "static/media/dancingcrab.webm";
+            match std::fs::write(video_path, VIDEO_DATA) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Video ", CYAN, vec![]),
+                        (&format!("{}", image_path), VIOLET, vec![]),
+                        (" has been ", CYAN, vec![]),
+                        ("saved", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Failed to write video: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
             let pdf_path = "static/documents/asdf.pdf";
             let pdf_dir = Path::new("static/documents");
             if !pdf_dir.exists() {
