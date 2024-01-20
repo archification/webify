@@ -6,7 +6,7 @@ port = 12345
 [routes]
 "/something" = ["static/home.html"]
 "/stuff" = ["static/stuff.html", "static/media"]
-"/pdf" = ["static/pdf.html", "static/documents/pdf"]
+"/pdf" = ["static/pdf.html", "static/documents"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
