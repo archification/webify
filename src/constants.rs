@@ -3,6 +3,10 @@ pub static VIDEO_DATA: &[u8] = include_bytes!("dancingcrab.webm");
 pub static PDF_DATA: &[u8] = include_bytes!("asdf.pdf");
 pub static EXAMPLE_CONFIG: &str = r#"ip = "127.0.0.1"
 port = 12345
+ssl_enabled = true
+ssl_port = 12345
+ssl_cert_path = "pems/cert.pem"
+ssl_key_path = "pems/key.pem"
 
 [routes]
 "/something" = ["static/home.html"]

@@ -12,6 +12,7 @@ use std::fs;
 use std::env;
 use std::path::Path;
 use std::io::{self};
+use axum_server::{self, tls_rustls::RustlsConfig};
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
@@ -104,16 +105,33 @@ async fn main() {
             ("\nServer running in ", CYAN, vec![]),
             (&format!("{}", path.display()), VIOLET, vec![]),
         ], NewLine);
+        /*
         let router = app(&config);
         let address = format!("{}:{}", config.ip, config.port);
         let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
         axum::serve(listener, router).await.unwrap();
-        /*
-        axum::Server::bind(&address.parse().unwrap())
-            .serve(app(&config).into_make_service())
-            .await
-            .unwrap();
         */
+
+        let config = read_config().expect("Failed to read configuration");
+        let app = app(&config);
+        if config.ssl_enabled {
+            let ssl_config = RustlsConfig::from_pem_file(
+                config.ssl_cert_path.expect("SSL cert path is required"),
+                config.ssl_key_path.expect("SSL key path is required"),
+            )
+                .await
+                .expect("Failed to configure SSL");
+            let addr = format!("{}:{}", config.ip, config.ssl_port);
+            axum_server::bind_rustls(addr.parse().unwrap(), ssl_config)
+                .serve(app.into_make_service())
+                .await
+                .expect("Failed to start SSL server");
+            } else {
+                let addr = format!("{}:{}", config.ip, config.port);
+                let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+                axum::serve(listener, app).await.unwrap();
+        }
+
     } else {
         print_fancy(&[
             ("Failed to read configuration\n", ORANGE, vec![]),

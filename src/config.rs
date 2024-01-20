@@ -13,6 +13,10 @@ use solarized::{
 pub struct Config {
     pub ip: String,
     pub port: u16,
+    pub ssl_enabled: bool,
+    pub ssl_port: u16,
+    pub ssl_cert_path: Option<String>,
+    pub ssl_key_path: Option<String>,
     pub routes: HashMap<String, Vec<String>>,
 }
 

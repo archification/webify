@@ -7,10 +7,9 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.4"
+axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 base64 = "0.21.5"
 rand = "0.8.5"
-rustls = "0.22.2"
-rustls-pemfile = "2.0.0"
 serde = { version = "1.0.192", features = ["derive"] }
 solarized = { git = "https://github.com/archification/solarized.git", branch = "main" }
 tera = "1.19.1"
