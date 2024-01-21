@@ -18,6 +18,9 @@ pub struct Config {
     pub ssl_cert_path: Option<String>,
     pub ssl_key_path: Option<String>,
     pub routes: HashMap<String, Vec<String>>,
+    pub todo_enabled: bool,
+    pub todo_ip: String,
+    pub todo_port: u16,
 }
 
 pub fn read_config() -> Option<Config> {

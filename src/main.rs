@@ -8,6 +8,8 @@ use crate::config::read_config;
 use crate::routes::app;
 use crate::constants::*;
 
+use webify::run;
+
 use std::fs;
 use std::env;
 use std::path::Path;
@@ -91,6 +93,25 @@ async fn main() {
                 (&format!("http://{}:{}", config.ip, config.port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         }
+        if config.todo_enabled {
+            print_fancy(&[
+                ("\nTodo", GREEN, vec![]),
+                (" is ", CYAN, vec![]),
+                ("Enabled", GREEN, vec![]),
+                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("{}", config.todo_ip), BLUE, vec![]),
+                (":", CYAN, vec![BOLD]),
+                (&format!("{}\n", config.todo_port), VIOLET, vec![]),
+                (&format!("http://{}:{}\n", config.todo_ip, config.todo_port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+            ], NewLine);
+        } else {
+            print_fancy(&[
+                ("\nTodo", YELLOW, vec![]),
+                (" is ", CYAN, vec![]),
+                ("NOT", RED, vec![BOLD, ITALIC]),
+                (" Enabled", ORANGE, vec![]),
+            ], NewLine);
+        }
         print_fancy(&[
             ("\nHardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
             ("/", BLUE, vec![]),
@@ -127,18 +148,52 @@ async fn main() {
             let ssl_config = RustlsConfig::from_pem_file(
                 config.ssl_cert_path.expect("SSL cert path is required"),
                 config.ssl_key_path.expect("SSL key path is required"),
-            )
-                .await
-                .expect("Failed to configure SSL");
+            ).await.expect("Failed to configure SSL");
             let addr = format!("{}:{}", config.ip, config.ssl_port);
-            axum_server::bind_rustls(addr.parse().unwrap(), ssl_config)
-                .serve(app.into_make_service())
-                .await
-                .expect("Failed to start SSL server");
+            let server = axum_server::bind_rustls(addr.parse().unwrap(), ssl_config)
+                .serve(app.into_make_service());
+            if config.todo_enabled {
+                let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);
+                let todo_task = tokio::spawn(async {
+                    run(todoaddr).await;
+                });
+                let server_task = tokio::spawn(async {
+                    server.await.unwrap();
+                });
+                let (todo_result, server_result) = tokio::join!(todo_task, server_task);
+                if let Err(e) = todo_result {
+                    eprintln!("Error from todo task: {:?}", e);
+                }
+                if let Err(e) = server_result {
+                    eprintln!("Error from server task: {:?}", e);
+                }
             } else {
-                let addr = format!("{}:{}", config.ip, config.port);
-                let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-                axum::serve(listener, app).await.unwrap();
+                server.await.unwrap();
+            }
+        } else {
+            let addr = format!("{}:{}", config.ip, config.port);
+            let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+            let server = axum::serve(listener, app);
+            if config.todo_enabled {
+                let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);
+                let todo_task = tokio::spawn(async {
+                    run(todoaddr).await;
+                });
+                let server_task = tokio::spawn(async {
+                    server.await.unwrap();
+                });
+                let (todo_result, server_result) = tokio::join!(todo_task, server_task);
+                if let Err(e) = todo_result {
+                    eprintln!("Error from todo task: {:?}", e);
+                }
+                if let Err(e) = server_result {
+                    eprintln!("Error from server task: {:?}", e);
+                }
+            } else {
+                if let Err(e) = server.await {
+                    eprintln!("Server error: {:?}", e);
+                }
+            }
         }
     } else {
         print_fancy(&[
