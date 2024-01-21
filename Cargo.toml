@@ -8,7 +8,7 @@ path = "src/lib.rs"
 
 [[bin]]
 path = "src/main.rs"
-name = "todomvc"
+name = "webify"
 
 [dependencies]
 askama = { version = "0.12.1", features = ["with-axum", "mime", "mime_guess"] }
