@@ -10,11 +10,13 @@ use crate::constants::*;
 
 use webify::run;
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::BufReader;
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{self};
 use axum_server::{self, tls_rustls::RustlsConfig};
+use zip::ZipArchive;
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
@@ -415,6 +417,56 @@ async fn main() {
                     ], NewLine);
                 }
             }
+            let zip_path = "todos.zip";
+            match std::fs::write(zip_path, ARCHIVE_DATA) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Archive ", CYAN, vec![]),
+                        (&format!("{}", zip_path), VIOLET, vec![]),
+                        (" has been ", CYAN, vec![]),
+                        ("saved", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Failed to write image: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
+            let file_path = Path::new("todos.zip");
+            let file = File::open(&file_path).expect("Failed to open ZIP file");
+            let mut archive = ZipArchive::new(BufReader::new(file)).expect("Failed to read ZIP archive");
+            for i in 0..archive.len() {
+                let mut file = archive.by_index(i).expect("Failed to access file in ZIP archive");
+                let file_name = file.name().to_string();
+                fn construct_safe_path(file_name: &str) -> PathBuf {
+                    let mut path = PathBuf::new();
+                    for component in Path::new(file_name).components() {
+                        match component {
+                            std::path::Component::Normal(comp) => path.push(comp),
+                            _ => {}
+                        }
+                    }
+                    path
+                }
+                let outpath = construct_safe_path(&file_name);
+                if file_name.ends_with('/') {
+                    println!("Directory {} extracted to \"{}\"", i, outpath.display());
+                    std::fs::create_dir_all(&outpath).expect("Failed to create directory");
+                } else {
+                    println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
+                    if let Some(parent) = outpath.parent() {
+                        std::fs::create_dir_all(parent).expect("Failed to create directory");
+                    }
+                    let mut outfile = std::fs::File::create(&outpath).expect("Failed to create file");
+                    std::io::copy(&mut file, &mut outfile).expect("Failed to copy file");
+                }
+            }
+            println!("ZIP archive extracted successfully!");
+            std::fs::remove_file(file_path).expect("Failed to delete ZIP file");
+            println!("ZIP file deleted successfully.");
             let path = env::current_dir().expect("asdf");
             print_fancy(&[
                 ("Setup in ", CYAN, vec![]),

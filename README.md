@@ -7,6 +7,8 @@ as well as the IP address and port number for the server.
 
 ## Features
 - Dynamic configuration via a toml config file including mount points, local file paths, ip, and port.
+- SSL support can be enabled in the config file.
+- HTMX todo page can be enabled in the config file.
 - Easy setup and deployment.
 
 ## Getting Started
