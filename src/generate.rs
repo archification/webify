@@ -177,6 +177,7 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
+        /*
         let video_path = "static/media/dancingcrab.webm";
         match std::fs::write(video_path, VIDEO_DATA) {
             Ok(_) => {
@@ -195,6 +196,7 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
+        */
         let pdf_path = "static/documents/asdf.pdf";
         let pdf_dir = Path::new("static/documents");
         if !pdf_dir.exists() {
@@ -276,7 +278,6 @@ pub fn generate_files() {
                 ], NewLine);
                 std::fs::create_dir_all(&outpath).expect("Failed to create directory");
             } else {
-                //println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
                 print_fancy(&[
                     ("File ", CYAN, vec![]),
                     (&format!("{}", i), VIOLET, vec![]),

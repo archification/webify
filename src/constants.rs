@@ -1,5 +1,5 @@
 pub static IMAGE_DATA: &[u8] = include_bytes!("thing.png");
-pub static VIDEO_DATA: &[u8] = include_bytes!("dancingcrab.webm");
+//pub static VIDEO_DATA: &[u8] = include_bytes!("dancingcrab.webm");
 pub static PDF_DATA: &[u8] = include_bytes!("asdf.pdf");
 pub static ARCHIVE_DATA: &[u8] = include_bytes!("todos.zip");
 pub static EXAMPLE_CONFIG: &str = r#"ip = "127.0.0.1"
