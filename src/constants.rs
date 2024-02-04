@@ -94,7 +94,8 @@ pub static EXAMPLE_ERROR: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-    This page does not exist.
+    <h1>ERROR</h1>
+    <p>This page does not exist.</p>
 </body>
 </html>
 "#;

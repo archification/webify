@@ -144,7 +144,7 @@ pub fn generate_files() {
             Ok(_) => {
                 print_fancy(&[
                     ("Example ", CYAN, vec![]),
-                    ("stuff.html", VIOLET, vec![]),
+                    ("error.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
                     ("created", GREEN, vec![]),
                     (".", CYAN, vec![]),
@@ -153,7 +153,7 @@ pub fn generate_files() {
             Err(e) => {
                 print_fancy(&[
                     ("Failed to create example ", ORANGE, vec![]),
-                    ("stuff.html", VIOLET, vec![]),
+                    ("error.html", VIOLET, vec![]),
                     (" file: ", ORANGE, vec![]),
                     (&format!("{}", e), RED, vec![]),
                 ], NewLine);
