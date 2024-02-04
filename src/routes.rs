@@ -1,8 +1,27 @@
-use axum::{routing::get, Router};
+use axum::{routing::get, http::StatusCode, response::{Html, IntoResponse}, Router};
 use tower_http::services::ServeDir;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
-use axum::{response::Html, /*routing::get, Router*/};
+
+async fn not_found() -> impl IntoResponse {
+    let custom_404_html = r#"
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>guacamole</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>ERROR</h1>
+    <p>You shouldn't be here. Please go away.</p>
+</body>
+</html>
+"#;
+    (StatusCode::NOT_FOUND, Html(custom_404_html))
+}
 
 async fn root() -> Html<String> {
     render_html("static/home.html").await
@@ -10,7 +29,8 @@ async fn root() -> Html<String> {
 
 pub fn app(config: &Config) -> Router {
     let mut router = Router::new()
-        .route("/", get(root));
+        .route("/", get(root))
+        .fallback(get(not_found));
     for (path, settings) in &config.routes {
         if let Some(file_path) = settings.get(0) {
             let media_route = path.trim_start_matches('/');
