@@ -1,10 +1,13 @@
+use std::fs;
 use axum::{routing::get, http::StatusCode, response::{Html, IntoResponse}, Router};
 use tower_http::services::ServeDir;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 
 async fn not_found() -> impl IntoResponse {
-    let custom_404_html = r#"
+    let file_path = "static/error.html";
+    let custom_404_html = fs::read_to_string(file_path).unwrap_or_else(|_| {
+    String::from(r#"
 <!doctype html>
 <html lang="en-US">
 <head>
@@ -19,7 +22,8 @@ async fn not_found() -> impl IntoResponse {
     <p>You shouldn't be here. Please go away.</p>
 </body>
 </html>
-"#;
+"#)
+    });
     (StatusCode::NOT_FOUND, Html(custom_404_html))
 }
 
