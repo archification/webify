@@ -12,13 +12,11 @@ use axum::{
 use models::Todo;
 use serde::Deserialize;
 use std::{
-//    net::SocketAddr,
     sync::{Arc, RwLock},
 };
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
-
 use crate::models::{TodoListFilter, TodoToggleAction};
 use crate::repository::{TodoRepo, TodoRepoError};
 
@@ -56,7 +54,6 @@ impl IntoResponse for AppError {
         let (status, message) = match self {
             Self::TodoRepo(TodoRepoError::NotFound) => (StatusCode::NOT_FOUND, "Todo not found"),
         };
-
         (status, message).into_response()
     }
 }
@@ -88,14 +85,10 @@ pub async fn run(addr: String) {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    //let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     tracing::debug!("listening on {}", addr);
-
     let shared_state = SharedState::default();
     let app = app(shared_state);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-
     #[allow(clippy::unwrap_used)]
     axum::serve(listener, app).await.unwrap();
 }
@@ -103,7 +96,6 @@ pub async fn run(addr: String) {
 #[derive(Template)]
 #[template(path = "responses/index.html")]
 struct GetIndexResponse;
-
 async fn get_index() -> Result<GetIndexResponse, AppError> {
     Ok(GetIndexResponse)
 }
@@ -130,10 +122,8 @@ async fn list_todos(
     Query(ListTodosQuery { filter }): Query<ListTodosQuery>,
 ) -> Result<ListTodosResponse, AppError> {
     shared_state.write().unwrap().selected_filter = filter;
-
     let state = shared_state.read().unwrap();
     let items = state.todo_repo.list(&filter);
-
     Ok(ListTodosResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
@@ -167,15 +157,12 @@ async fn create_todo(
 ) -> Result<CreateTodoResponse, AppError> {
     let mut state = shared_state.write().unwrap();
     let item = state.todo_repo.create(&text);
-
     let item = if state.selected_filter == TodoListFilter::Completed {
         None
     } else {
         Some(item)
     };
-
     state.toggle_action = TodoToggleAction::Check;
-
     Ok(CreateTodoResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
@@ -208,15 +195,12 @@ async fn toggle_completed_todos(
     Query(ToggleCompletedTodosQuery { action }): Query<ToggleCompletedTodosQuery>,
 ) -> Result<ToggleCompletedTodosResponse, AppError> {
     let mut state = shared_state.write().unwrap();
-
     state.toggle_action = match action {
         TodoToggleAction::Uncheck => TodoToggleAction::Check,
         TodoToggleAction::Check => TodoToggleAction::Uncheck,
     };
-
     state.todo_repo.toggle_completed(&action);
     let items = state.todo_repo.list(&state.selected_filter);
-
     Ok(ToggleCompletedTodosResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
@@ -244,12 +228,9 @@ async fn delete_completed_todos(
     State(shared_state): State<SharedState>,
 ) -> Result<DeleteCompletedTodosResponse, AppError> {
     let mut state = shared_state.write().unwrap();
-
     state.toggle_action = TodoToggleAction::Check;
     state.todo_repo.delete_completed();
-
     let items = state.todo_repo.list(&state.selected_filter);
-
     Ok(DeleteCompletedTodosResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
@@ -302,20 +283,17 @@ async fn update_todo(
     let item = state
         .todo_repo
         .update(&id, todo_update.text, todo_update.is_completed)?;
-
     state.toggle_action = if state.todo_repo.num_completed_items == state.todo_repo.num_all_items {
         TodoToggleAction::Uncheck
     } else {
         TodoToggleAction::Check
     };
-
     let item = match state.selected_filter {
         TodoListFilter::Active if item.is_completed => None,
         TodoListFilter::Active | TodoListFilter::All => Some(item),
         TodoListFilter::Completed if item.is_completed => Some(item),
         TodoListFilter::Completed => None,
     };
-
     Ok(UpdateTodoResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
@@ -344,13 +322,11 @@ async fn delete_todo(
 ) -> Result<DeleteTodoResponse, AppError> {
     let mut state = shared_state.write().unwrap();
     state.todo_repo.delete(&id)?;
-
     state.toggle_action = if state.todo_repo.num_all_items == 0 {
         TodoToggleAction::Check
     } else {
         TodoToggleAction::Uncheck
     };
-
     Ok(DeleteTodoResponse {
         num_completed_items: state.todo_repo.num_completed_items,
         num_active_items: state.todo_repo.num_active_items,
