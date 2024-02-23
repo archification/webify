@@ -302,11 +302,14 @@ pub fn generate_files() {
         ], NewLine);
         let path = env::current_dir().expect("asdf");
         print_fancy(&[
-            ("Setup in ", CYAN, vec![]),
+            ("\nSetup in ", CYAN, vec![]),
             (&format!("{}", path.display()), VIOLET, vec![]),
             (" is ", CYAN, vec![]),
             ("complete", GREEN, vec![]),
-            (".", CYAN, vec![]),
+            (".\n", CYAN, vec![]),
+            ("Please read config and edit ", CYAN, vec![]),
+            ("config.toml", VIOLET, vec![]),
+            (" to preferences.", CYAN, vec![]),
         ], NewLine);
     }
 }
