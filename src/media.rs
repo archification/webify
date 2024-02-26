@@ -2,7 +2,7 @@ use axum::response::Html;
 use std::fs;
 use crate::utils::{
     read_media_files,
-    is_video_file, is_audio_file, is_pdf_file,
+    is_image_file, is_video_file, is_audio_file, is_pdf_file,
     get_video_mime_type, get_audio_mime_type
 };
 use rand::seq::SliceRandom;
@@ -47,8 +47,10 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 format!("<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", media_route, file, get_audio_mime_type(&file))
             } else if is_pdf_file(&file) {
                 format!("<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", media_route, file)
-            } else {
+            } else if is_image_file(&file) {
                 format!("<img src='/static/{}/{}'>", media_route, file)
+            } else {
+                format!("")
             }
         }).collect::<Vec<_>>().join("\n");
         let mut new_content = content.clone();

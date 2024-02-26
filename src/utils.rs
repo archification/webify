@@ -14,6 +14,10 @@ pub fn read_media_files(dir: &str) -> std::io::Result<Vec<String>> {
     Ok(files)
 }
 
+pub fn is_image_file(file_name: &str) -> bool {
+    file_name.ends_with(".png") || file_name.ends_with(".jpg") || file_name.ends_with(".jpeg") || file_name.ends_with(".gif") || file_name.ends_with(".webp")
+}
+
 pub fn is_video_file(file_name: &str) -> bool {
     file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg")
 }
