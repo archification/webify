@@ -1,5 +1,5 @@
 use std::fs;
-use axum::{routing::get, http::StatusCode, response::{Html, IntoResponse}, Router};
+use axum::{routing::{get, get_service}, http::StatusCode, response::{Html, IntoResponse}, Router};
 use tower_http::services::ServeDir;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
@@ -27,13 +27,14 @@ async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, Html(custom_404_html))
 }
 
-async fn root() -> Html<String> {
-    render_html("static/home.html").await
+fn routes_static() -> Router {
+    Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
 
 pub fn app(config: &Config) -> Router {
     let mut router = Router::new()
-        .route("/", get(root))
+        .merge(routes_static())
+        .route("/favicon.ico", get_service(ServeDir::new("./static")))
         .fallback(get(not_found));
     for (path, settings) in &config.routes {
         if let Some(file_path) = settings.get(0) {
@@ -51,7 +52,8 @@ pub fn app(config: &Config) -> Router {
                     }
                 }));
                 let serve_dir = ServeDir::new(media_dir);
-                router = router.nest_service(&format!("/static/{}", media_route), serve_dir);
+                router = router
+                    .nest_service(&format!("/static/{}", media_route), serve_dir);
             } else {
                 let file_clone = file_path.clone();
                 router = router.route(path, get(move || {

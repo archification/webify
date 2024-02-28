@@ -272,8 +272,8 @@ pub fn generate_files() {
             if file_name.ends_with('/') {
                 print_fancy(&[
                     ("Directory ", CYAN, vec![]),
-                    (&format!("{}", i), VIOLET, vec![]),
-                    (" extracted to ", CYAN, vec![]),
+                    ("extracted", GREEN, vec![]),
+                    (" to ", CYAN, vec![]),
                     (&format!("{}", outpath.display()), VIOLET, vec![]),
                 ], NewLine);
                 std::fs::create_dir_all(&outpath).expect("Failed to create directory");
@@ -281,7 +281,8 @@ pub fn generate_files() {
                 print_fancy(&[
                     ("File ", CYAN, vec![]),
                     (&format!("{}", i), VIOLET, vec![]),
-                    (" extracted to ", CYAN, vec![]),
+                    (" extracted ", GREEN, vec![]),
+                    ("to ", CYAN, vec![]),
                     (&format!("{}", outpath.display()), VIOLET, vec![]),
                 ], NewLine);
                 if let Some(parent) = outpath.parent() {

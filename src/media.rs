@@ -40,22 +40,40 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         };
         let mut rng = rand::thread_rng();
         media_files.shuffle(&mut rng);
-        let media_tags = media_files.into_iter().map(|file| {
+        let media_insertion_point = content.find("<!-- MEDIA_INSERTION_POINT -->");
+        let (indentation, before_media_insertion_point) = if let Some(index) = media_insertion_point {
+            let newline_index = content[..index].rfind('\n').unwrap_or(0);
+            let indentation = &content[newline_index+1..index];
+            (indentation, true)
+        } else {
+            ("", false)
+        };
+        let media_tags = media_files.into_iter().enumerate().map(|(i, file)| {
+            let indent = if i == 0 || !before_media_insertion_point {
+                ""
+            } else {
+                indentation
+            };
             if is_video_file(&file) {
-                format!("<video controls><source src='/static/{}/{}' type='video/{}'></video>{}", media_route, file, get_video_mime_type(&file), file)
+                format!("{}<video controls><source src='/static/{}/{}' type='video/{}'></video>{}", indent, media_route, file, get_video_mime_type(&file), file)
             } else if is_audio_file(&file) {
-                format!("<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", media_route, file, get_audio_mime_type(&file))
+                format!("{}<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", indent, media_route, file, get_audio_mime_type(&file))
             } else if is_pdf_file(&file) {
-                format!("<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", media_route, file)
+                format!("{}<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", indent, media_route, file)
             } else if is_image_file(&file) {
-                format!("<img src='/static/{}/{}'>", media_route, file)
+                format!("{}<img src='/static/{}/{}'>", indent, media_route, file)
             } else {
                 format!("")
             }
         }).collect::<Vec<_>>().join("\n");
         let mut new_content = content.clone();
-        new_content.insert_str(end_body_index, &media_tags);
-        Html(new_content)
+        if let Some(_media_insertion_point) = new_content.find("<!-- MEDIA_INSERTION_POINT -->") {
+            new_content = new_content.replacen("<!-- MEDIA_INSERTION_POINT -->", &media_tags, 1);
+            Html(new_content)
+        } else {
+            new_content.insert_str(end_body_index, &media_tags);
+            Html(new_content)
+        }
     } else {
         Html(content)
     }

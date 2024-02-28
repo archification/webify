@@ -12,7 +12,7 @@ todo_ip = "127.0.0.1"
 todo_port = 11111
 
 [routes]
-"/something" = ["static/home.html"]
+"/" = ["static/home.html"]
 "/stuff" = ["static/stuff.html", "static/media"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "#;
@@ -61,6 +61,7 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
         <p>This page shows media files.</p>
+        <!-- MEDIA_INSERTION_POINT -->
     </div>
 </body>
 </html>
@@ -80,6 +81,7 @@ pub static EXAMPLE_PDF: &str = r#"<!doctype html>
 
     <h1>Home Page</h1>
     <a href="/something">home</a>
+    <!-- MEDIA_INSERTION_POINT -->
 </body>
 </html>
 "#;
