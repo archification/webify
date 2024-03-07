@@ -12,7 +12,7 @@ use crate::generate::*;
 use webify::run;
 
 use std::env;
-use axum_server::{self, tls_rustls::RustlsConfig};
+use axum_server::{tls_rustls::RustlsConfig};
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
