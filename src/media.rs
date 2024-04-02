@@ -63,7 +63,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
             } else if is_image_file(&file) {
                 format!("{}<img src='/static/{}/{}'>", indent, media_route, file)
             } else if is_zip_file(&file) {
-                format!("{}<a href=\"/static/{}/{}\" download>guacamole</a>", indent, media_route, file)
+                format!("{}<a href=\"/static/{}/{}\" download>{}</a>", indent, media_route, file, file)
             } else {
                 format!("")
             }
