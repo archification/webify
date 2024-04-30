@@ -12,6 +12,12 @@ as well as the IP address and port number for the server.
 - Easy setup and deployment.
 
 ## Getting Started
+- Place the exe file alone in a folder.
+- Run the exe file.
+- It will ask if you'd like to generate files. Type y and press enter to do so.
+- Ensure that files were generated in the folder.
+- Run the exe file again to host example environment locally.
+- Modify settings in the config file as you see fit and then restart the program.
 
 ### Prerequisites
 - Web browser.

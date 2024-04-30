@@ -39,8 +39,13 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
             }
         };
         let mut rng = rand::thread_rng();
+        let audio_files = media_files.iter()
+            .filter(|file| is_audio_file(file))
+            .map(|file| format!("'{}'", file))
+            .collect::<Vec<_>>().join(", ");
         media_files.shuffle(&mut rng);
         let media_insertion_point = content.find("<!-- MEDIA_INSERTION_POINT -->");
+        let js_insertion_point = content.find("<!-- JS_INSERTION_POINT -->");
         let (indentation, before_media_insertion_point) = if let Some(index) = media_insertion_point {
             let newline_index = content[..index].rfind('\n').unwrap_or(0);
             let indentation = &content[newline_index+1..index];
@@ -48,8 +53,15 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         } else {
             ("", false)
         };
+        let (indentation, before_js_insertion_point) = if let Some(index) = js_insertion_point {
+            let newline_index = content[..index].rfind('\n').unwrap_or(0);
+            let indentation = &content[newline_index+1..index];
+            (indentation, true)
+        } else {
+            ("", false)
+        };
         let media_tags = media_files.into_iter().enumerate().map(|(i, file)| {
-            let indent = if i == 0 || !before_media_insertion_point {
+            let indent = if i == 0 || !before_js_insertion_point {
                 ""
             } else {
                 indentation
@@ -68,9 +80,13 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 format!("")
             }
         }).collect::<Vec<_>>().join("\n");
+        let js_playlist = format!("const playlist = [{}];", audio_files);
         let mut new_content = content.clone();
         if let Some(_media_insertion_point) = new_content.find("<!-- MEDIA_INSERTION_POINT -->") {
             new_content = new_content.replacen("<!-- MEDIA_INSERTION_POINT -->", &media_tags, 1);
+            Html(new_content)
+        } else if let Some(_js_insertion_point) = new_content.find("<!-- JS_INSERTION_POINT -->") {
+            new_content = new_content.replacen("<!-- JS_INSERTION_POINT -->", &js_playlist, 1);
             Html(new_content)
         } else {
             new_content.insert_str(end_body_index, &media_tags);
