@@ -41,7 +41,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         let mut rng = rand::thread_rng();
         let audio_files = media_files.iter()
             .filter(|file| is_audio_file(file))
-            .map(|file| format!("'{}'", file))
+            .map(|file| format!("'static/audio/{}'", file))
             .collect::<Vec<_>>().join(", ");
         media_files.shuffle(&mut rng);
         let media_insertion_point = content.find("<!-- MEDIA_INSERTION_POINT -->");
@@ -53,15 +53,15 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         } else {
             ("", false)
         };
-        let (indentation, before_js_insertion_point) = if let Some(index) = js_insertion_point {
+        let (_jsindentation, _before_js_insertion_point) = if let Some(index) = js_insertion_point {
             let newline_index = content[..index].rfind('\n').unwrap_or(0);
-            let indentation = &content[newline_index+1..index];
-            (indentation, true)
+            let jsindentation = &content[newline_index+1..index];
+            (jsindentation, true)
         } else {
             ("", false)
         };
         let media_tags = media_files.into_iter().enumerate().map(|(i, file)| {
-            let indent = if i == 0 || !before_js_insertion_point {
+            let indent = if i == 0 || !before_media_insertion_point {
                 ""
             } else {
                 indentation

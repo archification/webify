@@ -16,6 +16,7 @@ todo_port = 11111
 "/stuff" = ["static/stuff.html", "static/media"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]
+"/playlists" = ["static/playlists.html", "static/audio/"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
@@ -116,6 +117,50 @@ pub static EXAMPLE_ERROR: &str = r#"<!doctype html>
 <body>
     <h1>ERROR</h1>
     <p>This page does not exist.</p>
+</body>
+</html>
+"#;
+pub static PLAYLISTS: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <title>Audio Player</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    <style>
+    img, video {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    </style>
+</head>
+<body>
+    <h1>Audio Player</h1>
+    <audio id="audioPlayer" controls autoplay></audio>
+    <script>
+        <!-- JS_INSERTION_POINT -->
+        let trackIndex = 0;
+        const audioPlayer = document.getElementById('audioPlayer');
+        function playTrack(trackIndex) {
+            if (trackIndex < playlist.length) {
+                audioPlayer.src = playlist[trackIndex];
+                audioPlayer.play();
+            } else {
+                console.log('End of playlist');
+            }
+        }
+        audioPlayer.addEventListener('ended', function() {
+            trackIndex++;
+            if (trackIndex < playlist.length) {
+                playTrack(trackIndex);
+            } else {
+                trackIndex = 0;
+                playTrack(trackIndex);
+            }
+        });
+        playTrack(trackIndex);
+    </script>
 </body>
 </html>
 "#;

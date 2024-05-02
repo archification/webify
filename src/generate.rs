@@ -64,6 +64,21 @@ pub fn generate_files() {
                 ("static folder exists", ORANGE, vec![]),
             ], NewLine);
         }
+        let audio = Path::new("audio");
+        if !audio.exists() {
+            match fs::create_dir_all(&audio) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("The ", CYAN, vec![]),
+                        ("static", VIOLET, vec![]),
+                        (" folder has been ", CYAN, vec![]),
+                        ("created", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => println!("Error creating static: {:?}", e),
+            }
+        }
         let media = Path::new("static/media");
         if !media.exists() {
             match fs::create_dir_all(&media) {
@@ -154,6 +169,24 @@ pub fn generate_files() {
                 print_fancy(&[
                     ("Failed to create example ", ORANGE, vec![]),
                     ("downloads.html", VIOLET, vec![]),
+                    (" file: ", ORANGE, vec![]),
+                    (&format!("{}", e), RED, vec![]),
+                ], NewLine);
+            }
+        }
+        match fs::write("static/playlists.html", PLAYLISTS) {
+            Ok(_) => {
+                print_fancy(&[
+                    ("Example ", CYAN, vec![]),
+                    ("playlists.html", VIOLET, vec![]),
+                    (" file has been ", CYAN, vec![]),
+                    ("created", GREEN, vec![]),
+                ], NewLine);
+            }
+            Err(e) => {
+                print_fancy(&[
+                    ("Failed to create example ", ORANGE, vec![]),
+                    ("playlists.html", VIOLET, vec![]),
                     (" file: ", ORANGE, vec![]),
                     (&format!("{}", e), RED, vec![]),
                 ], NewLine);
