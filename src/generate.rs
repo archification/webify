@@ -57,14 +57,19 @@ pub fn generate_files() {
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
-                Err(e) => println!("Error creating static: {:?}", e),
+                Err(e) => {
+                    print_fancy(&[
+                        ("Error creating static: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
             }
         } else {
             print_fancy(&[
                 ("static folder exists", ORANGE, vec![]),
             ], NewLine);
         }
-        let audio = Path::new("audio");
+        let audio = Path::new("static/audio");
         if !audio.exists() {
             match fs::create_dir_all(&audio) {
                 Ok(_) => {
@@ -76,7 +81,12 @@ pub fn generate_files() {
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
-                Err(e) => println!("Error creating static: {:?}", e),
+                Err(e) => {
+                    print_fancy(&[
+                        ("Error creating static/audio: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
             }
         }
         let media = Path::new("static/media");
@@ -93,7 +103,7 @@ pub fn generate_files() {
                 }
                 Err(e) => {
                     print_fancy(&[
-                        ("Error creating media: ", ORANGE, vec![]),
+                        ("Error creating static/media: ", ORANGE, vec![]),
                         (&format!("{}", e), RED, vec![]),
                     ], NewLine);
                 }
