@@ -4,10 +4,12 @@ mod utils;
 mod media;
 mod constants;
 mod generate;
+mod archive;
 
 use crate::config::read_config;
 use crate::routes::app;
 use crate::generate::*;
+use crate::archive::add_dir_to_zip;
 
 use webify::run;
 
@@ -29,7 +31,9 @@ async fn main() {
         print_fancy(&[
             ("This program is designed to be a modular web service.\n", CYAN, vec![]),
             ("All paths and routes are read from config.toml\n", CYAN, vec![]),
-            ("If config.toml does not exist, an example project structure can be created.\n", CYAN, vec![]),
+            ("If config.toml does not exist, an example project structure can be created.\n\n", CYAN, vec![]),
+            ("There is builtin archive support. Here's an example:\n", CYAN, vec![]),
+            ("webify -b <path/to/source/directory> <path/to/destination/zip>\n\n", VIOLET, vec![]),
             ("The config.toml file should contain something similar to the following.\n", CYAN, vec![]),
 //base web config
             ("\nip", BLUE, vec![]),
@@ -89,9 +93,40 @@ async fn main() {
             (", ", WHITE, vec![]),
             ("\"static/files\"", CYAN, vec![]),
             ("]\n", WHITE, vec![]),
-
         ], NewLine);
         return;
+    } else if args.contains(&"-b".to_string()) || args.contains(&"--backup".to_string()) {
+        let index = args.iter().position(|x| x == "-b" || x == "--backup").unwrap_or_else(|| args.len());
+        if args.len() <= index + 2 {
+            print_fancy(&[
+                ("Error: ", RED, vec![]),
+                ("Missing arguments.\n", ORANGE, vec![]),
+                ("Usage: ", CYAN, vec![]),
+                ("--backup <source_directory_path> <destination_zip_path>", VIOLET, vec![]),
+            ], NewLine);
+            std::process::exit(1);
+        } else {
+            let source_directory = &args[index + 1];
+            let destination_zip = &args[index + 2];
+            match add_dir_to_zip(source_directory, destination_zip) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("Zip ", CYAN, vec![]),
+                        ("Success", GREEN, vec![]),
+                    ], NewLine);
+                    std::process::exit(0);
+                },
+                Err(e) => {
+                    print_fancy(&[
+                        ("Zip ", CYAN, vec![]),
+                        ("Failure", RED, vec![]),
+                        (": ", CYAN, vec![]),
+                        (&format!("{}", e), CYAN, vec![]),
+                    ], NewLine);
+                    std::process::exit(0);
+                },
+            }
+        }
     }
     print_colored(
         &["R", "a", "i", "n", "b", "o", "w", "s"],
