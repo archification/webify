@@ -59,5 +59,18 @@ pub async fn upload(mut multipart: Multipart) -> impl IntoResponse {
             }
         }
     }
-    Ok(Html("File uploaded successfully".to_string()))
+    Ok(Html(r#"<!doctype html>
+<html lang="en_US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>success</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Upload Successful</h1>
+</body>
+</html>
+"#.to_string()))
 }

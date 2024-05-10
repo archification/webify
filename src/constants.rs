@@ -182,10 +182,34 @@ pub static UPLOAD: &str = r#"<!doctype html>
 </head>
 <body>
     <h1>Upload a file</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload File">
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" required>
+        <button type="button" onclick="uploadFile()">Upload</button>
     </form>
+    <div id="progressBar" style="width: 0%; height: 20px; background-color: #4CAF50;"></div>
+    <script>
+        function uploadFile() {
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            formData.append("file", fileInput.files[0]);
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/upload", true);
+            xhr.upload.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    const percentComplete = (event.loaded / event.total) * 100;
+                    document.getElementById('progressBar').style.width = percentComplete + '%';
+                }
+            };
+            xhr.onload = function() {
+                if (xhr.status == 200) {
+                    alert('Upload Successful');
+                } else {
+                    alert('Error: ' + xhr.responseText);
+                }
+            };
+            xhr.send(formData);
+        }
+    </script>
 </body>
 </html>
 "#;

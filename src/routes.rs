@@ -112,30 +112,5 @@ pub fn app(config: &Config) -> Router {
             router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(default_limit)));
         }
     }
-    /*
-    match config.upload_size_limit.parse::<usize>() {
-        Ok(num) => {
-            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(num)));
-        },
-        Err(_) => {
-            if config.upload_size_limit == "disabled" {
-                router = router.route("/upload", post(upload).layer(DefaultBodyLimit::disable()));
-            } else {
-                print_fancy(&[
-                    ("Error", RED, vec![BOLD]),
-                    (": ", CYAN, vec![]),
-                    ("config.upload_size_limit", VIOLET, vec![]),
-                    (" is ", CYAN, vec![]),
-                    ("null", ORANGE, vec![]),
-                    (": ", CYAN, vec![]),
-                    ("Defaulting to ", CYAN, vec![]),
-                    ("2 * 1000 * 1000 * 1000 || 2GB", VIOLET, vec![]),
-                ], NewLine);
-                let default_limit = 2 * 1000 * 1000 * 1000;
-                router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(default_limit)));
-            }
-        }
-    }
-    */
     router
 }
