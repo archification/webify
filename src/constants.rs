@@ -10,6 +10,7 @@ ssl_key_path = "pems/key.pem"
 todo_enabled = true
 todo_ip = "127.0.0.1"
 todo_port = 11111
+upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
 
 [routes]
 "/" = ["static/home.html"]
@@ -161,6 +162,24 @@ pub static PLAYLISTS: &str = r#"<!doctype html>
         });
         playTrack(trackIndex);
     </script>
+</body>
+</html>
+"#;
+pub static UPLOAD: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>upload</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Upload a file</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <input type="submit" value="Upload File">
+    </form>
 </body>
 </html>
 "#;

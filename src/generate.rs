@@ -34,7 +34,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("config.toml", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -53,7 +53,7 @@ pub fn generate_files() {
                         ("The ", CYAN, vec![]),
                         ("static", VIOLET, vec![]),
                         (" folder has been ", CYAN, vec![]),
-                        ("created", GREEN, vec![]),
+                        ("created.", GREEN, vec![]),
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
@@ -77,7 +77,7 @@ pub fn generate_files() {
                         ("The ", CYAN, vec![]),
                         ("static", VIOLET, vec![]),
                         (" folder has been ", CYAN, vec![]),
-                        ("created", GREEN, vec![]),
+                        ("created.", GREEN, vec![]),
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
@@ -97,7 +97,7 @@ pub fn generate_files() {
                         ("The ", CYAN, vec![]),
                         ("static/media", VIOLET, vec![]),
                         (" folder has been ", CYAN, vec![]),
-                        ("created", GREEN, vec![]),
+                        ("created.", GREEN, vec![]),
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
@@ -117,7 +117,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("home.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -133,7 +133,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("stuff.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -152,7 +152,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("pdf.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -171,7 +171,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("downloads.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -190,7 +190,7 @@ pub fn generate_files() {
                     ("Example ", CYAN, vec![]),
                     ("playlists.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                 ], NewLine);
             }
             Err(e) => {
@@ -202,13 +202,31 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
+        match fs::write("static/upload.html", UPLOAD) {
+            Ok(_) => {
+                print_fancy(&[
+                    ("Example ", CYAN, vec![]),
+                    ("upload.html", VIOLET, vec![]),
+                    (" file has been ", CYAN, vec![]),
+                    ("created.", GREEN, vec![]),
+                ], NewLine);
+            }
+            Err(e) => {
+                print_fancy(&[
+                    ("Failed to create example ", ORANGE, vec![]),
+                    ("upload.html", VIOLET, vec![]),
+                    (" file: ", ORANGE, vec![]),
+                    (&format!("{}", e), RED, vec![]),
+                ], NewLine);
+            }
+        }
         match fs::write("static/error.html", EXAMPLE_ERROR) {
             Ok(_) => {
                 print_fancy(&[
                     ("Example ", CYAN, vec![]),
                     ("error.html", VIOLET, vec![]),
                     (" file has been ", CYAN, vec![]),
-                    ("created", GREEN, vec![]),
+                    ("created.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -228,7 +246,7 @@ pub fn generate_files() {
                     ("Image ", CYAN, vec![]),
                     (&format!("{}", image_path), VIOLET, vec![]),
                     (" has been ", CYAN, vec![]),
-                    ("saved", GREEN, vec![]),
+                    ("saved.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -268,7 +286,7 @@ pub fn generate_files() {
                         ("The ", CYAN, vec![]),
                         ("static/documents", VIOLET, vec![]),
                         (" folder has been ", CYAN, vec![]),
-                        ("created", GREEN, vec![]),
+                        ("created.", GREEN, vec![]),
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
@@ -285,7 +303,7 @@ pub fn generate_files() {
                     ("Document ", CYAN, vec![]),
                     (&format!("{}", pdf_path), VIOLET, vec![]),
                     (" has been ", CYAN, vec![]),
-                    ("saved", GREEN, vec![]),
+                    ("saved.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }
@@ -303,7 +321,7 @@ pub fn generate_files() {
                     ("Archive ", CYAN, vec![]),
                     (&format!("{}", zip_path), VIOLET, vec![]),
                     (" has been ", CYAN, vec![]),
-                    ("saved", GREEN, vec![]),
+                    ("saved.", GREEN, vec![]),
                     (".", CYAN, vec![]),
                 ], NewLine);
             }

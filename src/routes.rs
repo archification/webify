@@ -1,8 +1,24 @@
 use std::fs;
-use axum::{routing::{get, get_service}, http::StatusCode, response::{Html, IntoResponse}, Router};
+use axum::{
+    extract::DefaultBodyLimit,
+    routing::{
+        get, post, get_service
+    },
+    http::StatusCode, response::{
+        Html, IntoResponse
+    },
+    Router
+};
 use tower_http::services::ServeDir;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
+use crate::upload::upload;
+use solarized::{
+    print_fancy,
+    VIOLET, CYAN, RED, ORANGE,
+    BOLD,
+    PrintMode::NewLine,
+};
 
 async fn not_found() -> impl IntoResponse {
     let file_path = "static/error.html";
@@ -61,6 +77,29 @@ pub fn app(config: &Config) -> Router {
                         render_html(&file_clone).await
                     }
                 }));
+            }
+        }
+    }
+    match config.upload_size_limit.parse::<usize>() {
+        Ok(num) => {
+            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(num)));
+        },
+        Err(_) => {
+            if config.upload_size_limit == "disabled" {
+                router = router.route("/upload", post(upload).layer(DefaultBodyLimit::disable()));
+            } else {
+                print_fancy(&[
+                    ("Error", RED, vec![BOLD]),
+                    (": ", CYAN, vec![]),
+                    ("config.upload_size_limit", VIOLET, vec![]),
+                    (" is ", CYAN, vec![]),
+                    ("null", ORANGE, vec![]),
+                    (": ", CYAN, vec![]),
+                    ("Defaulting to ", CYAN, vec![]),
+                    ("2 * 1000 * 1000 * 1000 || 2GB", VIOLET, vec![]),
+                ], NewLine);
+                let default_limit = 2 * 1000 * 1000 * 1000;
+                router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(default_limit)));
             }
         }
     }

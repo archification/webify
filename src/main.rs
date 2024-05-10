@@ -5,6 +5,7 @@ mod media;
 mod constants;
 mod generate;
 mod archive;
+mod upload;
 
 use crate::config::read_config;
 use crate::routes::app;
@@ -18,7 +19,7 @@ use axum_server::{tls_rustls::RustlsConfig};
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
-    WHITE,
+    WHITE, GREY,
     BOLD, UNDERLINED, ITALIC,
     PrintMode::NewLine,
 };
@@ -64,7 +65,12 @@ async fn main() {
             ("\"127.0.0.1\"\n", CYAN, vec![]),
             ("todo_port", BLUE, vec![]),
             (" = ", WHITE, vec![]),
-            ("11111\n\n", CYAN, vec![]),
+            ("11111\n", CYAN, vec![]),
+//upload limit
+            ("upload_size_limit ", BLUE, vec![]),
+            (" = ", WHITE, vec![]),
+            ("2000000000", CYAN, vec![]),
+            (" # 2 GB (2 * 1000 * 1000 * 1000)\n\n", GREY, vec![]),
 //default routes
             ("[routes]\n", ORANGE, vec![]),
 //home route
@@ -93,6 +99,7 @@ async fn main() {
             (", ", WHITE, vec![]),
             ("\"static/files\"", CYAN, vec![]),
             ("]\n", WHITE, vec![]),
+//upload limit
         ], NewLine);
         return;
     } else if args.contains(&"-b".to_string()) || args.contains(&"--backup".to_string()) {
@@ -210,7 +217,7 @@ async fn main() {
         let path = env::current_dir().expect("asdf");
         print_fancy(&[
             ("\nServer running in ", CYAN, vec![]),
-            (&format!("{}", path.display()), VIOLET, vec![]),
+            (&format!("{}\n", path.display()), VIOLET, vec![]),
         ], NewLine);
         if config.ssl_enabled {
             let app = app(&config);
