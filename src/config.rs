@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use solarized::{
@@ -20,7 +21,7 @@ pub struct Config {
     pub todo_enabled: bool,
     pub todo_ip: String,
     pub todo_port: u16,
-    pub upload_size_limit: String,
+    pub upload_size_limit: Option<Value>,
 }
 
 pub fn read_config() -> Option<Config> {
@@ -28,7 +29,7 @@ pub fn read_config() -> Option<Config> {
         Ok(c) => c,
         Err(e) => {
             print_fancy(&[
-                ("Error reading config file in read_config\n", ORANGE, vec![]),
+                ("\nError reading config file in read_config", ORANGE, vec![]),
                 (&format!("{}", e), RED, vec![BOLD])
             ], NewLine);
             return None;
@@ -38,7 +39,7 @@ pub fn read_config() -> Option<Config> {
         Ok(config) => Some(config),
         Err(e) => {
             print_fancy(&[
-                ("Error parsing config file in read_config", ORANGE, vec![]),
+                ("Error parsing config file in read_config\n\n", ORANGE, vec![]),
                 (&format!("{}", e), RED, vec![BOLD])
             ], NewLine);
             None

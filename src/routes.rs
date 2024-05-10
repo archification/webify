@@ -10,6 +10,7 @@ use axum::{
     Router
 };
 use tower_http::services::ServeDir;
+use serde_json::Value;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
@@ -47,6 +48,15 @@ fn routes_static() -> Router {
     Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
 
+pub fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static str> {
+    match limit_val {
+        Some(Value::String(s)) if s == "disabled" => Err("disabled"),
+        Some(Value::String(s)) => s.parse::<usize>().map_err(|_| "default"),
+        Some(Value::Number(n)) if n.is_u64() => Ok(n.as_u64().unwrap() as usize),
+        _ => Err("default"),
+    }
+}
+
 pub fn app(config: &Config) -> Router {
     let mut router = Router::new()
         .merge(routes_static())
@@ -80,6 +90,29 @@ pub fn app(config: &Config) -> Router {
             }
         }
     }
+    match parse_upload_limit(&config.upload_size_limit) {
+        Ok(num) => {
+            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(num)));
+        },
+        Err("disabled") => {
+            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::disable()));
+        },
+        _ => {
+            print_fancy(&[
+                ("Error", RED, vec![BOLD]),
+                (": ", CYAN, vec![]),
+                ("config.upload_size_limit", VIOLET, vec![]),
+                (" is ", CYAN, vec![]),
+                ("null", ORANGE, vec![]),
+                (": ", CYAN, vec![]),
+                ("Defaulting to ", CYAN, vec![]),
+                ("2 * 1000 * 1000 * 1000 || 2GB", VIOLET, vec![]),
+            ], NewLine);
+            let default_limit = 2 * 1000 * 1000 * 1000;
+            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(default_limit)));
+        }
+    }
+    /*
     match config.upload_size_limit.parse::<usize>() {
         Ok(num) => {
             router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(num)));
@@ -103,5 +136,6 @@ pub fn app(config: &Config) -> Router {
             }
         }
     }
+    */
     router
 }

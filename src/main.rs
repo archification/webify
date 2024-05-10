@@ -8,7 +8,7 @@ mod archive;
 mod upload;
 
 use crate::config::read_config;
-use crate::routes::app;
+use crate::routes::{app, parse_upload_limit};
 use crate::generate::*;
 use crate::archive::add_dir_to_zip;
 
@@ -99,7 +99,6 @@ async fn main() {
             (", ", WHITE, vec![]),
             ("\"static/files\"", CYAN, vec![]),
             ("]\n", WHITE, vec![]),
-//upload limit
         ], NewLine);
         return;
     } else if args.contains(&"-b".to_string()) || args.contains(&"--backup".to_string()) {
@@ -187,6 +186,29 @@ async fn main() {
                 ("NOT", RED, vec![BOLD, ITALIC]),
                 (" Enabled", ORANGE, vec![]),
             ], NewLine);
+        }
+        match parse_upload_limit(&config.upload_size_limit) {
+            Ok(num) => {
+                print_fancy(&[
+                    ("\nUpload limit size: ", CYAN, vec![]),
+                    (&format!("{}", num), CYAN, vec![]),
+                    ("\n", CYAN, vec![]),
+                ], NewLine);
+            },
+            Err("disabled") => {
+                print_fancy(&[
+                    ("\nUpload limit size: ", CYAN, vec![]),
+                    ("disabled", CYAN, vec![]),
+                    ("\n", CYAN, vec![]),
+                ], NewLine);
+            },
+            _ => {
+                print_fancy(&[
+                    ("\nUpload limit size: ", CYAN, vec![]),
+                    ("null", CYAN, vec![]),
+                    ("\n", CYAN, vec![]),
+                ], NewLine);
+            }
         }
         print_fancy(&[
             ("\nHardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),

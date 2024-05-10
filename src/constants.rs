@@ -11,6 +11,8 @@ todo_enabled = true
 todo_ip = "127.0.0.1"
 todo_port = 11111
 upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
+upload_size_limit = "2000000000" # 2 GB (2 * 1000 * 1000 * 1000)
+upload_size_limit = "disabled" # disables the limit and allows any size (not recommended)
 
 [routes]
 "/" = ["static/home.html"]
@@ -18,6 +20,7 @@ upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]
 "/playlists" = ["static/playlists.html", "static/audio/"]
+"/upload" = ["static/upload.html"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
@@ -34,6 +37,9 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Image and Video</h1>
     <a href="/stuff">stuff</a>
+
+    <h1>Upload</h1>
+    <a href="/upload">upload</a>
 </body>
 </html>
 "#;

@@ -40,7 +40,6 @@ pub async fn upload(mut multipart: Multipart) -> impl IntoResponse {
                         match chunk {
                             Ok(data) => {
                                 let data = Bytes::from(data);
-                                println!("Writing chunk");
                                 if let Err(e) = file.write_all(&data).await {
                                     eprintln!("Failed to write to file: {:?}", e);
                                     return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "Failed to write to file".to_string() })));
