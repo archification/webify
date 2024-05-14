@@ -16,6 +16,7 @@ use webify::run;
 
 use std::env;
 use axum_server::{tls_rustls::RustlsConfig};
+use axum_server_dual_protocol::ServerExt;
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
@@ -249,6 +250,7 @@ async fn main() {
             ).await.expect("Failed to configure SSL");
             let addr = format!("{}:{}", config.ip, config.ssl_port);
             let server = axum_server_dual_protocol::bind_dual_protocol(addr.parse().unwrap(), ssl_config)
+                .set_upgrade(true)
                 .serve(app.into_make_service());
             if config.todo_enabled {
                 let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);

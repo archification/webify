@@ -9,7 +9,7 @@ use axum::{
     },
     Router
 };
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use serde_json::Value;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
@@ -48,6 +48,10 @@ fn routes_static() -> Router {
     Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
 
+fn routes_uploads() -> Router {
+    Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
+}
+
 pub fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static str> {
     match limit_val {
         Some(Value::String(s)) if s == "disabled" => Err("disabled"),
@@ -60,7 +64,8 @@ pub fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static s
 pub fn app(config: &Config) -> Router {
     let mut router = Router::new()
         .merge(routes_static())
-        .route("/favicon.ico", get_service(ServeDir::new("./static")))
+        .merge(routes_uploads())
+        .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
         .fallback(get(not_found));
     for (path, settings) in &config.routes {
         if let Some(file_path) = settings.get(0) {
