@@ -90,12 +90,21 @@ pub fn app(config: &Config) -> Router {
             }
         }
     }
+    let something = config.upload_storage_limit;
     match parse_upload_limit(&config.upload_size_limit) {
         Ok(num) => {
-            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(num)));
+            router = router.route(
+                "/upload",
+                post(move |multipart| upload(multipart, something))
+                .layer(DefaultBodyLimit::max(num))
+            );
         },
         Err("disabled") => {
-            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::disable()));
+            router = router.route(
+                "/upload",
+                post(move |multipart| upload(multipart, something))
+                .layer(DefaultBodyLimit::disable())
+            );
         },
         _ => {
             print_fancy(&[
@@ -109,7 +118,11 @@ pub fn app(config: &Config) -> Router {
                 ("2 * 1000 * 1000 * 1000 || 2GB", VIOLET, vec![]),
             ], NewLine);
             let default_limit = 2 * 1000 * 1000 * 1000;
-            router = router.route("/upload", post(upload).layer(DefaultBodyLimit::max(default_limit)));
+            router = router.route(
+                "/upload",
+                post(move |multipart| upload(multipart, something))
+                .layer(DefaultBodyLimit::max(default_limit))
+            );
         }
     }
     router

@@ -11,8 +11,8 @@ todo_enabled = true
 todo_ip = "127.0.0.1"
 todo_port = 11111
 upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
-upload_size_limit = "2000000000" # 2 GB (2 * 1000 * 1000 * 1000)
-upload_size_limit = "disabled" # disables the limit and allows any size (not recommended)
+#upload_size_limit = "disabled" # disables the limit and allows any size (not recommended)
+upload_storage_limit = 2000000000
 
 [routes]
 "/" = ["static/home.html"]
