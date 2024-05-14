@@ -116,7 +116,6 @@ pub async fn upload(mut multipart: Multipart, upload_storage_limit: Option<u64>)
                                         if let Err(e) = fs::remove_file(&filepath).await {
                                             eprintln!("Failed to delete file: {:?}", e);
                                         }
-                                        0;
                                         println!("Error: Upload limit exceeded");
                                         return UploadResponse::Html(Html(r#"<!doctype html>
 <html lang="en_US">
