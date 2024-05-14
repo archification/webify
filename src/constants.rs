@@ -4,7 +4,7 @@ pub static ARCHIVE_DATA: &[u8] = include_bytes!("todos.zip");
 pub static EXAMPLE_CONFIG: &str = r#"ip = "127.0.0.1"
 port = 12345
 ssl_enabled = false
-ssl_port = 44444
+ssl_port = 12345
 ssl_cert_path = "pems/cert.pem"
 ssl_key_path = "pems/key.pem"
 todo_enabled = true

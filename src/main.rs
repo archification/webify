@@ -248,7 +248,7 @@ async fn main() {
                 config.ssl_key_path.expect("SSL key path is required"),
             ).await.expect("Failed to configure SSL");
             let addr = format!("{}:{}", config.ip, config.ssl_port);
-            let server = axum_server::bind_rustls(addr.parse().unwrap(), ssl_config)
+            let server = axum_server_dual_protocol::bind_dual_protocol(addr.parse().unwrap(), ssl_config)
                 .serve(app.into_make_service());
             if config.todo_enabled {
                 let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);
