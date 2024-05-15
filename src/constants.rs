@@ -41,6 +41,9 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Upload</h1>
     <a href="/upload">upload</a>
+
+    <h1>Files</h1>
+    <a href="/files">Files</a>
 </body>
 </html>
 "#;
