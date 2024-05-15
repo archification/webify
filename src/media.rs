@@ -80,7 +80,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 format!("")
             }
         }).collect::<Vec<_>>().join("\n");
-        let js_playlist = format!("const playlist = [{}];", audio_files);
+        let js_playlist = format!("const predefinedTracks = [{}];", audio_files);
         let mut new_content = content.clone();
         if let Some(_media_insertion_point) = new_content.find("<!-- MEDIA_INSERTION_POINT -->") {
             new_content = new_content.replacen("<!-- MEDIA_INSERTION_POINT -->", &media_tags, 1);
