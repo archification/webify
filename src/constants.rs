@@ -21,7 +21,7 @@ upload_storage_limit = 2000000000
 "/downloads" = ["static/downloads.html", "static/files"]
 "/playlists" = ["static/playlists.html", "static/audio/"]
 "/upload" = ["static/upload.html"]
-"/uploads" = ["static/uploads.html", "uploads"]
+"/files" = ["static/uploads.html", "uploads"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
