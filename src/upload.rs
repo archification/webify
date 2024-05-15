@@ -203,6 +203,11 @@ pub async fn upload(mut multipart: Multipart, upload_storage_limit: Option<u64>)
 </head>
 <body>
     <h1>Upload Successful</h1>
+    <br>
+    <a href="/upload">Upload Another File</a>
+    <br>
+    <br>
+    <a href="/files">Show Uploaded Files</a>
 </body>
 </html>
 "#.to_string()))

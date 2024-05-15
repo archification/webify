@@ -218,11 +218,11 @@ pub static UPLOAD: &str = r#"<!doctype html>
         }
     </script>
     <h1>Uploaded Files</h1>
-    <a href="/files">uploads</a>
+    <a href="/files">View Uploaded Files</a>
 </body>
 </html>
 "#;
-pub static UPLOADS: &str = r#"<!doctype html>
+pub static FILES: &str = r#"<!doctype html>
 <html lang="en-US">
 <head>
     <meta charset="utf-8" />
@@ -246,7 +246,7 @@ pub static UPLOADS: &str = r#"<!doctype html>
         <!-- MEDIA_INSERTION_POINT -->
     </div>
     <h1>Upload More Files</h1>
-    <a href="/testing">upload</a>
+    <a href="/upload">Upload File</a>
 </body>
 </html>
 "#;

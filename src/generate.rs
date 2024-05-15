@@ -220,7 +220,7 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
-        match fs::write("static/uploads.html", UPLOADS) {
+        match fs::write("static/uploads.html", FILES) {
             Ok(_) => {
                 print_fancy(&[
                     ("Example ", CYAN, vec![]),
