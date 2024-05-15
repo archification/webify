@@ -220,6 +220,24 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
+        match fs::write("static/uploads.html", UPLOADS) {
+            Ok(_) => {
+                print_fancy(&[
+                    ("Example ", CYAN, vec![]),
+                    ("uploads.html", VIOLET, vec![]),
+                    (" file has been ", CYAN, vec![]),
+                    ("created.", GREEN, vec![]),
+                ], NewLine);
+            }
+            Err(e) => {
+                print_fancy(&[
+                    ("Failed to create example ", ORANGE, vec![]),
+                    ("uploads.html", VIOLET, vec![]),
+                    (" file: ", ORANGE, vec![]),
+                    (&format!("{}", e), RED, vec![]),
+                ], NewLine);
+            }
+        }
         match fs::write("static/error.html", EXAMPLE_ERROR) {
             Ok(_) => {
                 print_fancy(&[

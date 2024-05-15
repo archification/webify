@@ -194,22 +194,58 @@ pub static UPLOAD: &str = r#"<!doctype html>
             formData.append("file", fileInput.files[0]);
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/upload", true);
+            let uploadComplete = false;
             xhr.upload.onprogress = function(event) {
                 if (event.lengthComputable) {
                     const percentComplete = (event.loaded / event.total) * 100;
                     document.getElementById('progressBar').style.width = percentComplete + '%';
+                    if (percentComplete === 100) {
+                        uploadComplete = true;
+                    }
                 }
             };
             xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert('Upload Successful');
-                } else {
+                if (xhr.status == 200 && uploadComplete) {
+                    document.open();
+                    document.write(xhr.responseText);
+                    document.close();
+                } else if (xhr.status != 200) {
                     alert('Error: ' + xhr.responseText);
                 }
             };
             xhr.send(formData);
         }
     </script>
+    <h1>Uploaded Files</h1>
+    <a href="/files">uploads</a>
+</body>
+</html>
+"#;
+pub static UPLOADS: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>guacamole</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <style>
+    img, video {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to the uploads page</h1>
+        <p>This page shows the uploaded files.</p>
+        <!-- MEDIA_INSERTION_POINT -->
+    </div>
+    <h1>Upload More Files</h1>
+    <a href="/testing">upload</a>
 </body>
 </html>
 "#;
