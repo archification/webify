@@ -68,7 +68,7 @@ async fn main() {
             (" = ", WHITE, vec![]),
             ("11111\n", CYAN, vec![]),
 //upload limit
-            ("upload_size_limit ", BLUE, vec![]),
+            ("upload_size_limit", BLUE, vec![]),
             (" = ", WHITE, vec![]),
             ("2000000000", CYAN, vec![]),
             (" # 2 GB (2 * 1000 * 1000 * 1000)\n\n", GREY, vec![]),
