@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::env;
 use std::fs::{self, File};
-use std::io::{self};
+use std::io;
 use zip::ZipArchive;
 use solarized::{
     print_fancy, clear,
