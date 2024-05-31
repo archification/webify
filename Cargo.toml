@@ -36,6 +36,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
+webbrowser = "1.0.1"
 zip = "0.6.6"
 
 [dev-dependencies]

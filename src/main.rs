@@ -17,6 +17,7 @@ use webify::run;
 use std::env;
 use axum_server::{tls_rustls::RustlsConfig};
 use axum_server_dual_protocol::ServerExt;
+use webbrowser;
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
@@ -24,6 +25,16 @@ use solarized::{
     BOLD, UNDERLINED, ITALIC,
     PrintMode::NewLine,
 };
+
+fn browser(protocol: &str, ip: &str, port: u16) {
+    let url = format!("{}://{}:{}", protocol, ip, port);
+    if webbrowser::open(&url).is_ok() {
+        println!("Opened browser to {}", url);
+    } else {
+        eprintln!("Failed to open browser");
+    }
+
+}
 
 #[tokio::main]
 async fn main() {
@@ -260,6 +271,7 @@ async fn main() {
                 let server_task = tokio::spawn(async {
                     server.await.unwrap();
                 });
+                browser("https", "localhost", config.ssl_port);
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
                     eprintln!("Error from todo task: {:?}", e);
@@ -283,6 +295,7 @@ async fn main() {
                 let server_task = tokio::spawn(async {
                     server.await.unwrap();
                 });
+                browser("http", "localhost", config.port);
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
                     eprintln!("Error from todo task: {:?}", e);
