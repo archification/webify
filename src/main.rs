@@ -41,7 +41,6 @@ fn browser(protocol: &str, ip: &str, port: u16) {
             NewLine
         );
     }
-
 }
 
 #[tokio::main]
