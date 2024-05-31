@@ -69,7 +69,7 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
     <a href="/pdf">documents</a>
 
     <h1>Home Page</h1>
-    <a href="/something">home</a>
+    <a href="/">home</a>
 
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
@@ -93,7 +93,7 @@ pub static EXAMPLE_PDF: &str = r#"<!doctype html>
     <a href="/stuff">stuff</a>
 
     <h1>Home Page</h1>
-    <a href="/something">home</a>
+    <a href="/">home</a>
     <!-- MEDIA_INSERTION_POINT -->
 </body>
 </html>

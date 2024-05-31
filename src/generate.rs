@@ -330,6 +330,29 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
+        let uploads = Path::new("uploads");
+        if !uploads.exists() {
+            match fs::create_dir_all(&uploads) {
+                Ok(_) => {
+                    print_fancy(&[
+                        ("The ", CYAN, vec![]),
+                        ("uploads", VIOLET, vec![]),
+                        (" folder has been ", CYAN, vec![]),
+                        ("created.", GREEN, vec![]),
+                        (".", CYAN, vec![]),
+                    ], NewLine);
+                }
+                Err(e) => {
+                    print_fancy(&[
+                        ("Error creating uploads: ", ORANGE, vec![]),
+                        (&format!("{}", e), RED, vec![]),
+                    ], NewLine);
+                }
+            }
+        } else {
+            println!("media folder exists");
+        }
+
         let file_path = Path::new("todos.zip");
         let file = File::open(&file_path).expect("Failed to open ZIP file");
         let mut archive = ZipArchive::new(BufReader::new(file)).expect("Failed to read ZIP archive");
