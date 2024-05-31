@@ -19,12 +19,8 @@ as well as the IP address and port number for the server.
 - Run the exe file again to host example environment locally.
 - Modify settings in the config file as you see fit and then restart the program.
 
-### Prerequisites
-- Web browser.
-- Basic knowledge of HTML and file paths.
-- Ability to run an exe file in a cli environment.
-
 ### Installation
-Download the exe for your operating system of choice and place it in a folder.
-Running the program will generate an example file structure including a qrcode.png hosted at /stuff which links to http://localhost:12345/ as the ip and port in the default generated config is 127.0.0.1:12345
-Running `webify -h` or `webify --help` will show help output with further information.
+- Download the exe for your operating system of choice and place it in a folder.
+- The program will ask to generate an example file structure including a config file.
+- Edit the config as you please.
+- Running `webify -h` or `webify --help` will show help output with further information.
