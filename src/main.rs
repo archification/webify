@@ -29,9 +29,17 @@ use solarized::{
 fn browser(protocol: &str, ip: &str, port: u16) {
     let url = format!("{}://{}:{}", protocol, ip, port);
     if webbrowser::open(&url).is_ok() {
-        println!("Opened browser to {}", url);
+        print_fancy(&[
+            ("Opened ", GREEN, vec![]),
+            ("browser to ", CYAN, vec![]),
+            (&format!("{}", url), VIOLET, vec![]),
+        ], NewLine);
     } else {
-        eprintln!("Failed to open browser");
+        print_colored(
+            &["Failed to open browser"],
+            &[RED],
+            NewLine
+        );
     }
 
 }
