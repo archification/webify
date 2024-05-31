@@ -15,7 +15,7 @@ use crate::archive::add_dir_to_zip;
 use webify::run;
 
 use std::env;
-use axum_server::{tls_rustls::RustlsConfig};
+use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
 use webbrowser;
 use solarized::{
