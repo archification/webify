@@ -24,3 +24,6 @@ as well as the IP address and port number for the server.
 - The program will ask to generate an example file structure including a config file.
 - Edit the config as you please.
 - Running `webify -h` or `webify --help` will show help output with further information.
+
+![screenshot](https://github.com/archification/webify/blob/main/images/noconfig.png)
+![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
