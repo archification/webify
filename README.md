@@ -27,4 +27,3 @@ as well as the IP address and port number for the server.
 
 ![screenshot](https://github.com/archification/webify/blob/main/images/noconfig.png)
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
-![video](https://github.com/archification/webify/blob/main/images/webifydemo.mp4)
