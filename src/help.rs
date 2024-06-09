@@ -8,11 +8,11 @@ use solarized::{
 pub fn print_help() {
     print_fancy(&[
         ("This program is designed to be a modular web service.\n", CYAN, vec![]),
-        ("All paths and routes are read from config.toml\n", CYAN, vec![]),
+        ("All paths and routes are configured in config.toml\n", CYAN, vec![]),
         ("If config.toml does not exist, an example project structure can be created.\n\n", CYAN, vec![]),
-        ("There is builtin archive support. Here's an example:\n", CYAN, vec![]),
+        ("There is builtin archive support. Example:\n", CYAN, vec![]),
         ("webify -b <path/to/source/directory> <path/to/destination/zip>\n\n", VIOLET, vec![]),
-        ("The config.toml file should contain something similar to the following.\n", CYAN, vec![]),
+        ("The config.toml file will contain something similar to the following.\n", CYAN, vec![]),
 //base web config
         ("\nip", BLUE, vec![]),
         (" = ", WHITE, vec![]),
