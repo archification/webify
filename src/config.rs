@@ -23,6 +23,7 @@ pub struct Config {
     pub todo_port: u16,
     pub upload_size_limit: Option<Value>,
     pub upload_storage_limit: Option<u64>,
+    pub browser: bool,
 }
 
 pub fn read_config() -> Option<Config> {

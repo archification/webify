@@ -208,7 +208,9 @@ async fn main() {
                 let server_task = tokio::spawn(async {
                     server.await.unwrap();
                 });
-                browser("https", "localhost", config.ssl_port);
+                if config.browser {
+                    browser("https", &config.ip, config.ssl_port);
+                }
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
                     eprintln!("Error from todo task: {:?}", e);
@@ -232,7 +234,9 @@ async fn main() {
                 let server_task = tokio::spawn(async {
                     server.await.unwrap();
                 });
-                browser("http", "localhost", config.port);
+                if config.browser {
+                    browser("http", &config.ip, config.port);
+                }
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
                     eprintln!("Error from todo task: {:?}", e);
