@@ -119,7 +119,7 @@ async fn main() {
         }
         if config.todo_enabled {
             print_fancy(&[
-                ("\nTodo", GREEN, vec![]),
+                ("Todo", GREEN, vec![]),
                 (" is ", CYAN, vec![]),
                 ("Enabled", GREEN, vec![]),
                 ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
@@ -130,7 +130,7 @@ async fn main() {
             ], NewLine);
         } else {
             print_fancy(&[
-                ("\nTodo", YELLOW, vec![]),
+                ("Todo", YELLOW, vec![]),
                 (" is ", CYAN, vec![]),
                 ("NOT", RED, vec![BOLD, ITALIC]),
                 (" Enabled", ORANGE, vec![]),
@@ -139,28 +139,28 @@ async fn main() {
         match parse_upload_limit(&config.upload_size_limit) {
             Ok(num) => {
                 print_fancy(&[
-                    ("\nUpload limit size: ", CYAN, vec![]),
+                    ("Upload limit size: ", CYAN, vec![]),
                     (&format!("{}", num), CYAN, vec![]),
                     ("\n", CYAN, vec![]),
                 ], NewLine);
             },
             Err("disabled") => {
                 print_fancy(&[
-                    ("\nUpload limit size: ", CYAN, vec![]),
+                    ("Upload limit size: ", CYAN, vec![]),
                     ("disabled", CYAN, vec![]),
                     ("\n", CYAN, vec![]),
                 ], NewLine);
             },
             _ => {
                 print_fancy(&[
-                    ("\nUpload limit size: ", CYAN, vec![]),
+                    ("Upload limit size: ", CYAN, vec![]),
                     ("null", CYAN, vec![]),
                     ("\n", CYAN, vec![]),
                 ], NewLine);
             }
         }
         print_fancy(&[
-            ("\nHardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+            ("Hardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
             ("/", BLUE, vec![]),
             (" -> ", CYAN, vec![]),
             ("root", VIOLET, vec![]),
