@@ -2,7 +2,7 @@
 
 ## Introduction
 Welcome to the Webify project!
-This CLI application is developed in Rust using the `axum` crate makes up a configurable web server.
+This CLI application is configurable web server developed in Rust using the `axum` crate.
 The config.toml file allows us to determine paths to web routes and local files, IP address and port, and whether things like SSL are enabled.
 
 ## Features
@@ -21,9 +21,16 @@ The config.toml file allows us to determine paths to web routes and local files,
 - Modify settings in the config file as you see fit and then restart the program.
 
 ### Notes
-- Edit the config as you please.
 - Running `webify -h` or `webify --help` will show help output with further information.
 - Plans for adding support to have the server binary generate source and compile a new binary with the user's config.toml and files embedded to be generated instead of the default config and files.
 
 ![screenshot](https://github.com/archification/webify/blob/main/images/noconfig.png)
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
+
+## Background
+This project started because I wanted an easy way to share media and other files on a web page to be viewed on my other devices on the lan but eventually became my main project.
+One day a friend asked if he could send me a file that was too large to upload through discord so I added file uploading.
+Another day I made a color highlighting crate out of boredom and thought I'd use it in this project.
+After adding feature after feature over time, eventually we get here.
+This project is where I learned most of what I know about Rust and really most of what I know about programming in general.
+It's become a sort of default thing I contribute to whenever I feel like coding.
