@@ -11,6 +11,7 @@ use solarized::{
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    pub scope: String,
     pub ip: String,
     pub port: u16,
     pub ssl_enabled: bool,
@@ -19,6 +20,7 @@ pub struct Config {
     pub ssl_key_path: Option<String>,
     pub routes: HashMap<String, Vec<String>>,
     pub todo_enabled: bool,
+    pub todo_scope: String,
     pub todo_ip: String,
     pub todo_port: u16,
     pub upload_size_limit: Option<Value>,

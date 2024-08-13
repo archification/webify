@@ -1,14 +1,16 @@
 pub static IMAGE_DATA: &[u8] = include_bytes!("thing.png");
 pub static PDF_DATA: &[u8] = include_bytes!("asdf.pdf");
 pub static ARCHIVE_DATA: &[u8] = include_bytes!("todos.zip");
-pub static EXAMPLE_CONFIG: &str = r#"ip = "127.0.0.1"
+pub static EXAMPLE_CONFIG: &str = r#"scope = "localhost"
+ip = "192.168.1.142"
 port = 12345
 ssl_enabled = false
 ssl_port = 12345
 ssl_cert_path = "pems/cert.pem"
 ssl_key_path = "pems/key.pem"
 todo_enabled = true
-todo_ip = "127.0.0.1"
+todo_scope = "localhost"
+todo_ip = "192.168.1.142"
 todo_port = 11111
 upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
 #upload_size_limit = "disabled" # disables the limit and allows any size (not recommended)

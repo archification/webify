@@ -27,8 +27,8 @@ use solarized::{
     PrintMode::NewLine,
 };
 
-fn browser(protocol: &str, ip: &str, port: u16) {
-    let url = format!("{}://{}:{}", protocol, ip, port);
+fn browser(protocol: &str, addr: String) {
+    let url = format!("{}://{}", protocol, addr);
     if webbrowser::open(&url).is_ok() {
         print_fancy(&[
             ("Opened ", GREEN, vec![]),
@@ -49,7 +49,7 @@ async fn main() {
     clear();
     let args: Vec<String> = env::args().collect();
     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
-        print_help();
+        print_help(args[0].clone());
     } else if args.contains(&"-b".to_string()) || args.contains(&"--backup".to_string()) {
         let index = args.iter().position(|x| x == "-b" || x == "--backup").unwrap_or_else(|| args.len());
         if args.len() <= index + 2 {
@@ -89,6 +89,33 @@ async fn main() {
         NewLine
     );
     let config_option = read_config(); if let Some(config) = config_option {
+        let ssladdr = match config.scope.as_str() {
+            "localhost" => format!("127.0.0.1:{}", config.ssl_port),
+            "local" => format!("127.0.0.1:{}", config.ssl_port),
+            "lan" => format!("{}:{}", config.ip, config.ssl_port),
+            "public" => format!("0.0.0.0:{}", config.ssl_port),
+            "production" => format!("0.0.0.0:{}", config.ssl_port),
+            "prod" => format!("0.0.0.0:{}", config.ssl_port),
+            _ => format!("127.0.0.1:{}", config.ssl_port),
+        };
+        let addr = match config.scope.as_str() {
+            "localhost" => format!("127.0.0.1:{}", config.port),
+            "local" => format!("127.0.0.1:{}", config.port),
+            "lan" => format!("{}:{}", config.ip, config.port),
+            "public" => format!("0.0.0.0:{}", config.port),
+            "production" => format!("0.0.0.0:{}", config.port),
+            "prod" => format!("0.0.0.0:{}", config.port),
+            _ => format!("127.0.0.1:{}", config.port),
+        };
+        let todoaddr = match config.todo_scope.as_str() {
+            "localhost" => format!("127.0.0.1:{}", config.todo_port),
+            "local" => format!("127.0.0.1:{}", config.todo_port),
+            "lan" => format!("{}:{}", config.todo_ip, config.todo_port),
+            "public" => format!("0.0.0.0:{}", config.todo_port),
+            "production" => format!("0.0.0.0:{}", config.todo_port),
+            "prod" => format!("0.0.0.0:{}", config.todo_port),
+            _ => format!("127.0.0.1:{}", config.todo_port),
+        };
         print_fancy(&[
             ("config.yml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
@@ -102,7 +129,7 @@ async fn main() {
                 (&format!("{}", config.ip), BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.ssl_port), VIOLET, vec![]),
-                (&format!("https://{}:{}\n", config.ip, config.ssl_port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("https://{}\n", ssladdr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         } else {
             print_fancy(&[
@@ -114,7 +141,7 @@ async fn main() {
                 (&format!("{}", config.ip), BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.port), VIOLET, vec![]),
-                (&format!("http://{}:{}", config.ip, config.port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("http://{}", addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         }
         if config.todo_enabled {
@@ -126,7 +153,7 @@ async fn main() {
                 (&format!("{}", config.todo_ip), BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.todo_port), VIOLET, vec![]),
-                (&format!("http://{}:{}\n", config.todo_ip, config.todo_port), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("http://{}\n", todoaddr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         } else {
             print_fancy(&[
@@ -196,12 +223,10 @@ async fn main() {
                 config.ssl_cert_path.expect("SSL cert path is required"),
                 config.ssl_key_path.expect("SSL key path is required"),
             ).await.expect("Failed to configure SSL");
-            let addr = format!("{}:{}", config.ip, config.ssl_port);
-            let server = axum_server_dual_protocol::bind_dual_protocol(addr.parse().unwrap(), ssl_config)
+            let server = axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
                 .set_upgrade(true)
                 .serve(app.into_make_service());
             if config.todo_enabled {
-                let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);
                 let todo_task = tokio::spawn(async {
                     run(todoaddr).await;
                 });
@@ -209,7 +234,7 @@ async fn main() {
                     server.await.unwrap();
                 });
                 if config.browser {
-                    browser("https", &config.ip, config.ssl_port);
+                    browser("https", addr);
                 }
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
@@ -223,11 +248,18 @@ async fn main() {
             }
         } else {
             let app = app(&config);
-            let addr = format!("{}:{}", config.ip, config.port);
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
             let server = axum::serve(listener, app);
             if config.todo_enabled {
-                let todoaddr = format!("{}:{}", config.todo_ip, config.todo_port);
+                let todoaddr = match config.todo_scope.as_str() {
+                    "localhost" => format!("127.0.0.1:{}", config.todo_port),
+                    "local" => format!("127.0.0.1:{}", config.todo_port),
+                    "lan" => format!("{}:{}", config.todo_ip, config.todo_port),
+                    "public" => format!("0.0.0.0:{}", config.todo_port),
+                    "production" => format!("0.0.0.0:{}", config.todo_port),
+                    "prod" => format!("0.0.0.0:{}", config.todo_port),
+                    _ => format!("127.0.0.1:{}", config.todo_port),
+                };
                 let todo_task = tokio::spawn(async {
                     run(todoaddr).await;
                 });
@@ -235,7 +267,7 @@ async fn main() {
                     server.await.unwrap();
                 });
                 if config.browser {
-                    browser("http", &config.ip, config.port);
+                    browser("http", addr);
                 }
                 let (todo_result, server_result) = tokio::join!(todo_task, server_task);
                 if let Err(e) = todo_result {
