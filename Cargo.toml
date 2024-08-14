@@ -13,31 +13,31 @@ name = "webify"
 [dependencies]
 askama = { version = "0.12.1", features = ["with-axum", "mime", "mime_guess"] }
 askama_axum = "0.4.0"
-axum = { version = "0.7.4", features = ["multipart"] }
+axum = { version = "0.7.5", features = ["multipart"] }
 axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 axum-server-dual-protocol = "0.6.0"
-base64 = "0.21.5"
-bytes = "1.6.0"
+base64 = "0.21.7"
+bytes = "1.7.1"
 futures = "0.3.30"
 rand = "0.8.5"
 sanitize-filename = "0.5.0"
-serde = { version = "1.0.192", features = ["derive"] }
-serde_json = "1.0.117"
+serde = { version = "1.0.207", features = ["derive"] }
+serde_json = "1.0.124"
 solarized = { git = "https://github.com/archification/solarized.git", branch = "main" }
-tokio = { version = "1.34.0", features = ["full"] }
+tokio = { version = "1.39.2", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["codec"] }
-toml = "0.8.8"
-tower-http = { version = "0.5.1", features = ["fs", "trace"] }
+toml = "0.8.19"
+tower-http = { version = "0.5.2", features = ["fs", "trace"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-uuid = { version = "1.7.0", features = ["serde", "v4"] }
+uuid = { version = "1.10.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 webbrowser = "1.0.1"
 zip = "0.6.6"
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }
-hyper = { version = "1.1.0", features = ["full"] }
+hyper = { version = "1.4.1", features = ["full"] }
 
 [profile.release]
 strip = true
