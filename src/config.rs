@@ -33,7 +33,7 @@ pub fn read_config() -> Option<Config> {
         Ok(c) => c,
         Err(e) => {
             print_fancy(&[
-                ("\nError reading config file in read_config", ORANGE, vec![]),
+                ("\nError reading config file in read_config\n", ORANGE, vec![]),
                 (&format!("{}", e), RED, vec![BOLD])
             ], NewLine);
             return None;

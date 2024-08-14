@@ -7,12 +7,14 @@ mod generate;
 mod archive;
 mod upload;
 mod help;
+mod out;
 
 use crate::config::read_config;
-use crate::routes::{app, parse_upload_limit};
+use crate::routes::app;
 use crate::generate::*;
 use crate::archive::add_dir_to_zip;
 use crate::help::print_help;
+use crate::out::setup;
 
 use webify::run;
 
@@ -23,7 +25,6 @@ use webbrowser;
 use solarized::{
     print_colored, print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
-    BOLD, UNDERLINED, ITALIC,
     PrintMode::NewLine,
 };
 
@@ -101,107 +102,7 @@ async fn main() {
         let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
         let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
         let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-        print_fancy(&[
-            ("config.yml ", CYAN, vec![]),
-            ("found", GREEN, vec![]),
-        ], NewLine);
-        if config.ssl_enabled {
-            print_fancy(&[
-                ("\nSSL", GREEN, vec![]),
-                (" is ", CYAN, vec![]),
-                ("Enabled\n", GREEN, vec![]),
-                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.ip), BLUE, vec![]),
-                (":", CYAN, vec![BOLD]),
-                (&format!("{}\n", config.ssl_port), VIOLET, vec![]),
-                (&format!("https://{}\n", ssladdr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-            ], NewLine);
-        } else {
-            print_fancy(&[
-                ("\nSSL", YELLOW, vec![]),
-                (" is ", CYAN, vec![]),
-                ("NOT", RED, vec![BOLD, ITALIC]),
-                (" Enabled\n", ORANGE, vec![]),
-                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.ip), BLUE, vec![]),
-                (":", CYAN, vec![BOLD]),
-                (&format!("{}\n", config.port), VIOLET, vec![]),
-                (&format!("http://{}", addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-            ], NewLine);
-        }
-        if config.todo_enabled {
-            print_fancy(&[
-                ("Todo", GREEN, vec![]),
-                (" is ", CYAN, vec![]),
-                ("Enabled", GREEN, vec![]),
-                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.todo_ip), BLUE, vec![]),
-                (":", CYAN, vec![BOLD]),
-                (&format!("{}\n", config.todo_port), VIOLET, vec![]),
-                (&format!("http://{}\n", todoaddr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-            ], NewLine);
-        } else {
-            print_fancy(&[
-                ("Todo", YELLOW, vec![]),
-                (" is ", CYAN, vec![]),
-                ("NOT", RED, vec![BOLD, ITALIC]),
-                (" Enabled", ORANGE, vec![]),
-            ], NewLine);
-        }
-        match parse_upload_limit(&config.upload_size_limit) {
-            Ok(num) => {
-                print_fancy(&[
-                    ("Upload limit size: ", CYAN, vec![]),
-                    (&format!("{}", num), CYAN, vec![]),
-                    ("\n", CYAN, vec![]),
-                ], NewLine);
-            },
-            Err("disabled") => {
-                print_fancy(&[
-                    ("Upload limit size: ", CYAN, vec![]),
-                    ("disabled", CYAN, vec![]),
-                    ("\n", CYAN, vec![]),
-                ], NewLine);
-            },
-            _ => {
-                print_fancy(&[
-                    ("Upload limit size: ", CYAN, vec![]),
-                    ("null", CYAN, vec![]),
-                    ("\n", CYAN, vec![]),
-                ], NewLine);
-            }
-        }
-        print_fancy(&[
-            ("Hardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-            ("/", BLUE, vec![]),
-            (" -> ", CYAN, vec![]),
-            ("root", VIOLET, vec![]),
-        ], NewLine);
-        print_fancy(&[
-            ("\nConfigured routes:", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-        ], NewLine);
-        for (path, settings) in &config.routes {
-            let file = settings.get(0)
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "No file specified".to_string());
-            let media_info = if settings.len() > 1 {
-                format!("{}", settings[1])
-            } else {
-                "".to_string()
-            };
-            print_fancy(&[
-                (&format!("{}", path), BLUE, vec![]),
-                (" -> ", CYAN, vec![]),
-                (&format!("{}", &file), VIOLET, vec![]),
-                (" -> ", CYAN, vec![]),
-                (&format!("{}", &media_info), MAGENTA, vec![]),
-            ], NewLine);
-        }
-        let path = env::current_dir().expect("asdf");
-        print_fancy(&[
-            ("\nServer running in ", CYAN, vec![]),
-            (&format!("{}\n", path.display()), VIOLET, vec![]),
-        ], NewLine);
+        setup();
         if config.ssl_enabled {
             let app = app(&config);
             let ssl_config = RustlsConfig::from_pem_file(
