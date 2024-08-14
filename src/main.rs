@@ -44,6 +44,15 @@ fn browser(protocol: &str, addr: String) {
     }
 }
 
+fn format_address(scope: &str, ip: &str, port: u16) -> String {
+    match scope {
+        "localhost" | "local" => format!("127.0.0.1:{}", port),
+        "lan" => format!("{}:{}", ip, port),
+        "public" | "production" | "prod" => format!("0.0.0.0:{}", port),
+        _ => format!("127.0.0.1:{}", port),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     clear();
@@ -89,33 +98,9 @@ async fn main() {
         NewLine
     );
     let config_option = read_config(); if let Some(config) = config_option {
-        let ssladdr = match config.scope.as_str() {
-            "localhost" => format!("127.0.0.1:{}", config.ssl_port),
-            "local" => format!("127.0.0.1:{}", config.ssl_port),
-            "lan" => format!("{}:{}", config.ip, config.ssl_port),
-            "public" => format!("0.0.0.0:{}", config.ssl_port),
-            "production" => format!("0.0.0.0:{}", config.ssl_port),
-            "prod" => format!("0.0.0.0:{}", config.ssl_port),
-            _ => format!("127.0.0.1:{}", config.ssl_port),
-        };
-        let addr = match config.scope.as_str() {
-            "localhost" => format!("127.0.0.1:{}", config.port),
-            "local" => format!("127.0.0.1:{}", config.port),
-            "lan" => format!("{}:{}", config.ip, config.port),
-            "public" => format!("0.0.0.0:{}", config.port),
-            "production" => format!("0.0.0.0:{}", config.port),
-            "prod" => format!("0.0.0.0:{}", config.port),
-            _ => format!("127.0.0.1:{}", config.port),
-        };
-        let todoaddr = match config.todo_scope.as_str() {
-            "localhost" => format!("127.0.0.1:{}", config.todo_port),
-            "local" => format!("127.0.0.1:{}", config.todo_port),
-            "lan" => format!("{}:{}", config.todo_ip, config.todo_port),
-            "public" => format!("0.0.0.0:{}", config.todo_port),
-            "production" => format!("0.0.0.0:{}", config.todo_port),
-            "prod" => format!("0.0.0.0:{}", config.todo_port),
-            _ => format!("127.0.0.1:{}", config.todo_port),
-        };
+        let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
+        let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
+        let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
         print_fancy(&[
             ("config.yml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
