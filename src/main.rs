@@ -251,15 +251,6 @@ async fn main() {
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
             let server = axum::serve(listener, app);
             if config.todo_enabled {
-                let todoaddr = match config.todo_scope.as_str() {
-                    "localhost" => format!("127.0.0.1:{}", config.todo_port),
-                    "local" => format!("127.0.0.1:{}", config.todo_port),
-                    "lan" => format!("{}:{}", config.todo_ip, config.todo_port),
-                    "public" => format!("0.0.0.0:{}", config.todo_port),
-                    "production" => format!("0.0.0.0:{}", config.todo_port),
-                    "prod" => format!("0.0.0.0:{}", config.todo_port),
-                    _ => format!("127.0.0.1:{}", config.todo_port),
-                };
                 let todo_task = tokio::spawn(async {
                     run(todoaddr).await;
                 });
