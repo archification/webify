@@ -102,16 +102,16 @@ async fn main() {
         let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
         let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
         let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-        setup();
+        setup().await;
         if config.ssl_enabled {
             let app = app(&config);
             let ssl_config = RustlsConfig::from_pem_file(
-                config.ssl_cert_path.expect("SSL cert path is required"),
-                config.ssl_key_path.expect("SSL key path is required"),
+                config.ssl_cert_path.clone().expect("SSL cert path is required"),
+                config.ssl_key_path.clone().expect("SSL key path is required"),
             ).await.expect("Failed to configure SSL");
             let server = axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
                 .set_upgrade(true)
-                .serve(app.into_make_service());
+                .serve(app.await.into_make_service());
             if config.todo_enabled {
                 let todo_task = tokio::spawn(async {
                     run(todoaddr).await;
@@ -135,7 +135,7 @@ async fn main() {
         } else {
             let app = app(&config);
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-            let server = axum::serve(listener, app);
+            let server = axum::serve(listener, app.await);
             if config.todo_enabled {
                 let todo_task = tokio::spawn(async {
                     run(todoaddr).await;

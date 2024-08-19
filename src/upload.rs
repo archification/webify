@@ -2,7 +2,6 @@ use axum::{
     response::Html,
     extract::Multipart,
     response::IntoResponse,
-    //Json,
 };
 use std::path::Path;
 use bytes::Bytes;
@@ -14,26 +13,16 @@ use tokio::{
 };
 use futures::stream::{self, StreamExt};
 use sanitize_filename;
-//use serde::Serialize;
 use walkdir::WalkDir;
-
-/*
-#[derive(Serialize)]
-struct ErrorResponse {
-    error: String,
-}
-*/
 
 enum UploadResponse {
     Html(Html<String>),
-    //Json(Json<ErrorResponse>),
 }
 
 impl IntoResponse for UploadResponse {
     fn into_response(self) -> axum::response::Response {
         match self {
             UploadResponse::Html(html) => html.into_response(),
-            //UploadResponse::Json(json) => json.into_response(),
         }
     }
 }

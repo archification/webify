@@ -52,7 +52,7 @@ fn routes_uploads() -> Router {
     Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
 }
 
-pub fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static str> {
+pub async fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static str> {
     match limit_val {
         Some(Value::String(s)) if s == "disabled" => Err("disabled"),
         Some(Value::String(s)) => s.parse::<usize>().map_err(|_| "default"),
@@ -61,7 +61,7 @@ pub fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static s
     }
 }
 
-pub fn app(config: &Config) -> Router {
+pub async fn app(config: &Config) -> Router {
     let mut router = Router::new()
         .merge(routes_static())
         .merge(routes_uploads())
@@ -96,7 +96,7 @@ pub fn app(config: &Config) -> Router {
         }
     }
     let something = config.upload_storage_limit;
-    match parse_upload_limit(&config.upload_size_limit) {
+    match parse_upload_limit(&config.upload_size_limit).await {
         Ok(num) => {
             router = router.route(
                 "/upload",

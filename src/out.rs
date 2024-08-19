@@ -10,7 +10,7 @@ use solarized::{
     PrintMode::NewLine,
 };
 
-pub fn setup() {
+pub async fn setup() {
     let config_option = read_config(); if let Some(config) = config_option {
         let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
         let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
@@ -62,7 +62,7 @@ pub fn setup() {
                 (" Enabled", ORANGE, vec![]),
             ], NewLine);
         }
-        match parse_upload_limit(&config.upload_size_limit) {
+        match parse_upload_limit(&config.upload_size_limit).await {
             Ok(num) => {
                 print_fancy(&[
                     ("Upload limit size: ", CYAN, vec![]),
@@ -86,13 +86,7 @@ pub fn setup() {
             }
         }
         print_fancy(&[
-            ("Hardcoded routes:\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-            ("/", BLUE, vec![]),
-            (" -> ", CYAN, vec![]),
-            ("root", VIOLET, vec![]),
-        ], NewLine);
-        print_fancy(&[
-            ("\nConfigured routes:", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
+            ("Configured routes:", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
         ], NewLine);
         for (path, settings) in &config.routes {
             let file = settings.get(0)
