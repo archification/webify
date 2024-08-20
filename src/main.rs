@@ -67,7 +67,13 @@ async fn main() {
                 ("Error: ", RED, vec![]),
                 ("Missing arguments.\n", ORANGE, vec![]),
                 ("Usage: ", CYAN, vec![]),
-                ("--backup <source_directory_path> <destination_zip_path>", VIOLET, vec![]),
+                (&format!("{}", args[0]), VIOLET, vec![]),
+                ("--backup", VIOLET, vec![]),
+                (" <", CYAN, vec![]),
+                ("source_directory_path", VIOLET, vec![]),
+                ("> <", CYAN, vec![]),
+                ("destination_zip_path", VIOLET, vec![]),
+                (">", CYAN, vec![]),
             ], NewLine);
             std::process::exit(1);
         } else {
@@ -92,7 +98,7 @@ async fn main() {
                 },
             }
         }
-    }
+    };
     print_colored(
         &["R", "a", "i", "n", "b", "o", "w", "s"],
         &[VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA],
