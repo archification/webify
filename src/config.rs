@@ -18,7 +18,6 @@ pub struct Config {
     pub ssl_port: u16,
     pub ssl_cert_path: Option<String>,
     pub ssl_key_path: Option<String>,
-    pub routes: HashMap<String, Vec<String>>,
     pub todo_enabled: bool,
     pub todo_scope: String,
     pub todo_ip: String,
@@ -26,6 +25,7 @@ pub struct Config {
     pub upload_size_limit: Option<Value>,
     pub upload_storage_limit: Option<u64>,
     pub browser: bool,
+    pub routes: HashMap<String, Vec<String>>,
 }
 
 pub fn read_config() -> Option<Config> {
