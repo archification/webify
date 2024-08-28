@@ -4,5 +4,5 @@ config.toml
 /static
 /uploads
 /pems
-something.sh
+testing.sh
 note
