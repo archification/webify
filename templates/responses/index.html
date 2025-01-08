@@ -14,10 +14,497 @@
     crossorigin="anonymous"
   ></script>
   <script src="/assets/helpers.js"></script>
+<style>
+.button,
+.file-cta,
+.file-name,
+.input,
+.pagination-ellipsis,
+.pagination-link,
+.pagination-next,
+.pagination-previous,
+.select select,
+.textarea {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    box-shadow: none;
+    display: inline-flex;
+    font-size: 1rem;
+    height: 2.5em;
+    justify-content: flex-start;
+    line-height: 1.5;
+    padding-bottom: calc(0.5em - 1px);
+    padding-left: calc(0.75em - 1px);
+    padding-right: calc(0.75em - 1px);
+    padding-top: calc(0.5em - 1px);
+    position: relative;
+    vertical-align: top;
+}
+.button[disabled],
+.file-cta[disabled],
+.file-name[disabled],
+.input[disabled],
+.pagination-ellipsis[disabled],
+.pagination-link[disabled],
+.pagination-next[disabled],
+.pagination-previous[disabled],
+.select fieldset[disabled] select,
+.select select[disabled],
+.textarea[disabled],
+fieldset[disabled] .button,
+fieldset[disabled] .file-cta,
+fieldset[disabled] .file-name,
+fieldset[disabled] .input,
+fieldset[disabled] .pagination-ellipsis,
+fieldset[disabled] .pagination-link,
+fieldset[disabled] .pagination-next,
+fieldset[disabled] .pagination-previous,
+fieldset[disabled] .select select,
+fieldset[disabled] .textarea {
+    cursor: not-allowed;
+}
+input:focus, select:focus, textarea:focus, button:focus {
+    outline: 2px solid #4a90e2; /* Custom focus outline */
+    outline-offset: 2px;
+}
+.breadcrumb,
+.button,
+.file,
+.is-unselectable,
+.pagination-ellipsis,
+.pagination-link,
+.pagination-next,
+.pagination-previous,
+.tabs {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+.block:not(:last-child),
+.box:not(:last-child),
+.breadcrumb:not(:last-child),
+.content:not(:last-child),
+.level:not(:last-child),
+.message:not(:last-child),
+.notification:not(:last-child),
+.pagination:not(:last-child),
+.progress:not(:last-child),
+.subtitle:not(:last-child),
+.table-container:not(:last-child),
+.table:not(:last-child),
+.tabs:not(:last-child),
+.title:not(:last-child) {
+    margin-bottom: 1.5rem;
+}
+.delete,
+.modal-close {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    background-color: rgba(108, 113, 196, 0.5);
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: inline-block;
+    flex-grow: 0;
+    flex-shrink: 0;
+    font-size: 0;
+    height: 20px;
+    max-height: 20px;
+    max-width: 20px;
+    min-height: 20px;
+    min-width: 20px;
+    outline: 0;
+    position: relative;
+    vertical-align: top;
+    width: 20px;
+}
+.delete::after,
+.delete::before,
+.modal-close::after,
+.modal-close::before {
+    background-color: #002b36;
+    content: "";
+    display: block;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%) rotate(45deg);
+    transform-origin: center center;
+}
+.delete::before,
+.modal-close::before {
+    height: 2px;
+    width: 50%;
+}
+.delete::after,
+.modal-close::after {
+    height: 50%;
+    width: 2px;
+}
+.is-medium.delete,
+.is-medium.modal-close {
+    height: 24px;
+    max-height: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    min-width: 24px;
+    width: 24px;
+}
+.delete:hover, .modal-close:hover {
+    background-color: rgba(108, 113, 196, 0.4);
+}
+blockquote,
+body,
+dd,
+dl,
+dt,
+fieldset,
+figure,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+hr,
+html,
+iframe,
+legend,
+li,
+ol,
+p,
+pre,
+textarea,
+ul {
+    margin: 0;
+    padding: 0;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-size: 100%;
+    font-weight: 400;
+}
+button,
+input,
+select,
+textarea {
+    margin: 0;
+}
+html {
+    box-sizing: border-box;
+}
+*,
+::after,
+::before {
+    box-sizing: inherit;
+}
+html {
+    background-color: #002b36;
+    font-size: 16px;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    min-width: 350px;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+article,
+aside,
+figure,
+footer,
+header,
+hgroup,
+section {
+    display: block;
+}
+body,
+button,
+input,
+optgroup,
+select,
+textarea {
+    font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+body {
+    color: #4a4a4a;
+    font-size: 1em;
+    font-weight: 400;
+    line-height: 1.5;
+}
+a {
+    color: #268bd2;
+    cursor: pointer;
+    text-decoration: none;
+}
+span {
+    font-style: inherit;
+    font-weight: inherit;
+}
+.button {
+    background-color: #002b36;
+    border-color: #dbdbdb;
+    border-width: 1px;
+    color: #2aa198;
+    cursor: pointer;
+    justify-content: center;
+    padding-bottom: calc(0.5em - 1px);
+    padding-left: 1em;
+    padding-right: 1em;
+    padding-top: calc(0.5em - 1px);
+    text-align: center;
+    white-space: nowrap;
+}
+.button.is-link {
+    background-color: #268bd2;
+    border-color: transparent;
+    color: #002b36;
+}
+.button.is-link[disabled],
+fieldset[disabled] .button.is-link {
+    background-color: #268bd2;
+    border-color: #268bd2;
+    box-shadow: none;
+}
+.button.is-link.is-outlined {
+    background-color: transparent;
+    border-color: #268bd2;
+    color: #268bd2;
+}
+.button.is-link.is-outlined[disabled],
+fieldset[disabled] .button.is-link.is-outlined {
+    background-color: transparent;
+    border-color: #268bd2;
+    box-shadow: none;
+    color: #268bd2;
+}
+#todo-toggle-completed.is-link.is-outlined:hover {
+    background-color: #268bd2;
+    color: #002b36;
+    border-color: #268bd2;
+}
+.button.is-danger {
+    background-color: #f14668;
+    border-color: transparent;
+    color: #002b36;
+}
+.button.is-danger[disabled],
+fieldset[disabled] .button.is-danger {
+    background-color: #f14668;
+    border-color: #f14668;
+    box-shadow: none;
+}
+.button.is-danger.is-outlined {
+    background-color: transparent;
+    border-color: #f14668;
+    color: #f14668;
+}
+.button.is-danger.is-outlined[disabled],
+fieldset[disabled] .button.is-danger.is-outlined {
+    background-color: transparent;
+    border-color: #f14668;
+    box-shadow: none;
+    color: #f14668;
+}
+#todo-delete-completed.is-danger.is-outlined:hover {
+    background-color: #f14668;
+    color: #002b36;
+    border-color: #f14668;
+}
+.button[disabled],
+fieldset[disabled] .button {
+    background-color: #002b36;
+    border-color: #dbdbdb;
+    box-shadow: none;
+    opacity: 0.5;
+}
+.button.is-fullwidth {
+    display: flex;
+    width: 100%;
+}
+.tag:not(body) {
+    align-items: center;
+    background-color: #073642;
+    border-radius: 4px;
+    color: #cb4b16;
+    display: inline-flex;
+    font-size: 0.75rem;
+    height: 2em;
+    justify-content: center;
+    line-height: 1.5;
+    padding-left: 0.75em;
+    padding-right: 0.75em;
+    white-space: nowrap;
+}
+.tag:not(body).is-rounded {
+    border-radius: 9999px;
+}
+.subtitle,
+.title {
+    word-break: break-word;
+}
+.title {
+    color: #2aa198;
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.125;
+}
+.title:not(.is-spaced) + .subtitle {
+    margin-top: -1.25rem;
+}
+.subtitle {
+    color: #586e75;
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.25;
+}
+.input,
+.select select,
+.textarea {
+    background-color: #002b36;
+    border-color: #586e75;
+    border-radius: 4px;
+    color: #2aa198;
+}
+.input::-webkit-input-placeholder,
+.select select::-webkit-input-placeholder,
+.textarea::-webkit-input-placeholder {
+    color: rgba(42, 161, 152, 0.3);
+}
+.input,
+.textarea {
+    box-shadow: inset 0 0.0625em 0.125em rgba(147, 161, 161, 0.05);
+    max-width: 100%;
+    width: 100%;
+}
+.control {
+    box-sizing: border-box;
+    clear: both;
+    font-size: 1rem;
+    position: relative;
+    text-align: inherit;
+}
+.panel {
+    border-radius: 6px;
+    box-shadow: 0 0.5em 1em -0.125em rgba(147, 161, 161, 0.1), 0 0 0 1px rgba(10, 10, 10, 0.02);
+    font-size: 1rem;
+}
+.panel-block:not(:last-child),
+.panel-tabs:not(:last-child) {
+    border-bottom: 1px solid #073642;
+}
+.panel-heading {
+    background-color: #073642;
+    border-radius: 6px 6px 0 0;
+    color: #2aa198;
+    font-size: 1.25em;
+    font-weight: 700;
+    line-height: 1.25;
+    padding: 0.75em 1em;
+}
+.panel-tabs {
+    align-items: flex-end;
+    display: flex;
+    font-size: 0.875em;
+    justify-content: center;
+}
+.panel-tabs a {
+    border-bottom: 1px solid #859900;
+    margin-bottom: -1px;
+    padding: 0.5em;
+}
+.panel-tabs a.is-active {
+    border-bottom-color: #586e75;
+    color: #2aa198;
+}
+.panel-block {
+    align-items: center;
+    color: #2aa198;
+    display: flex;
+    justify-content: flex-start;
+    padding: 0.5em 0.75em;
+}
+.panel-block input[type="checkbox"] {
+    margin-right: 0.75em;
+}
+.panel-block > .control {
+    flex-grow: 1;
+    flex-shrink: 1;
+    width: 100%;
+}
+.panel-block:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+.column {
+    display: block;
+    flex-basis: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
+    padding: 0.75rem;
+}
+.columns {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    margin-top: -0.75rem;
+}
+.columns:last-child {
+    margin-bottom: -0.75rem;
+}
+.columns.is-centered {
+    justify-content: center;
+}
+.is-justify-content-space-between {
+    justify-content: space-between !important;
+}
+.is-flex-grow-1 {
+    flex-grow: 1 !important;
+}
+.mr-1 {
+    margin-right: 0.25rem !important;
+}
+.ml-1 {
+    margin-left: 0.25rem !important;
+}
+.mt-6 {
+    margin-top: 3rem !important;
+}
+.p-0 {
+    padding: 0 !important;
+}
+.hero {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.hero-body {
+    flex-grow: 1;
+    flex-shrink: 0;
+    padding: 3rem 1.5rem;
+}
+</style>
   <link
     rel="stylesheet"
     type="text/css"
-    href="https://archification.github.io/solarized.todo.css"
+    href="static/solarized.todo.css"
   >
 </head>
 

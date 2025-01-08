@@ -49,7 +49,7 @@ pub fn print_help(binaryname: String) {
         ("true\n", CYAN, vec![]),
         ("todo_scope", BLUE, vec![]),
         (" = ", WHITE, vec![]),
-        ("localhost\n", CYAN, vec![]),
+        ("\"localhost\"\n", CYAN, vec![]),
         ("todo_ip", BLUE, vec![]),
         (" = ", WHITE, vec![]),
         ("\"192.168.1.142\"\n", CYAN, vec![]),

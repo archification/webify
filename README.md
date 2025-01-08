@@ -1,7 +1,8 @@
 # Webifying Webififications of Webified Webbing
 
 ## Introduction
-Welcome to the Webify project!
+Welcome to the Webify project! Have you ever wanted to start a web server at a moment's notice so that your friends could download files from your computer? This program allows you to do just that. After having a brief look at a config file and running a standalone program from command line, you'll be able to view and share any content you've made.
+
 This CLI application is configurable web server developed in Rust using the `axum` crate.
 The config.toml file allows us to determine paths to web routes and local files, IP address and port, and whether things like SSL are enabled.
 
