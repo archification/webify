@@ -30,12 +30,16 @@ The config.toml file allows us to determine paths to web routes and local files,
 
 Program not detecting a present config file.
 ![screenshot](https://github.com/archification/webify/blob/main/images/noconfig.png)
+
 Files after generating them.
 ![screenshot](https://github.com/archification/webify/blob/main/images/files.png)
+
 Contents of the generated config file.
 ![screenshot](https://github.com/archification/webify/blob/main/images/config.png)
+
 Output of the running program.
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
+
 The todo page.
 ![screenshot](https://github.com/archification/webify/blob/main/images/todo.png)
 
