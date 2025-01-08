@@ -28,19 +28,24 @@ The config.toml file allows us to determine paths to web routes and local files,
 - Dual protocol is built-in. This means http and https exist on the same port when SSL is enabled.
 - Ensure that if todo is enabled, it's assigned a different port than the main server.
 
-Program not detecting a present config file. 
+Program not detecting a present config file.
+
 ![screenshot](https://github.com/archification/webify/blob/main/images/noconfig.png)
 
-Files after generating them. 
+Files after generating them.
+
 ![screenshot](https://github.com/archification/webify/blob/main/images/files.png)
 
-Contents of the generated config file. 
+Contents of the generated config file.
+
 ![screenshot](https://github.com/archification/webify/blob/main/images/config.png)
 
-Output of the running program. 
+Output of the running program.
+
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
 
-The todo page. 
+The todo page.
+
 ![screenshot](https://github.com/archification/webify/blob/main/images/todo.png)
 
 ## Background
