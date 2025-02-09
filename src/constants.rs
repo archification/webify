@@ -12,8 +12,8 @@ todo_enabled = true
 todo_scope = "localhost"
 todo_ip = "192.168.1.142"
 todo_port = 11111
-upload_size_limit = 2000000000 # 2 GB (2 * 1000 * 1000 * 1000)
-#upload_size_limit = "disabled" # disables the limit and allows any size (not recommended)
+upload_size_limit = 2000000000 # Default of 2000000000 bytes is 2 GB (2 * 1000 * 1000 * 1000)
+#upload_size_limit = "disabled" # allows any size
 upload_storage_limit = 2000000000
 browser = false
 

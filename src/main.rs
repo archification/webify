@@ -107,95 +107,42 @@ async fn main() {
     let config_option = read_config();
     if let Some(config) = config_option {
         setup().await;
-        match (config.ssl_enabled, config.todo_enabled) {
-            (true, true) => {
-                let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
-                let app = app(&config);
-                let ssl_config = RustlsConfig::from_pem_file(
-                    config.ssl_cert_path.clone().expect("SSL cert path is required"),
-                    config.ssl_key_path.clone().expect("SSL key path is required"),
-                ).await.expect("Failed to configure SSL");
-                let server = axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
-                    .set_upgrade(true)
-                    .serve(app.await.into_make_service());
-                let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-                let todo_task = tokio::spawn(async {
-                    run(todoaddr).await;
-                });
-                let server_task = tokio::spawn(async {
-                    server.await.unwrap();
-                });
-                let (todo_result, server_result) = tokio::join!(todo_task, server_task);
-                if let Err(e) = todo_result {
-                    eprintln!("Error from todo task: {:?}", e);
-                }
-                if let Err(e) = server_result {
-                    eprintln!("Error from server task: {:?}", e);
-                }
-                if config.browser {
-                    browser("https", ssladdr);
-                }
-            },
-            (true, false) => {
-                let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
-                let app = app(&config);
-                let ssl_config = RustlsConfig::from_pem_file(
-                    config.ssl_cert_path.clone().expect("SSL cert path is required"),
-                    config.ssl_key_path.clone().expect("SSL key path is required"),
-                ).await.expect("Failed to configure SSL");
-                let server = axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
-                    .set_upgrade(true)
-                    .serve(app.await.into_make_service());
-                let server_task = tokio::spawn(async {
-                    server.await.unwrap();
-                });
-                let (server_result,) = tokio::join!(server_task,);
-                if let Err(e) = server_result {
-                    eprintln!("Error from server task: {:?}", e);
-                }
-                if config.browser {
-                    browser("https", ssladdr);
-                }
-            },
-            (false, true) => {
-                let app = app(&config);
-                let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
-                let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-                let server = axum::serve(listener, app.await);
-                let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-                let todo_task = tokio::spawn(async {
-                    run(todoaddr).await;
-                });
-                let server_task = tokio::spawn(async {
-                    server.await.unwrap();
-                });
-                let (todo_result, server_result) = tokio::join!(todo_task, server_task);
-                if let Err(e) = todo_result {
-                    eprintln!("Error from todo task: {:?}", e);
-                }
-                if let Err(e) = server_result {
-                    eprintln!("Error from server task: {:?}", e);
-                }
-                if config.browser {
-                    browser("http", addr);
-                }
-            },
-            (false, false) => {
-                let app = app(&config);
-                let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
-                let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-                let server = axum::serve(listener, app.await);
-                let server_task = tokio::spawn(async {
-                    server.await.unwrap();
-                });
-                let (server_result,) = tokio::join!(server_task,);
-                if let Err(e) = server_result {
-                    eprintln!("Error from server task: {:?}", e);
-                }
-                if config.browser {
-                    browser("http", addr);
-                }
-            },
+        let app = app(&config).await;
+        if config.ssl_enabled {
+            let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
+            let ssl_config = RustlsConfig::from_pem_file(
+                config.ssl_cert_path.clone().expect("SSL cert path is required"),
+                config.ssl_key_path.clone().expect("SSL key path is required"),
+            ).await.expect("Failed to configure SSL");
+            let server = axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
+                .set_upgrade(true)
+                .serve(app.clone().into_make_service());
+            let server_task = tokio::spawn(async {
+                server.await.unwrap();
+            });
+            if config.browser {
+                browser("http", ssladdr);
+            }
+            server_task.await.unwrap();
+        }
+        if config.todo_enabled {
+            let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
+            let todo_task = tokio::spawn(async {
+                run(todoaddr).await;
+            });
+            todo_task.await.unwrap();
+        }
+        if !config.ssl_enabled {
+            let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
+            let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+            let server = axum::serve(listener, app);
+            let server_task = tokio::spawn(async {
+                server.await.unwrap();
+            });
+            if config.browser {
+                browser("http", addr);
+            }
+            server_task.await.unwrap();
         }
     } else {
         generate_files();
