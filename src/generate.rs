@@ -8,11 +8,24 @@ use std::io;
 use zip::ZipArchive;
 use solarized::{
     print_fancy, clear,
-    VIOLET, BLUE, CYAN, GREEN, ORANGE, RED,
+    VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED,
     PrintMode::NewLine,
 };
 
 pub fn generate_files() {
+    // Helper function to check if a file exists and print a message if it does
+    fn check_file_exists<P: AsRef<Path>>(path: P, filename: &str) -> bool {
+        if path.as_ref().exists() {
+            print_fancy(&[
+                (&format!("{}", filename), VIOLET, vec![]),
+                (" already exists", YELLOW, vec![]),
+            ], NewLine);
+            true
+        } else {
+            false
+        }
+    }
+
     print_fancy(&[
         ("Failed to read configuration\n", ORANGE, vec![]),
         ("Example environment can be created in the current active directory.\n", CYAN, vec![]),
@@ -28,352 +41,136 @@ pub fn generate_files() {
     let input = input.trim().to_lowercase();
     if input == "y" || input == "yes" {
         clear();
-        match fs::write("config.toml", EXAMPLE_CONFIG) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("config.toml", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example config.toml file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        let templates = Path::new("static");
-        if !templates.exists() {
-            match fs::create_dir_all(&templates) {
+
+        // Check and write config.toml
+        let config_path = Path::new("config.toml");
+        if !check_file_exists(config_path, "config.toml") {
+            match fs::write(config_path, EXAMPLE_CONFIG) {
                 Ok(_) => {
                     print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("static", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
+                        ("Example ", CYAN, vec![]),
+                        ("config.toml", VIOLET, vec![]),
+                        (" file has been ", CYAN, vec![]),
                         ("created.", GREEN, vec![]),
                         (".", CYAN, vec![]),
                     ], NewLine);
                 }
                 Err(e) => {
                     print_fancy(&[
-                        ("Error creating static: ", ORANGE, vec![]),
-                        (&format!("{}", e), RED, vec![]),
-                    ], NewLine);
-                }
-            }
-        } else {
-            print_fancy(&[
-                ("static folder exists", ORANGE, vec![]),
-            ], NewLine);
-        }
-        let audio = Path::new("static/audio");
-        if !audio.exists() {
-            match fs::create_dir_all(&audio) {
-                Ok(_) => {
-                    print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("static", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
-                        (".", CYAN, vec![]),
-                    ], NewLine);
-                }
-                Err(e) => {
-                    print_fancy(&[
-                        ("Error creating static/audio: ", ORANGE, vec![]),
+                        ("Failed to create example config.toml file: ", ORANGE, vec![]),
                         (&format!("{}", e), RED, vec![]),
                     ], NewLine);
                 }
             }
         }
-        let media = Path::new("static/media");
-        if !media.exists() {
-            match fs::create_dir_all(&media) {
-                Ok(_) => {
-                    print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("static/media", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
-                        (".", CYAN, vec![]),
-                    ], NewLine);
+
+        // Create directories
+        let directories = [
+            ("static", "static folder"),
+            ("static/audio", "static/audio folder"),
+            ("static/media", "static/media folder"),
+            ("uploads", "uploads folder"),
+            ("static/files", "static/files folder"),
+            ("static/documents", "static/documents folder"),
+        ];
+
+        for (dir, description) in directories.iter() {
+            let dir_path = Path::new(dir);
+            if !dir_path.exists() {
+                match fs::create_dir_all(dir_path) {
+                    Ok(_) => {
+                        print_fancy(&[
+                            ("The ", CYAN, vec![]),
+                            (&format!("{}", description), VIOLET, vec![]),
+                            (" has been ", CYAN, vec![]),
+                            ("created.", GREEN, vec![]),
+                            (".", CYAN, vec![]),
+                        ], NewLine);
+                    }
+                    Err(e) => {
+                        print_fancy(&[
+                            (&format!("Error creating {}: ", description), ORANGE, vec![]),
+                            (&format!("{}", e), RED, vec![]),
+                        ], NewLine);
+                    }
                 }
-                Err(e) => {
-                    print_fancy(&[
-                        ("Error creating static/media: ", ORANGE, vec![]),
-                        (&format!("{}", e), RED, vec![]),
-                    ], NewLine);
+            } else {
+                print_fancy(&[
+                    (&format!("{} already exists", description), YELLOW, vec![]),
+                ], NewLine);
+            }
+        }
+
+        // Check and write text files
+        let text_files = [
+            ("static/home.html", EXAMPLE_HOME, "home.html"),
+            ("static/stuff.html", EXAMPLE_STUFF, "stuff.html"),
+            ("static/pdf.html", EXAMPLE_PDF, "pdf.html"),
+            ("static/downloads.html", EXAMPLE_DOWNLOADS, "downloads.html"),
+            ("static/playlists.html", PLAYLISTS, "playlists.html"),
+            ("static/upload.html", UPLOAD, "upload.html"),
+            ("static/uploads.html", FILES, "uploads.html"),
+            ("static/error.html", EXAMPLE_ERROR, "error.html"),
+        ];
+
+        for (file_path, contents, filename) in text_files.iter() {
+            let path = Path::new(file_path);
+            if !check_file_exists(path, filename) {
+                match fs::write(path, *contents) {
+                    Ok(_) => {
+                        print_fancy(&[
+                            ("Example ", CYAN, vec![]),
+                            (&format!("{}", filename), VIOLET, vec![]),
+                            (" file has been ", CYAN, vec![]),
+                            ("created.", GREEN, vec![]),
+                            (".", CYAN, vec![]),
+                        ], NewLine);
+                    }
+                    Err(e) => {
+                        print_fancy(&[
+                            ("Failed to create example ", ORANGE, vec![]),
+                            (&format!("{}", filename), VIOLET, vec![]),
+                            (" file: ", ORANGE, vec![]),
+                            (&format!("{}", e), RED, vec![]),
+                        ], NewLine);
+                    }
                 }
             }
-        } else {
-            println!("media folder exists");
         }
-        let uploads = Path::new("uploads");
-        if !uploads.exists() {
-            match fs::create_dir_all(&uploads) {
-                Ok(_) => {
-                    print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("uploads", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
-                        (".", CYAN, vec![]),
-                    ], NewLine);
-                }
-                Err(e) => {
-                    print_fancy(&[
-                        ("Error creating uploads: ", ORANGE, vec![]),
-                        (&format!("{}", e), RED, vec![]),
-                    ], NewLine);
-                }
-            }
-        } else {
-            println!("uploads folder exists");
-        }
-        let files = Path::new("static/files");
-        if !files.exists() {
-            match fs::create_dir_all(&files) {
-                Ok(_) => {
-                    print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("files", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
-                        (".", CYAN, vec![]),
-                    ], NewLine);
-                }
-                Err(e) => {
-                    print_fancy(&[
-                        ("Error creating files: ", ORANGE, vec![]),
-                        (&format!("{}", e), RED, vec![]),
-                    ], NewLine);
+
+        // Check and write binary files
+        let binary_files = [
+            ("static/media/qrcode.png", IMAGE_DATA, "qrcode.png"),
+            ("static/documents/asdf.pdf", PDF_DATA, "asdf.pdf"),
+            ("todos.zip", ARCHIVE_DATA, "todos.zip"),
+        ];
+
+        for (file_path, contents, filename) in binary_files.iter() {
+            let path = Path::new(file_path);
+            if !check_file_exists(path, filename) {
+                match fs::write(path, *contents) {
+                    Ok(_) => {
+                        print_fancy(&[
+                            ("Example ", CYAN, vec![]),
+                            (&format!("{}", filename), VIOLET, vec![]),
+                            (" file has been ", CYAN, vec![]),
+                            ("created.", GREEN, vec![]),
+                            (".", CYAN, vec![]),
+                        ], NewLine);
+                    }
+                    Err(e) => {
+                        print_fancy(&[
+                            ("Failed to create example ", ORANGE, vec![]),
+                            (&format!("{}", filename), VIOLET, vec![]),
+                            (" file: ", ORANGE, vec![]),
+                            (&format!("{}", e), RED, vec![]),
+                        ], NewLine);
+                    }
                 }
             }
-        } else {
-            println!("files folder exists");
         }
-        match fs::write("static/home.html", EXAMPLE_HOME) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("home.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    (&format!("{}", e), CYAN, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/stuff.html", EXAMPLE_STUFF) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("stuff.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("stuff.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/pdf.html", EXAMPLE_PDF) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("pdf.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("pdf.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/downloads.html", EXAMPLE_DOWNLOADS) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("downloads.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("downloads.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/playlists.html", PLAYLISTS) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("playlists.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("playlists.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/upload.html", UPLOAD) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("upload.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("upload.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/uploads.html", FILES) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("uploads.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("uploads.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        match fs::write("static/error.html", EXAMPLE_ERROR) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Example ", CYAN, vec![]),
-                    ("error.html", VIOLET, vec![]),
-                    (" file has been ", CYAN, vec![]),
-                    ("created.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to create example ", ORANGE, vec![]),
-                    ("error.html", VIOLET, vec![]),
-                    (" file: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        let image_path = "static/media/qrcode.png";
-        match std::fs::write(image_path, IMAGE_DATA) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Image ", CYAN, vec![]),
-                    (&format!("{}", image_path), VIOLET, vec![]),
-                    (" has been ", CYAN, vec![]),
-                    ("saved.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to write image: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        let pdf_path = "static/documents/asdf.pdf";
-        let pdf_dir = Path::new("static/documents");
-        if !pdf_dir.exists() {
-            match fs::create_dir_all(pdf_dir) {
-                Ok(_) => {
-                    print_fancy(&[
-                        ("The ", CYAN, vec![]),
-                        ("static/documents", VIOLET, vec![]),
-                        (" folder has been ", CYAN, vec![]),
-                        ("created.", GREEN, vec![]),
-                        (".", CYAN, vec![]),
-                    ], NewLine);
-                }
-                Err(e) => println!("Error creating static/documents: {:?}", e),
-            }
-        } else {
-            print_fancy(&[
-                ("static/documents folder exists", ORANGE, vec![]),
-            ], NewLine);
-        }
-        match std::fs::write(pdf_path, PDF_DATA) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Document ", CYAN, vec![]),
-                    (&format!("{}", pdf_path), VIOLET, vec![]),
-                    (" has been ", CYAN, vec![]),
-                    ("saved.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to write image: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
-        let zip_path = "todos.zip";
-        match std::fs::write(zip_path, ARCHIVE_DATA) {
-            Ok(_) => {
-                print_fancy(&[
-                    ("Archive ", CYAN, vec![]),
-                    (&format!("{}", zip_path), VIOLET, vec![]),
-                    (" has been ", CYAN, vec![]),
-                    ("saved.", GREEN, vec![]),
-                    (".", CYAN, vec![]),
-                ], NewLine);
-            }
-            Err(e) => {
-                print_fancy(&[
-                    ("Failed to write image: ", ORANGE, vec![]),
-                    (&format!("{}", e), RED, vec![]),
-                ], NewLine);
-            }
-        }
+
+        // Extract ZIP file
         let file_path = Path::new("todos.zip");
         let file = File::open(&file_path).expect("Failed to open ZIP file");
         let mut archive = ZipArchive::new(BufReader::new(file)).expect("Failed to read ZIP archive");
@@ -423,7 +220,8 @@ pub fn generate_files() {
             ("ZIP file deleted ", CYAN, vec![]),
             ("successfully", GREEN, vec![]),
         ], NewLine);
-        let path = env::current_dir().expect("asdf");
+
+        let path = env::current_dir().expect("Failed to get current directory");
         print_fancy(&[
             ("\nSetup in ", CYAN, vec![]),
             (&format!("{}", path.display()), VIOLET, vec![]),
