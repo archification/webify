@@ -104,3 +104,41 @@ pub fn print_help(binaryname: String) {
     ], NewLine);
     std::process::exit(0);
 }
+
+/*
+use solarized::{
+    print_fancy,
+    VIOLET, BLUE, CYAN, ORANGE,
+    WHITE, GREY,
+    PrintMode::NewLine,
+};
+
+// Include the help.txt file as a byte array
+const HELP_TEXT: &[u8] = include_bytes!("help.txt");
+
+pub fn print_help(binaryname: String) {
+    // Convert the byte array to a string
+    let help_str = String::from_utf8_lossy(HELP_TEXT);
+
+    // Parse the string and prepare the arguments for print_fancy
+    let mut print_args = Vec::new();
+    for line in help_str.lines() {
+        if let Some((color, text)) = line.split_once(':') {
+            let color = match color {
+                "VIOLET" => VIOLET,
+                "BLUE" => BLUE,
+                "CYAN" => CYAN,
+                "ORANGE" => ORANGE,
+                "WHITE" => WHITE,
+                "GREY" => GREY,
+                _ => CYAN, // Default color if unknown
+            };
+            print_args.push((text.to_string(), color, vec![]));
+        }
+    }
+
+    // Print the help message
+    print_fancy(&print_args, NewLine);
+    std::process::exit(0);
+}
+*/

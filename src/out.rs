@@ -59,7 +59,7 @@ pub async fn setup() {
                 ("Todo", YELLOW, vec![]),
                 (" is ", CYAN, vec![]),
                 ("NOT", RED, vec![BOLD, ITALIC]),
-                (" Enabled", ORANGE, vec![]),
+                (" Enabled\n", ORANGE, vec![]),
             ], NewLine);
         }
         match parse_upload_limit(&config.upload_size_limit).await {
@@ -67,22 +67,38 @@ pub async fn setup() {
                 print_fancy(&[
                     ("Upload limit size: ", CYAN, vec![]),
                     (&format!("{}", num), CYAN, vec![]),
-                    ("\n", CYAN, vec![]),
                 ], NewLine);
             },
             Err("disabled") => {
                 print_fancy(&[
                     ("Upload limit size: ", CYAN, vec![]),
                     ("disabled", CYAN, vec![]),
-                    ("\n", CYAN, vec![]),
                 ], NewLine);
             },
             _ => {
                 print_fancy(&[
                     ("Upload limit size: ", CYAN, vec![]),
                     ("null", CYAN, vec![]),
+                ], NewLine);
+            }
+        }
+        match parse_upload_limit(&config.upload_storage_limit).await {
+            Ok(num) => {
+                print_fancy(&[
+                    ("Upload limit storage: ", CYAN, vec![]),
+                    (&format!("{}", num), CYAN, vec![]),
                     ("\n", CYAN, vec![]),
                 ], NewLine);
+            }
+            Err("disabled") => {
+                print_fancy(&[
+                    ("Upload limit storage: ", CYAN, vec![]),
+                    ("null", CYAN, vec![]),
+                    ("\n", CYAN, vec![]),
+                ], NewLine);
+            }
+            Err(err) => {
+                eprintln!("Error parsing upload limit: {}", err);
             }
         }
         print_fancy(&[
