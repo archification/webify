@@ -10,10 +10,10 @@ use axum::{
     Router
 };
 use tower_http::services::{ServeDir, ServeFile};
-use serde_json::Value;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
+use crate::limits::parse_upload_limit;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -48,48 +48,9 @@ fn routes_static() -> Router {
     Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
 
-pub trait ToUsize {
-    fn to_usize(&self) -> Result<usize, &'static str>;
-}
-
-impl ToUsize for Value {
-    fn to_usize(&self) -> Result<usize, &'static str> {
-        match self {
-            Value::String(s) if s == "disabled" => Err("disabled"),
-            Value::String(s) => s.parse::<usize>().map_err(|_| "default"),
-            Value::Number(n) if n.is_u64() => Ok(n.as_u64().unwrap() as usize),
-            _ => Err("default"),
-        }
-    }
-}
-
-impl ToUsize for u64 {
-    fn to_usize(&self) -> Result<usize, &'static str> {
-        Ok(*self as usize)
-    }
-}
-
-pub async fn parse_upload_limit<T: ToUsize>(limit_val: &Option<T>) -> Result<usize, &'static str> {
-    match limit_val {
-        Some(val) => val.to_usize(),
-        None => Err("default"),
-    }
-}
-
 fn routes_uploads() -> Router {
     Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
 }
-
-/*
-pub async fn parse_upload_limit(limit_val: &Option<Value>) -> Result<usize, &'static str> {
-    match limit_val {
-        Some(Value::String(s)) if s == "disabled" => Err("disabled"),
-        Some(Value::String(s)) => s.parse::<usize>().map_err(|_| "default"),
-        Some(Value::Number(n)) if n.is_u64() => Ok(n.as_u64().unwrap() as usize),
-        _ => Err("default"),
-    }
-}
-*/
 
 pub async fn app(config: &Config) -> Router {
     let mut router = Router::new()

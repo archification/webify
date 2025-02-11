@@ -8,6 +8,7 @@ mod archive;
 mod upload;
 mod help;
 mod out;
+mod limits;
 
 use crate::config::read_config;
 use crate::routes::app;
