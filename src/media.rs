@@ -5,7 +5,7 @@ use crate::utils::{
     is_image_file, is_video_file, is_audio_file, is_pdf_file, is_zip_file,
     get_video_mime_type, get_audio_mime_type
 };
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, rng};
 use solarized::{print_fancy, RED, BOLD, PrintMode::NewLine};
 
 pub async fn render_error_page() -> Html<String> {
@@ -38,12 +38,11 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 return Html(content);
             }
         };
-        let mut rng = rand::thread_rng();
         let audio_files = media_files.iter()
             .filter(|file| is_audio_file(file))
             .map(|file| format!("'static/audio/{}'", file))
             .collect::<Vec<_>>().join(", ");
-        media_files.shuffle(&mut rng);
+        media_files.shuffle(&mut rng());
         let media_insertion_point = content.find("<!-- MEDIA_INSERTION_POINT -->");
         let js_insertion_point = content.find("<!-- JS_INSERTION_POINT -->");
         let (indentation, before_media_insertion_point) = if let Some(index) = media_insertion_point {

@@ -4,7 +4,6 @@ mod utils;
 mod media;
 mod constants;
 mod generate;
-mod archive;
 mod upload;
 mod help;
 mod out;
@@ -13,11 +12,8 @@ mod limits;
 use crate::config::read_config;
 use crate::routes::app;
 use crate::generate::*;
-use crate::archive::add_dir_to_zip;
 use crate::help::print_help;
 use crate::out::setup;
-
-use webify::run;
 
 use std::env;
 use axum_server::tls_rustls::RustlsConfig;
@@ -61,6 +57,7 @@ async fn main() {
     let args: Vec<String> = env::args().collect();
     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
         print_help(args[0].clone());
+/*
     } else if args.contains(&"-b".to_string()) || args.contains(&"--backup".to_string()) {
         let index = args.iter().position(|x| x == "-b" || x == "--backup").unwrap_or_else(|| args.len());
         if args.len() <= index + 2 {
@@ -99,6 +96,7 @@ async fn main() {
                 },
             }
         }
+*/
     };
     print_colored(
         &["R", "a", "i", "n", "b", "o", "w", "s"],
@@ -125,13 +123,6 @@ async fn main() {
                 browser("http", ssladdr);
             }
             server_task.await.unwrap();
-        }
-        if config.todo_enabled {
-            let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-            let todo_task = tokio::spawn(async {
-                run(todoaddr).await;
-            });
-            todo_task.await.unwrap();
         }
         if !config.ssl_enabled {
             let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
