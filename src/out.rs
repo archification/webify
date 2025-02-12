@@ -1,7 +1,6 @@
 use crate::config::read_config;
 use crate::limits::parse_upload_limit;
 use crate::format_address;
-
 use std::env;
 use solarized::{
     print_fancy,
