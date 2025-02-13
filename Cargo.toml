@@ -15,27 +15,23 @@ axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 axum-server-dual-protocol = "0.7.0"
 base64 = "0.22.1"
 bytes = "1.10.0"
-futures = "0.3.30"
+futures = "0.3.31"
 rand = "0.9.0"
 rocket = "0.5.1"
 sanitize-filename = "0.6.0"
-serde = { version = "1.0.207", features = ["derive"] }
-serde_json = "1.0.124"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
 solarized = { git = "https://github.com/archification/solarized.git", branch = "main" }
-tokio = { version = "1.39.2", features = ["full"] }
-tokio-util = { version = "0.7.11", features = ["codec"] }
-toml = "0.8.19"
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-util = { version = "0.7.13", features = ["codec"] }
+toml = "0.8.20"
 tower-http = { version = "0.6.2", features = ["fs", "trace"] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-uuid = { version = "1.10.0", features = ["serde", "v4"] }
+tower = { version = "0.5.2", features = ["util", "timeout"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+uuid = { version = "1.13.1", features = ["serde", "v4"] }
 walkdir = "2.5.0"
-webbrowser = "1.0.1"
 zip = "2.2.2"
-
-[dev-dependencies]
-tower = { version = "0.5.2", features = ["util"] }
-hyper = { version = "1.4.1", features = ["full"] }
 
 [profile.release]
 strip = true

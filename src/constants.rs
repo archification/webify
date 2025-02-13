@@ -1,6 +1,5 @@
 pub static IMAGE_DATA: &[u8] = include_bytes!("thing.png");
 pub static PDF_DATA: &[u8] = include_bytes!("asdf.pdf");
-pub static ARCHIVE_DATA: &[u8] = include_bytes!("todos.zip");
 pub static EXAMPLE_CONFIG: &str = r#"scope = "localhost"
 ip = "192.168.1.142"
 port = 12345

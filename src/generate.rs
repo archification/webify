@@ -1,11 +1,13 @@
 use crate::constants::*;
 
-use std::path::{Path, PathBuf};
-use std::io::BufReader;
+//use std::path::{Path, PathBuf};
+use std::path::Path;
+//use std::io::BufReader;
 use std::env;
-use std::fs::{self, File};
+//use std::fs::{self, File};
 use std::io;
-use zip::ZipArchive;
+use std::fs;
+//use zip::ZipArchive;
 use solarized::{
     print_fancy, clear,
     VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED,
@@ -13,11 +15,10 @@ use solarized::{
 };
 
 pub fn generate_files() {
-    // Helper function to check if a file exists and print a message if it does
     fn check_file_exists<P: AsRef<Path>>(path: P, filename: &str) -> bool {
         if path.as_ref().exists() {
             print_fancy(&[
-                (&format!("{}", filename), VIOLET, vec![]),
+                (filename, VIOLET, vec![]),
                 (" already exists", YELLOW, vec![]),
             ], NewLine);
             true
@@ -30,8 +31,7 @@ pub fn generate_files() {
         ("Failed to read configuration\n", ORANGE, vec![]),
         ("Example environment can be created in the current active directory.\n", CYAN, vec![]),
         ("Would you like to create an example environment?\n", CYAN, vec![]),
-        ("(", VIOLET, vec![]),
-        ("y", BLUE, vec![]),
+        ("(", VIOLET, vec![]), ("y", BLUE, vec![]),
         ("/", VIOLET, vec![]),
         ("n", RED, vec![]),
         (")", VIOLET, vec![]),
@@ -41,8 +41,6 @@ pub fn generate_files() {
     let input = input.trim().to_lowercase();
     if input == "y" || input == "yes" {
         clear();
-
-        // Check and write config.toml
         let config_path = Path::new("config.toml");
         if !check_file_exists(config_path, "config.toml") {
             match fs::write(config_path, EXAMPLE_CONFIG) {
@@ -63,8 +61,6 @@ pub fn generate_files() {
                 }
             }
         }
-
-        // Create directories
         let directories = [
             ("static", "static folder"),
             ("static/audio", "static/audio folder"),
@@ -73,7 +69,6 @@ pub fn generate_files() {
             ("static/files", "static/files folder"),
             ("static/documents", "static/documents folder"),
         ];
-
         for (dir, description) in directories.iter() {
             let dir_path = Path::new(dir);
             if !dir_path.exists() {
@@ -81,7 +76,7 @@ pub fn generate_files() {
                     Ok(_) => {
                         print_fancy(&[
                             ("The ", CYAN, vec![]),
-                            (&format!("{}", description), VIOLET, vec![]),
+                            (description, VIOLET, vec![]),
                             (" has been ", CYAN, vec![]),
                             ("created.", GREEN, vec![]),
                             (".", CYAN, vec![]),
@@ -100,8 +95,6 @@ pub fn generate_files() {
                 ], NewLine);
             }
         }
-
-        // Check and write text files
         let text_files = [
             ("static/home.html", EXAMPLE_HOME, "home.html"),
             ("static/stuff.html", EXAMPLE_STUFF, "stuff.html"),
@@ -112,7 +105,6 @@ pub fn generate_files() {
             ("static/uploads.html", FILES, "uploads.html"),
             ("static/error.html", EXAMPLE_ERROR, "error.html"),
         ];
-
         for (file_path, contents, filename) in text_files.iter() {
             let path = Path::new(file_path);
             if !check_file_exists(path, filename) {
@@ -120,7 +112,7 @@ pub fn generate_files() {
                     Ok(_) => {
                         print_fancy(&[
                             ("Example ", CYAN, vec![]),
-                            (&format!("{}", filename), VIOLET, vec![]),
+                            (filename, VIOLET, vec![]),
                             (" file has been ", CYAN, vec![]),
                             ("created.", GREEN, vec![]),
                             (".", CYAN, vec![]),
@@ -129,7 +121,7 @@ pub fn generate_files() {
                     Err(e) => {
                         print_fancy(&[
                             ("Failed to create example ", ORANGE, vec![]),
-                            (&format!("{}", filename), VIOLET, vec![]),
+                            (filename, VIOLET, vec![]),
                             (" file: ", ORANGE, vec![]),
                             (&format!("{}", e), RED, vec![]),
                         ], NewLine);
@@ -137,14 +129,10 @@ pub fn generate_files() {
                 }
             }
         }
-
-        // Check and write binary files
         let binary_files = [
             ("static/media/qrcode.png", IMAGE_DATA, "qrcode.png"),
             ("static/documents/asdf.pdf", PDF_DATA, "asdf.pdf"),
-            ("todos.zip", ARCHIVE_DATA, "todos.zip"),
         ];
-
         for (file_path, contents, filename) in binary_files.iter() {
             let path = Path::new(file_path);
             if !check_file_exists(path, filename) {
@@ -152,7 +140,7 @@ pub fn generate_files() {
                     Ok(_) => {
                         print_fancy(&[
                             ("Example ", CYAN, vec![]),
-                            (&format!("{}", filename), VIOLET, vec![]),
+                            (filename, VIOLET, vec![]),
                             (" file has been ", CYAN, vec![]),
                             ("created.", GREEN, vec![]),
                             (".", CYAN, vec![]),
@@ -161,7 +149,7 @@ pub fn generate_files() {
                     Err(e) => {
                         print_fancy(&[
                             ("Failed to create example ", ORANGE, vec![]),
-                            (&format!("{}", filename), VIOLET, vec![]),
+                            (filename, VIOLET, vec![]),
                             (" file: ", ORANGE, vec![]),
                             (&format!("{}", e), RED, vec![]),
                         ], NewLine);
@@ -170,6 +158,7 @@ pub fn generate_files() {
             }
         }
 
+        /*
         // Extract ZIP file
         let file_path = Path::new("todos.zip");
         let file = File::open(&file_path).expect("Failed to open ZIP file");
@@ -220,6 +209,7 @@ pub fn generate_files() {
             ("ZIP file deleted ", CYAN, vec![]),
             ("successfully", GREEN, vec![]),
         ], NewLine);
+*/
 
         let path = env::current_dir().expect("Failed to get current directory");
         print_fancy(&[
