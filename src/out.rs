@@ -13,7 +13,6 @@ pub async fn setup() {
     let config_option = read_config(); if let Some(config) = config_option {
         let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
         let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
-        let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
         print_fancy(&[
             ("config.yml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
@@ -40,25 +39,6 @@ pub async fn setup() {
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.port), VIOLET, vec![]),
                 (&format!("http://{}", addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-            ], NewLine);
-        }
-        if config.todo_enabled {
-            print_fancy(&[
-                ("Todo", GREEN, vec![]),
-                (" is ", CYAN, vec![]),
-                ("Enabled", GREEN, vec![]),
-                ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.todo_ip), BLUE, vec![]),
-                (":", CYAN, vec![BOLD]),
-                (&format!("{}\n", config.todo_port), VIOLET, vec![]),
-                (&format!("http://{}\n", todoaddr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
-            ], NewLine);
-        } else {
-            print_fancy(&[
-                ("Todo", YELLOW, vec![]),
-                (" is ", CYAN, vec![]),
-                ("NOT", RED, vec![BOLD, ITALIC]),
-                (" Enabled\n", ORANGE, vec![]),
             ], NewLine);
         }
         match parse_upload_limit(&config.upload_size_limit).await {

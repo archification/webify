@@ -26,7 +26,6 @@ pub fn generate_files() {
             false
         }
     }
-
     print_fancy(&[
         ("Failed to read configuration\n", ORANGE, vec![]),
         ("Example environment can be created in the current active directory.\n", CYAN, vec![]),
@@ -157,60 +156,6 @@ pub fn generate_files() {
                 }
             }
         }
-
-        /*
-        // Extract ZIP file
-        let file_path = Path::new("todos.zip");
-        let file = File::open(&file_path).expect("Failed to open ZIP file");
-        let mut archive = ZipArchive::new(BufReader::new(file)).expect("Failed to read ZIP archive");
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).expect("Failed to access file in ZIP archive");
-            let file_name = file.name().to_string();
-            fn construct_safe_path(file_name: &str) -> PathBuf {
-                let mut path = PathBuf::new();
-                for component in Path::new(file_name).components() {
-                    match component {
-                        std::path::Component::Normal(comp) => path.push(comp),
-                        _ => {}
-                    }
-                }
-                path
-            }
-            let outpath = construct_safe_path(&file_name);
-            if file_name.ends_with('/') {
-                print_fancy(&[
-                    ("Directory ", CYAN, vec![]),
-                    ("extracted", GREEN, vec![]),
-                    (" to ", CYAN, vec![]),
-                    (&format!("{}", outpath.display()), VIOLET, vec![]),
-                ], NewLine);
-                std::fs::create_dir_all(&outpath).expect("Failed to create directory");
-            } else {
-                print_fancy(&[
-                    ("File ", CYAN, vec![]),
-                    (&format!("{}", i), VIOLET, vec![]),
-                    (" extracted ", GREEN, vec![]),
-                    ("to ", CYAN, vec![]),
-                    (&format!("{}", outpath.display()), VIOLET, vec![]),
-                ], NewLine);
-                if let Some(parent) = outpath.parent() {
-                    std::fs::create_dir_all(parent).expect("Failed to create directory");
-                }
-                let mut outfile = std::fs::File::create(&outpath).expect("Failed to create file");
-                std::io::copy(&mut file, &mut outfile).expect("Failed to copy file");
-            }
-        }
-        print_fancy(&[
-            ("ZIP archive ", CYAN, vec![]),
-            ("extracted", GREEN, vec![]),
-        ], NewLine);
-        std::fs::remove_file(file_path).expect("Failed to delete ZIP file");
-        print_fancy(&[
-            ("ZIP file deleted ", CYAN, vec![]),
-            ("successfully", GREEN, vec![]),
-        ], NewLine);
-*/
-
         let path = env::current_dir().expect("Failed to get current directory");
         print_fancy(&[
             ("\nSetup in ", CYAN, vec![]),

@@ -8,14 +8,12 @@ mod out;
 mod routes;
 mod upload;
 mod utils;
-mod todo;
 
 use crate::config::read_config;
 use crate::generate::*;
 use crate::help::print_help;
 use crate::out::setup;
 use crate::routes::app;
-use crate::todo::todoapp;
 
 use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
@@ -74,15 +72,6 @@ async fn main() {
             });
 
             server_task.await.unwrap();
-        }
-        if config.todo_enabled {
-            let todoaddr = format_address(config.todo_scope.as_str(), config.todo_ip.as_str(), config.todo_port);
-            let todo_listener = tokio::net::TcpListener::bind(&todoaddr).await.unwrap();
-            let todo_server = axum::serve(todo_listener, todoapp());
-            let todo_task = tokio::spawn(async {
-                todo_server.await.unwrap();
-            });
-            todo_task.await.unwrap();
         }
         if !config.ssl_enabled {
             let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
