@@ -23,7 +23,7 @@ pub async fn setup() {
                 (" is ", CYAN, vec![]),
                 ("Enabled\n", GREEN, vec![]),
                 ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.ip), BLUE, vec![]),
+                (&config.ip, BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.ssl_port), VIOLET, vec![]),
                 (&format!("https://{}\n", ssladdr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
@@ -35,7 +35,7 @@ pub async fn setup() {
                 ("NOT", RED, vec![BOLD, ITALIC]),
                 (" Enabled\n", ORANGE, vec![]),
                 ("\nAddress : Port\n", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-                (&format!("{}", config.ip), BLUE, vec![]),
+                (&config.ip, BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.port), VIOLET, vec![]),
                 (&format!("http://{}", addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
@@ -84,20 +84,20 @@ pub async fn setup() {
             ("Configured routes:", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
         ], NewLine);
         for (path, settings) in &config.routes {
-            let file = settings.get(0)
+            let file = settings.first()
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "No file specified".to_string());
             let media_info = if settings.len() > 1 {
-                format!("{}", settings[1])
+                settings[1].clone()
             } else {
                 "".to_string()
             };
             print_fancy(&[
-                (&format!("{}", path), BLUE, vec![]),
+                (path, BLUE, vec![]),
                 (" -> ", CYAN, vec![]),
-                (&format!("{}", &file), VIOLET, vec![]),
+                (&file, VIOLET, vec![]),
                 (" -> ", CYAN, vec![]),
-                (&format!("{}", &media_info), MAGENTA, vec![]),
+                (&media_info, MAGENTA, vec![]),
             ], NewLine);
         }
         let path = env::current_dir().expect("asdf");
