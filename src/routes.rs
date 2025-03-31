@@ -57,6 +57,7 @@ pub async fn app(config: &Config) -> Router {
         .merge(routes_static())
         .merge(routes_uploads())
         .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
+        .nest_service("/styles", ServeDir::new("styles"))
         .fallback(get(not_found));
     for (path, settings) in &config.routes {
         if let Some(file_path) = settings.get(0) {

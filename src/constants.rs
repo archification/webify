@@ -7,9 +7,9 @@ ssl_enabled = false
 ssl_port = 12345
 ssl_cert_path = "pems/cert.pem"
 ssl_key_path = "pems/key.pem"
-upload_size_limit = 2000000000 # Default of 2000000000 bytes is 2 GB (2 * 1000 * 1000 * 1000)
+upload_size_limit = 2147483648 # 2 GB (2 * 1024 * 1024 * 1024)
 #upload_size_limit = "disabled" # allows any size
-upload_storage_limit = 2000000000
+upload_storage_limit = 2147483648
 browser = false
 
 [routes]
