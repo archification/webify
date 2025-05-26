@@ -11,7 +11,7 @@ The config.toml file allows us to determine paths to web routes and local files,
 ## Features
 - Configuration via a toml config file including routes, paths, ip, and port.
 - SSL support.
-- HTMX todo page.
+- HTMX todo page. (feature currently absent)
 - Server exists as a single binary for portability.
 - Can open the default system browser to the configured home page on launch.
 

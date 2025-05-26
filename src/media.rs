@@ -65,20 +65,21 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
             } else {
                 indentation
             };
+            let linebreak = "\n";
             if is_video_file(&file) {
-                format!("{}<video controls><source src='/static/{}/{}' type='video/{}'></video>{}", indent, media_route, file, get_video_mime_type(&file), file)
+                format!("{}<video controls><source src='/static/{}/{}' type='video/{}'></video>{}{}", indent, media_route, file, get_video_mime_type(&file), file, linebreak)
             } else if is_audio_file(&file) {
-                format!("{}<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", indent, media_route, file, get_audio_mime_type(&file))
+                format!("{}<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>{}", indent, media_route, file, get_audio_mime_type(&file), linebreak)
             } else if is_pdf_file(&file) {
-                format!("{}<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", indent, media_route, file)
+                format!("{}<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>{}", indent, media_route, file, linebreak)
             } else if is_image_file(&file) {
-                format!("{}<img src='/static/{}/{}'>", indent, media_route, file)
+                format!("{}<img src='/static/{}/{}'>{}", indent, media_route, file, linebreak)
             } else if is_zip_file(&file) {
-                format!("{}<a href=\"/static/{}/{}\" download>{}</a>", indent, media_route, file, file)
+                format!("{}<a href=\"/static/{}/{}\" download>{}</a>{}", indent, media_route, file, file, linebreak)
             } else {
                 format!("")
             }
-        }).collect::<Vec<_>>().join("\n");
+        }).collect::<Vec<_>>().join("");
         let js_playlist = format!("const predefinedTracks = [{}];", audio_files);
         let mut new_content = content.clone();
         if let Some(_media_insertion_point) = new_content.find("<!-- MEDIA_INSERTION_POINT -->") {

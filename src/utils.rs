@@ -19,7 +19,7 @@ pub fn is_image_file(file_name: &str) -> bool {
 }
 
 pub fn is_video_file(file_name: &str) -> bool {
-    file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg")
+    file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg") || file_name.ends_with(".mkv")
 }
 
 pub fn is_audio_file(file_name: &str) -> bool {
@@ -35,7 +35,7 @@ pub fn is_zip_file(file_name: &str) -> bool {
 }
 
 pub fn get_video_mime_type(file_name: &str) -> &str {
-    if file_name.ends_with(".mp4") {
+    if file_name.ends_with(".mp4") || file_name.ends_with(".mkv") {
         "mp4"
     } else if file_name.ends_with(".webm") {
         "webm"
