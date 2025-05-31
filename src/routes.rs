@@ -1,6 +1,6 @@
 use std::fs;
 use axum::{
-    extract::DefaultBodyLimit,
+    extract::{DefaultBodyLimit, Query},
     routing::{
         get, post, get_service
     },
@@ -10,6 +10,7 @@ use axum::{
     Router
 };
 use tower_http::services::{ServeDir, ServeFile};
+use serde::Deserialize;
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
@@ -20,6 +21,127 @@ use solarized::{
     BOLD,
     PrintMode::NewLine,
 };
+
+#[derive(Debug, Deserialize)]
+struct SlideQuery {
+    current: Option<usize>,
+}
+
+async fn read_slides(slides_dir: &str) -> Result<Vec<String>, std::io::Error> {
+    let mut dir = tokio::fs::read_dir(slides_dir).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = dir.next_entry().await? {
+        let path = entry.path();
+        if path.is_file()
+            && path.extension().and_then(|e| e.to_str()) == Some("txt")
+            && let Some(filename) = path.file_name().and_then(|f| f.to_str())
+        {
+            entries.push(filename.to_owned());
+        }
+    }
+    entries.sort_by(|a, b| {
+        let a_num = a.trim_end_matches(".txt").parse::<usize>().unwrap_or(0);
+        let b_num = b.trim_end_matches(".txt").parse::<usize>().unwrap_or(0);
+        a_num.cmp(&b_num)
+    });
+    Ok(entries)
+}
+
+async fn parse_slide_file(slide_path: &str) -> Result<(String, String), std::io::Error> {
+    let content = tokio::fs::read_to_string(slide_path).await?;
+    let mut lines = content.lines();
+    let image_path = lines.next().unwrap_or_default().to_string();
+    let text = lines.collect::<Vec<_>>().join("\n");
+    Ok((image_path, text))
+}
+
+async fn handle_slideshow(
+    Query(query): Query<SlideQuery>,
+    slides_dir: &str,
+) -> Html<String> {
+    let slides = match read_slides(slides_dir).await {
+        Ok(s) => s,
+        Err(e) => return Html(format!("Error reading slides directory: {}", &e)),
+    };
+    if slides.is_empty() {
+        return Html("No slides found".to_string());
+    }
+    let current = query.current.unwrap_or(0);
+    let total = slides.len();
+    let current_index = current % total;
+    let slide_file = format!("{}/{}", slides_dir, slides[current_index]);
+    let (image_path, content) = match parse_slide_file(&slide_file).await {
+        Ok((ip, c)) => (ip, c),
+        Err(e) => return Html(format!("Error reading slide file: {}", &e)),
+    };
+    let next_index = (current_index + 1) % total;
+    let html = format!(
+        r#"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <div id="countdown">Redirecting in 30...</div>
+            <button onclick="skipRedirect()" id="skipBtn">Skip Now</button>
+
+            <script>
+            let countdownTimer;
+            let seconds = 30;
+
+            // Start the countdown automatically when page loads
+            window.onload = function() {{
+                countdownTimer = setInterval(() => {{
+                    seconds--;
+                    document.getElementById("countdown").textContent = `Redirecting in ${{seconds}}...`;
+                    if (seconds <= 0) {{
+                        clearInterval(countdownTimer);
+                        performRedirect();
+                    }}
+                }}, 1000);
+            }};
+
+            function skipRedirect() {{
+                clearInterval(countdownTimer);
+                performRedirect();
+            }}
+
+            function performRedirect() {{
+                window.location.href = `?current={next_index}`;
+            }}
+            </script>
+
+            <style>
+            #skipBtn {{
+                padding: 8px 16px;
+                background: #28a745;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 10px;
+            }}
+
+            #skipBtn:hover {{
+                background: #218838;
+            }}
+
+            #countdown {{
+                margin: 20px 0;
+                font-size: 1.2em;
+            }}
+            </style>
+
+            <link rel="stylesheet" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+        </head>
+        <body>
+            <img src="/static/{image_path}" style="max-width: 100%; height: auto;">
+            <pre>{content}</pre>
+        </body>
+        </html>
+        "#
+    );
+
+    Html(html)
+}
 
 async fn not_found() -> impl IntoResponse {
     let file_path = "static/error.html";
@@ -62,9 +184,19 @@ pub async fn app(config: &Config) -> Router {
         .nest_service("/images", ServeDir::new("images"))
         .fallback(get(not_found));
     for (path, settings) in &config.routes {
-        if let Some(file_path) = settings.get(0) {
-            let media_route = path.trim_start_matches('/');
-            if let Some(media_dir) = settings.get(1) {
+        match settings.as_slice() {
+            [settings_type, slides_dir] if settings_type == "slideshow" => {
+                let slides_dir_clone = slides_dir.clone();
+                router = router.route(
+                    path,
+                    get(move |query: Query<SlideQuery>| {
+                        let dir = slides_dir_clone.clone();
+                        async move { handle_slideshow(query, &dir).await }
+                    }),
+                );
+            }
+            [file_path, media_dir] => {
+                let media_route = path.trim_start_matches('/');
                 let file_clone = file_path.clone();
                 let media_dir_clone = media_dir.clone();
                 let media_route_clone = media_route.to_string();
@@ -78,8 +210,9 @@ pub async fn app(config: &Config) -> Router {
                 }));
                 let serve_dir = ServeDir::new(media_dir);
                 router = router
-                    .nest_service(&format!("/static/{}", media_route), serve_dir);
-            } else {
+                    .nest_service(&format!("/static/{media_route}"), serve_dir);
+            }
+            [file_path] => {
                 let file_clone = file_path.clone();
                 router = router.route(path, get(move || {
                     async move {
@@ -87,6 +220,7 @@ pub async fn app(config: &Config) -> Router {
                     }
                 }));
             }
+            _ => {}
         }
     }
     let something = config.upload_storage_limit;

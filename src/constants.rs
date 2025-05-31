@@ -20,6 +20,7 @@ browser = false
 "/playlists" = ["static/playlists.html", "static/audio/"]
 "/upload" = ["static/upload.html"]
 "/files" = ["static/uploads.html", "uploads"]
+"/slideshow" = ["slideshow", "static/slides"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
@@ -250,4 +251,12 @@ pub static FILES: &str = r#"<!doctype html>
     <a href="/upload">Upload File</a>
 </body>
 </html>
+"#;
+pub static EXAMPLE_FIRST_SLIDE: &str = r#"images/elf.jpg
+
+This is a text example.
+"#;
+pub static EXAMPLE_SECOND_SLIDE: &str = r#"images/elf.jpg
+
+This is the second slide.
 "#;
