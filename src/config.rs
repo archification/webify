@@ -22,6 +22,8 @@ pub struct Config {
     pub upload_storage_limit: Option<u64>,
     pub browser: bool,
     pub routes: HashMap<String, Vec<String>>,
+    pub slideshow_autoplay: bool,
+    pub slideshow_timer: u64,
 }
 
 pub fn read_config() -> Option<Config> {

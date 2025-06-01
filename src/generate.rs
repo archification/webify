@@ -55,7 +55,7 @@ pub fn generate_files() {
                 Err(e) => {
                     print_fancy(&[
                         ("Failed to create example config.toml file: ", ORANGE, vec![]),
-                        (&format!("{}", e), RED, vec![]),
+                        (&format!("{}", &e), RED, vec![]),
                     ], NewLine);
                 }
             }
@@ -85,14 +85,14 @@ pub fn generate_files() {
                     }
                     Err(e) => {
                         print_fancy(&[
-                            (&format!("Error creating {}: ", description), ORANGE, vec![]),
-                            (&format!("{}", e), RED, vec![]),
+                            (&format!("Error creating {}: ", &description), ORANGE, vec![]),
+                            (&format!("{}", &e), RED, vec![]),
                         ], NewLine);
                     }
                 }
             } else {
                 print_fancy(&[
-                    (&format!("{} already exists", description), YELLOW, vec![]),
+                    (&format!("{} already exists", &description), YELLOW, vec![]),
                 ], NewLine);
             }
         }
@@ -105,8 +105,8 @@ pub fn generate_files() {
             ("static/upload.html", UPLOAD, "upload.html"),
             ("static/uploads.html", FILES, "uploads.html"),
             ("static/error.html", EXAMPLE_ERROR, "error.html"),
-            ("static/slides/1.txt", EXAMPLE_FIRST_SLIDE, "1.txt"),
-            ("static/slides/2.txt", EXAMPLE_SECOND_SLIDE, "2.txt"),
+            ("static/slides/1.md", EXAMPLE_FIRST_SLIDE, "1.md"),
+            ("static/slides/2.md", EXAMPLE_SECOND_SLIDE, "2.md"),
         ];
         for (file_path, contents, filename) in text_files.iter() {
             let path = Path::new(file_path);
@@ -126,7 +126,7 @@ pub fn generate_files() {
                             ("Failed to create example ", ORANGE, vec![]),
                             (filename, VIOLET, vec![]),
                             (" file: ", ORANGE, vec![]),
-                            (&format!("{}", e), RED, vec![]),
+                            (&format!("{}", &e), RED, vec![]),
                         ], NewLine);
                     }
                 }
@@ -154,7 +154,7 @@ pub fn generate_files() {
                             ("Failed to create example ", ORANGE, vec![]),
                             (filename, VIOLET, vec![]),
                             (" file: ", ORANGE, vec![]),
-                            (&format!("{}", e), RED, vec![]),
+                            (&format!("{}", &e), RED, vec![]),
                         ], NewLine);
                     }
                 }

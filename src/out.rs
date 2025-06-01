@@ -105,5 +105,13 @@ pub async fn setup() {
             ("\nServer running in ", CYAN, vec![]),
             (&format!("{}\n", path.display()), VIOLET, vec![]),
         ], NewLine);
+        print_fancy(&[
+            ("Slideshow autoplay: ", CYAN, vec![]),
+            (&format!("{}", config.slideshow_autoplay), VIOLET, vec![]),
+        ], NewLine);
+        print_fancy(&[
+            ("Slideshow timer: ", CYAN, vec![]),
+            (&format!("{} seconds", config.slideshow_timer), VIOLET, vec![]),
+        ], NewLine);
     }
 }

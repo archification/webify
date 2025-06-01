@@ -11,6 +11,8 @@ upload_size_limit = 2147483648 # 2 GB (2 * 1024 * 1024 * 1024)
 #upload_size_limit = "disabled" # allows any size
 upload_storage_limit = 2147483648
 browser = false
+slideshow_autoplay = false
+slideshow_timer = 20
 
 [routes]
 "/" = ["static/home.html"]
@@ -252,11 +254,33 @@ pub static FILES: &str = r#"<!doctype html>
 </body>
 </html>
 "#;
-pub static EXAMPLE_FIRST_SLIDE: &str = r#"images/elf.jpg
+pub static EXAMPLE_FIRST_SLIDE: &str = r#"# Welcome to the Slideshow
 
-This is a text example.
+## Created with reveal.js
+
+- Supports **markdown** formatting
+- Code highlighting
+- Keyboard navigation
+- Responsive design
+
+```rust
+fn main() {
+    println!("Hello there.");
+}
+```
+"Simple is better than complex"
 "#;
-pub static EXAMPLE_SECOND_SLIDE: &str = r#"images/elf.jpg
+pub static EXAMPLE_SECOND_SLIDE: &str = r#"## Solarized Theme
 
-This is the second slide.
+* **Dark background** for comfortable viewing
+* Complementary accent colors
+* Clean typography
+
+```python
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        yield a
+        a, b = b, a + b
+```
 "#;
