@@ -283,4 +283,7 @@ def fibonacci(n):
         yield a
         a, b = b, a + b
 ```
+[some other slide](slideshow?current=0)
+
+![image](static/images/localImage.jpg)
 "#;

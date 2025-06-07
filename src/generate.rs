@@ -105,8 +105,8 @@ pub fn generate_files() {
             ("static/upload.html", UPLOAD, "upload.html"),
             ("static/uploads.html", FILES, "uploads.html"),
             ("static/error.html", EXAMPLE_ERROR, "error.html"),
-            ("static/slides/1.md", EXAMPLE_FIRST_SLIDE, "1.md"),
-            ("static/slides/2.md", EXAMPLE_SECOND_SLIDE, "2.md"),
+            ("static/slides/0.md", EXAMPLE_FIRST_SLIDE, "0.md"),
+            ("static/slides/1.md", EXAMPLE_SECOND_SLIDE, "1.md"),
         ];
         for (file_path, contents, filename) in text_files.iter() {
             let path = Path::new(file_path);
