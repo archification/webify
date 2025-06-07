@@ -8,6 +8,7 @@ mod out;
 mod routes;
 mod upload;
 mod utils;
+mod slideshow;
 
 use crate::config::read_config;
 use crate::generate::*;
