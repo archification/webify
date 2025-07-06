@@ -109,6 +109,8 @@ pub static EXAMPLE_DOWNLOADS: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
     <div class="container">
         <h1>Welcome to the downloads page.</h1>
         <p>This page hosts files for download.</p>
@@ -127,6 +129,8 @@ pub static EXAMPLE_ERROR: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
     <h1>ERROR</h1>
     <p>This page does not exist.</p>
 </body>
@@ -148,6 +152,8 @@ pub static PLAYLISTS: &str = r#"<!doctype html>
     </style>
 </head>
 <body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
     <h1>Audio Player</h1>
     <audio id="audioPlayer" controls autoplay></audio>
     <script>
@@ -186,6 +192,8 @@ pub static UPLOAD: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
     <h1>Upload a file</h1>
     <form id="uploadForm" enctype="multipart/form-data">
         <input type="file" id="fileInput" name="file" required>
@@ -244,6 +252,8 @@ pub static FILES: &str = r#"<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
     <div class="container">
         <h1>Welcome to the uploads page</h1>
         <p>This page shows the uploaded files.</p>
