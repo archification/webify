@@ -13,16 +13,19 @@ axum = { version = "0.8.1", features = ["multipart"] }
 axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 axum-server-dual-protocol = "0.7.0"
 bytes = "1.10.0"
+crossterm = "0.29.0"
 futures = "0.3.31"
 headers = "0.4.0"
 nix = "0.30.1"
 pulldown-cmark = "0.13.0"
 rand = "0.9.0"
+ratatui = "0.29.0"
 reqwest = { version = "0.12.20", features = ["blocking"] }
 sanitize-filename = "0.6.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 solarized = { git = "https://github.com/archification/solarized.git", branch = "main" }
+tachyonfx = "0.15.0"
 tempfile = "3.20.0"
 tokio = { version = "1.43.0", features = ["full"] }
 toml = "0.8.20"
