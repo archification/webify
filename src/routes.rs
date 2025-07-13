@@ -16,6 +16,7 @@ use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
 use crate::limits::parse_upload_limit;
+use crate::thumbnail::generate_thumbnail;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -56,6 +57,7 @@ fn routes_uploads() -> Router {
 
 pub async fn app(config: &Config) -> Router {
     let mut router = Router::new()
+        .route("/thumbnail/{*path}", get(generate_thumbnail))
         .merge(routes_static())
         .merge(routes_uploads())
         .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))

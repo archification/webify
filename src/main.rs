@@ -9,6 +9,7 @@ mod routes;
 mod upload;
 mod utils;
 mod slideshow;
+mod thumbnail;
 
 use crate::config::read_config;
 use crate::generate::*;
