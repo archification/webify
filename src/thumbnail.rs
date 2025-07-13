@@ -7,22 +7,20 @@ use axum::{
 use image::{ImageReader, ImageFormat};
 use std::io::Cursor;
 
-// Define a standard size for thumbnails
 const THUMBNAIL_WIDTH: u32 = 150;
 const THUMBNAIL_HEIGHT: u32 = 150;
 
 pub async fn generate_thumbnail(Path(path): Path<String>) -> impl IntoResponse {
     println!("thumbnail is generating");
-    let image_path = format!("{}", &path);
 
     // Read the image file from the disk
-    let image_bytes = match tokio::fs::read(&image_path).await {
+    let image_bytes = match tokio::fs::read(&path).await {
         Ok(bytes) => bytes,
         Err(_) => {
-            println!("ERROR: Could not find image at path: {}", &image_path);
+            println!("ERROR: Could not find image at path: {}", &path);
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body(Body::from(format!("Image not found at path: {}", &image_path)))
+                .body(Body::from(format!("Image not found at path: {}", &path)))
                 .unwrap();
         }
     };
