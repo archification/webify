@@ -32,7 +32,7 @@ pub fn read_config() -> Option<Config> {
         Err(e) => {
             print_fancy(&[
                 ("\nError reading config file in read_config\n", ORANGE, vec![]),
-                (&format!("{}", e), RED, vec![BOLD])
+                (&format!("{}", &e), RED, vec![BOLD])
             ], NewLine);
             return None;
         }
@@ -42,7 +42,7 @@ pub fn read_config() -> Option<Config> {
         Err(e) => {
             print_fancy(&[
                 ("Error parsing config file in read_config\n\n", ORANGE, vec![]),
-                (&format!("{}", e), RED, vec![BOLD])
+                (&format!("{}", &e), RED, vec![BOLD])
             ], NewLine);
             None
         }

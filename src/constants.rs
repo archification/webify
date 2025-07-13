@@ -76,7 +76,39 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
         <h1>Welcome to the stuff page.</h1>
         <p>This page shows media files as thumbnails.</p>
         <p>This page shows media files.</p>
-        </div>
+    </div>
+</body>
+</html>
+"#;
+pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>guacamole</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <style>
+    img, video {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>PDF Document</h1>
+    <a href="/pdf">documents</a>
+
+    <h1>Home Page</h1>
+    <a href="/">home</a>
+
+    <div class="container">
+        <h1>Welcome to the stuff page.</h1>
+        <p>This page shows media files as thumbnails.</p>
+        <p>This page shows media files.</p>
+    </div>
 </body>
 </html>
 "#;
