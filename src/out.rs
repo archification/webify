@@ -26,7 +26,7 @@ pub async fn setup() {
                 (&config.ip, BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.ssl_port), VIOLET, vec![]),
-                (&format!("https://{}\n", ssladdr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("https://{}\n", &ssladdr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         } else {
             print_fancy(&[
@@ -38,14 +38,14 @@ pub async fn setup() {
                 (&config.ip, BLUE, vec![]),
                 (":", CYAN, vec![BOLD]),
                 (&format!("{}\n", config.port), VIOLET, vec![]),
-                (&format!("http://{}", addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
+                (&format!("http://{}", &addr), GREEN, vec![BOLD, ITALIC, UNDERLINED]),
             ], NewLine);
         }
         match parse_upload_limit(&config.upload_size_limit).await {
             Ok(num) => {
                 print_fancy(&[
                     ("Upload limit size: ", CYAN, vec![]),
-                    (&format!("{}", num), CYAN, vec![]),
+                    (&format!("{}", &num), CYAN, vec![]),
                 ], NewLine);
             },
             Err("disabled") => {
@@ -65,7 +65,7 @@ pub async fn setup() {
             Ok(num) => {
                 print_fancy(&[
                     ("Upload limit storage: ", CYAN, vec![]),
-                    (&format!("{}", num), CYAN, vec![]),
+                    (&format!("{}", &num), CYAN, vec![]),
                     ("\n", CYAN, vec![]),
                 ], NewLine);
             }
@@ -77,7 +77,7 @@ pub async fn setup() {
                 ], NewLine);
             }
             Err(err) => {
-                eprintln!("Error parsing upload limit: {}", err);
+                eprintln!("Error parsing upload limit: {}", &err);
             }
         }
         print_fancy(&[

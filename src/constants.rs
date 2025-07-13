@@ -74,9 +74,9 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
 
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
+        <p>This page shows media files as thumbnails.</p>
         <p>This page shows media files.</p>
-        <!-- MEDIA_INSERTION_POINT -->
-    </div>
+        </div>
 </body>
 </html>
 "#;
@@ -95,8 +95,7 @@ pub static EXAMPLE_PDF: &str = r#"<!doctype html>
 
     <h1>Home Page</h1>
     <a href="/">home</a>
-    <!-- MEDIA_INSERTION_POINT -->
-</body>
+    </body>
 </html>
 "#;
 pub static EXAMPLE_DOWNLOADS: &str = r#"<!doctype html>
@@ -114,8 +113,7 @@ pub static EXAMPLE_DOWNLOADS: &str = r#"<!doctype html>
     <div class="container">
         <h1>Welcome to the downloads page.</h1>
         <p>This page hosts files for download.</p>
-        <!-- MEDIA_INSERTION_POINT -->
-    </div>
+        </div>
 </body>
 </html>
 "#;
@@ -157,7 +155,6 @@ pub static PLAYLISTS: &str = r#"<!doctype html>
     <h1>Audio Player</h1>
     <audio id="audioPlayer" controls autoplay></audio>
     <script>
-        <!-- JS_INSERTION_POINT -->
         let trackIndex = 0;
         const audioPlayer = document.getElementById('audioPlayer');
         function playTrack(trackIndex) {
@@ -257,8 +254,7 @@ pub static FILES: &str = r#"<!doctype html>
     <div class="container">
         <h1>Welcome to the uploads page</h1>
         <p>This page shows the uploaded files.</p>
-        <!-- MEDIA_INSERTION_POINT -->
-    </div>
+        </div>
     <h1>Upload More Files</h1>
     <a href="/upload">Upload File</a>
 </body>
