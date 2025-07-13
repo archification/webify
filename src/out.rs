@@ -14,7 +14,7 @@ pub async fn setup() {
         let ssladdr = format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
         let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
         print_fancy(&[
-            ("config.yml ", CYAN, vec![]),
+            ("config.toml ", CYAN, vec![]),
             ("found", GREEN, vec![]),
         ], NewLine);
         if config.ssl_enabled {
