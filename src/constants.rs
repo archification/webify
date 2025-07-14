@@ -17,6 +17,7 @@ slideshow_timer = 20
 [routes]
 "/" = ["static/home.html"]
 "/stuff" = ["static/stuff.html", "static/media"]
+"/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]
 "/playlists" = ["static/playlists.html", "static/audio/"]
@@ -39,6 +40,9 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Image and Video</h1>
     <a href="/stuff">stuff</a>
+
+    <h1>Thumbnails</h1>
+    <a href="/thumb">thumb</a>
 
     <h1>Upload</h1>
     <a href="/upload">upload</a>
@@ -74,8 +78,8 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
 
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
-        <p>This page shows media files as thumbnails.</p>
         <p>This page shows media files.</p>
+        <!-- MEDIA_INSERTION_POINT -->
     </div>
 </body>
 </html>
@@ -107,7 +111,7 @@ pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
     <div class="container">
         <h1>Welcome to the stuff page.</h1>
         <p>This page shows media files as thumbnails.</p>
-        <p>This page shows media files.</p>
+        <!-- THUMBNAIL_INSERTION_POINT -->
     </div>
 </body>
 </html>

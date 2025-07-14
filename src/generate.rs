@@ -99,6 +99,7 @@ pub fn generate_files() {
         let text_files = [
             ("static/home.html", EXAMPLE_HOME, "home.html"),
             ("static/stuff.html", EXAMPLE_STUFF, "stuff.html"),
+            ("static/thumb.html", EXAMPLE_THUMB, "thumb.html"),
             ("static/pdf.html", EXAMPLE_PDF, "pdf.html"),
             ("static/downloads.html", EXAMPLE_DOWNLOADS, "downloads.html"),
             ("static/playlists.html", PLAYLISTS, "playlists.html"),

@@ -67,7 +67,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         let newline_index = content[..insertion_point].rfind('\n').unwrap_or(0);
         let indentation = &content[newline_index+1..insertion_point];
         let thumbnail_tags = media_files.iter().filter(|file| is_image_file(file)).map(|file| {
-            format!("{}<a href='/static/{}/{}'><img src='/thumbnail/{}{}'></a>\n", &indentation, media_route, file, media_dir, file)
+            format!("{}<a href='/static/{}/{}'><img src='/thumbnail/{}/{}'></a>\n", &indentation, media_route, file, media_dir, file)
         }).collect::<String>();
         content = content.replacen("<!-- THUMBNAIL_INSERTION_POINT -->", &thumbnail_tags, 1);
     }
