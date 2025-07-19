@@ -15,7 +15,7 @@ pub async fn render_error_page() -> Html<String> {
     }
 }
 
-pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_route: &str) -> Html<String> {
+pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_route: &str, sort_method: Option<&str>) -> Html<String> {
     let mut content = match fs::read_to_string(file_path) {
         Ok(c) => c,
         Err(e) => {
@@ -38,7 +38,18 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
             return Html(content);
         }
     };
-    media_files.shuffle(&mut rng());
+
+    match sort_method {
+        Some("random") => {
+            media_files.shuffle(&mut rng());
+        }
+        Some("alphanumeric") => {
+            media_files.sort();
+        }
+        _ => {
+            media_files.sort();
+        }
+    }
 
     if let Some(insertion_point) = content.find("<!-- MEDIA_INSERTION_POINT -->") {
         let newline_index = content[..insertion_point].rfind('\n').unwrap_or(0);

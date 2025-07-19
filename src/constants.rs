@@ -16,7 +16,7 @@ slideshow_timer = 20
 
 [routes]
 "/" = ["static/home.html"]
-"/stuff" = ["static/stuff.html", "static/media"]
+"/stuff" = ["static/stuff.html", "static/media", "random"]
 "/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]

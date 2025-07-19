@@ -81,17 +81,20 @@ pub async fn app(config: &Config) -> Router {
                     }),
                 );
             }
-            [file_path, media_dir] => {
+            [file_path, media_dir, ..] => {
+                let sort_method = settings.get(2).map(|s| s.as_str());
                 let media_route = path.trim_start_matches('/');
                 let file_clone = file_path.clone();
                 let media_dir_clone = media_dir.clone();
                 let media_route_clone = media_route.to_string();
+                let sort_method_clone = sort_method.map(|s| s.to_string());
                 router = router.route(path, get(move || {
                     let file = file_clone.clone();
                     let media = media_dir_clone.clone();
                     let route = media_route_clone.clone();
+                    let sort = sort_method_clone.clone();
                     async move {
-                        render_html_with_media(&file, &media, &route).await
+                        render_html_with_media(&file, &media, &route, sort.as_deref()).await
                     }
                 }));
                 let serve_dir = ServeDir::new(media_dir);
