@@ -170,11 +170,16 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
 <head>
     <title>{}</title>
     <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/solarized-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
 </head>
 <body>
-    <a href="/blog">Back to Blog</a>
-    <hr>
-    {}
+    <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+        <a href="/blog">← Back to All Posts</a>
+        <hr>
+        {}
+    </div>
 </body>
 </html>
     "#, post_name, html_output);
