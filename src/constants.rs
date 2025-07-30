@@ -329,3 +329,36 @@ def fibonacci(n):
 
 ![image](static/images/localImage.jpg)
 "#;
+pub static EXAMPLE_FIRST_POST: &str = r#"# Welcome to the Slideshow
+
+## Created with reveal.js
+
+- Supports **markdown** formatting
+- Code highlighting
+- Keyboard navigation
+- Responsive design
+
+```rust
+fn main() {
+    println!("Hello there.");
+}
+```
+"Simple is better than complex"
+"#;
+pub static EXAMPLE_SECOND_POST: &str = r#"## Solarized Theme
+
+* **Dark background** for comfortable viewing
+* Complementary accent colors
+* Clean typography
+
+```python
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        yield a
+        a, b = b, a + b
+```
+[some other slide](slideshow?current=0)
+
+![image](static/images/localImage.jpg)
+"#;

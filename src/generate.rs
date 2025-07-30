@@ -69,6 +69,7 @@ pub fn generate_files() {
             ("static/files", "static/files folder"),
             ("static/documents", "static/documents folder"),
             ("static/slides", "static/slides folder"),
+            ("static/posts", "static/posts folder"),
         ];
         for (dir, description) in directories.iter() {
             let dir_path = Path::new(dir);
@@ -108,6 +109,8 @@ pub fn generate_files() {
             ("static/error.html", EXAMPLE_ERROR, "error.html"),
             ("static/slides/0.md", EXAMPLE_FIRST_SLIDE, "0.md"),
             ("static/slides/1.md", EXAMPLE_SECOND_SLIDE, "1.md"),
+            ("static/posts/Rust.md", EXAMPLE_FIRST_POST, "Rust.md"),
+            ("static/posts/Python.md", EXAMPLE_SECOND_POST, "Python.md"),
         ];
         for (file_path, contents, filename) in text_files.iter() {
             let path = Path::new(file_path);
