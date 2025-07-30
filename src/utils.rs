@@ -55,3 +55,7 @@ pub fn get_audio_mime_type(file_name: &str) -> &str {
         "unknown"
     }
 }
+
+pub fn is_markdown_file(file_name: &str) -> bool {
+    file_name.ends_with(".md")
+}

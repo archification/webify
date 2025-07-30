@@ -3,6 +3,7 @@ use std::fs;
 use crate::utils::{
     read_media_files,
     is_image_file, is_video_file, is_audio_file, is_pdf_file, is_zip_file,
+    is_markdown_file,
     get_video_mime_type, get_audio_mime_type
 };
 use rand::{seq::SliceRandom, rng};
@@ -67,6 +68,9 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
                 format!("{}<img src='/static/{}/{}'>{}", &indent, media_route, file, linebreak)
             } else if is_zip_file(file) {
                 format!("{}<a href=\"/static/{}/{}\" download>{}</a>{}", &indent, media_route, file, file, linebreak)
+            } else if is_markdown_file(file) {
+                let post_name = file.trim_end_matches(".md");
+                format!("{}<a href='/blog/{}'><h2>{}</h2></a>{}", &indent, post_name, post_name, linebreak)
             } else {
                 "".to_string()
             }

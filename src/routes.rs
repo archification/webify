@@ -1,8 +1,6 @@
 use std::fs;
-use crate::slideshow::handle_slideshow;
-use crate::slideshow::SlideQuery;
 use axum::{
-    extract::{DefaultBodyLimit, Query},
+    extract::{Path, DefaultBodyLimit, Query},
     routing::{
         get, post, get_service
     },
@@ -12,11 +10,14 @@ use axum::{
     Router
 };
 use tower_http::services::{ServeDir, ServeFile};
+use pulldown_cmark::{Parser, Options, html};
 use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
 use crate::limits::parse_upload_limit;
 use crate::thumbnail::generate_thumbnail;
+use crate::slideshow::handle_slideshow;
+use crate::slideshow::SlideQuery;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -58,6 +59,7 @@ fn routes_uploads() -> Router {
 pub async fn app(config: &Config) -> Router {
     let mut router = Router::new()
         .route("/thumbnail/{*path}", get(generate_thumbnail))
+        .route("/blog/{post_name}", get(render_post))
         .merge(routes_static())
         .merge(routes_uploads())
         .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
@@ -148,4 +150,33 @@ pub async fn app(config: &Config) -> Router {
         }
     }
     router
+}
+
+async fn render_post(Path(post_name): Path<String>) -> Html<String> {
+    let file_path = format!("static/posts/{}.md", post_name);
+    let markdown_content = match fs::read_to_string(&file_path) {
+        Ok(content) => content,
+        Err(_) => return Html("Post not found".to_string()),
+    };
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TABLES);
+    let parser = Parser::new_ext(&markdown_content, options);
+    let mut html_output = String::new();
+    html::push_html(&mut html_output, parser);
+    let template = format!(r#"
+<!doctype html>
+<html>
+<head>
+    <title>{}</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+</head>
+<body>
+    <a href="/blog">Back to Blog</a>
+    <hr>
+    {}
+</body>
+</html>
+    "#, post_name, html_output);
+    Html(template)
 }

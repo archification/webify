@@ -49,8 +49,7 @@ async fn main() {
         &[VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA],
         NewLine,
     );
-    let config_option = read_config();
-    if let Some(config) = config_option {
+    if let Some(config) = read_config() {
         setup().await;
         let app = app(&config).await;
         if config.ssl_enabled {
