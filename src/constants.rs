@@ -376,14 +376,12 @@ def fibonacci(n):
 
 ![image](static/images/localImage.jpg)
 "#;
-pub static EXAMPLE_FIRST_POST: &str = r#"# Welcome to the Slideshow
+pub static EXAMPLE_FIRST_POST: &str = r#"## Welcome to the post
 
-## Created with reveal.js
-
-- Supports **markdown** formatting
-- Code highlighting
-- Keyboard navigation
-- Responsive design
+* Supports **markdown** formatting
+* Code highlighting
+* Keyboard navigation
+* Responsive design
 
 ```rust
 fn main() {

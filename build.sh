@@ -1,9 +1,17 @@
 #!/bin/bash
 
 #export OPENSSL_DIR=$(dirname $(dirname $(which openssl)))
-#export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
+#export PKG_CONFIG_PATH=/usr/lib/pkgconfig
 
-RUSTFLAGS="-Zlocation-detail=none" cargo build --release
+#cargo install cross --git https://github.com/cross-rs/cross
+
+# linux
+#RUSTFLAGS="-Zlocation-detail=none" cargo build --release
+RUSTFLAGS="-Zlocation-detail=none" cross build --target x86_64-unknown-linux-musl --release
+# windows
 #RUSTFLAGS="-Zlocation-detail=none" cargo build --target x86_64-pc-windows-gnu --release --verbose
-upx --best --lzma target/release/webify
+#RUSTFLAGS="-Zlocation-detail=none" cross build --target x86_64-pc-windows-gnu --release --verbose
+
+#upx --best --lzma target/release/webify
+upx --best --lzma target/x86_64-unknown-linux-musl/release/webify
 #upx --best --lzma target/x86_64-pc-windows-gnu/release/webify.exe
