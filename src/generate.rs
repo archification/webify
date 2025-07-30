@@ -102,6 +102,7 @@ pub fn generate_files() {
             ("static/stuff.html", EXAMPLE_STUFF, "stuff.html"),
             ("static/thumb.html", EXAMPLE_THUMB, "thumb.html"),
             ("static/pdf.html", EXAMPLE_PDF, "pdf.html"),
+            ("static/blog.html", EXAMPLE_BLOG, "blog.html"),
             ("static/downloads.html", EXAMPLE_DOWNLOADS, "downloads.html"),
             ("static/playlists.html", PLAYLISTS, "playlists.html"),
             ("static/upload.html", UPLOAD, "upload.html"),

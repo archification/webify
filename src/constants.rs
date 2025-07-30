@@ -24,6 +24,7 @@ slideshow_timer = 20
 "/upload" = ["static/upload.html"]
 "/files" = ["static/uploads.html", "uploads"]
 "/slideshow" = ["slideshow", "static/slides"]
+"/blog" = ["static/blog.html", "static/posts"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">
@@ -132,6 +133,52 @@ pub static EXAMPLE_PDF: &str = r#"<!doctype html>
     <h1>Home Page</h1>
     <a href="/">home</a>
     </body>
+</html>
+"#;
+pub static EXAMPLE_BLOG: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>My Blog</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <style>
+    .blog-list-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .blog-list-container h1, .blog-list-container h2 {
+        text-align: center;
+    }
+    .post-link {
+        display: block;
+        padding: 15px;
+        margin-bottom: 10px;
+        background-color: #073642;
+        border-radius: 5px;
+        text-decoration: none;
+        color: #93a1a1;
+        transition: background-color 0.3s;
+    }
+    .post-link:hover {
+        background-color: #586e75;
+        color: #fdf6e3;
+    }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div class="blog-list-container">
+        <h1>Welcome to My Blog</h1>
+        <p style="text-align: center;">Here are some things I've written about.</p>
+        <hr>
+            <!-- MEDIA_INSERTION_POINT -->
+        </div>
+    <div style="text-align: center; margin-top: 40px;">
+        <a href="/">Back to Home</a>
+    </div>
+</body>
 </html>
 "#;
 pub static EXAMPLE_DOWNLOADS: &str = r#"<!doctype html>
