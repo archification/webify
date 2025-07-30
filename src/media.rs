@@ -55,35 +55,44 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
     if let Some(insertion_point) = content.find("<!-- MEDIA_INSERTION_POINT -->") {
         let newline_index = content[..insertion_point].rfind('\n').unwrap_or(0);
         let indentation = &content[newline_index+1..insertion_point];
-        let media_tags = media_files.iter().map(|file| {
+        let mut media_tags = media_files.iter().map(|file| {
             let indent = indentation;
-            let linebreak = "\n";
             if is_video_file(file) {
-                format!("{}<video controls><source src='/static/{}/{}' type='video/{}'></video>{}{}", indent, media_route, file, get_video_mime_type(file), file, linebreak)
+                format!("{}<video controls><source src='/static/{}/{}' type='video/{}'></video>{}", indent, media_route, file, get_video_mime_type(file), file)
             } else if is_audio_file(file) {
-                format!("{}<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>{}", indent, media_route, file, get_audio_mime_type(file), linebreak)
+                format!("{}<audio controls><source src='/static/{}/{}' type='audio/{}'></audio>", indent, media_route, file, get_audio_mime_type(file))
             } else if is_pdf_file(file) {
-                format!("{}<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>{}", &indent, media_route, file, linebreak)
+                format!("{}<iframe src='/static/{}/{}' width='100%' height='600px'></iframe>", &indent, media_route, file)
             } else if is_image_file(file) {
-                format!("{}<img src='/static/{}/{}'>{}", &indent, media_route, file, linebreak)
+                format!("{}<img src='/static/{}/{}'>", &indent, media_route, file)
             } else if is_zip_file(file) {
-                format!("{}<a href=\"/static/{}/{}\" download>{}</a>{}", &indent, media_route, file, file, linebreak)
+                format!("{}<a href=\"/static/{}/{}\" download>{}</a>", &indent, media_route, file, file)
             } else if is_markdown_file(file) {
                 let post_name = file.trim_end_matches(".md");
-                format!("{}<a href='/blog/{}'><h2>{}</h2></a>{}", &indent, post_name, post_name, linebreak)
+                format!("{}<a href='/blog/{}'><h2>{}</h2></a>", &indent, post_name, post_name)
             } else {
                 "".to_string()
             }
-        }).collect::<String>();
+        }).collect::<Vec<String>>().join("\n");
+        if !media_tags.is_empty() {
+            let first_line_end = media_tags.find('\n').unwrap_or(media_tags.len());
+            let (first_line, rest) = media_tags.split_at(first_line_end);
+            media_tags = format!("{}{}", first_line.trim_start(), rest);
+        }
         content = content.replacen("<!-- MEDIA_INSERTION_POINT -->", &media_tags, 1);
     }
 
     if let Some(insertion_point) = content.find("<!-- THUMBNAIL_INSERTION_POINT -->") {
         let newline_index = content[..insertion_point].rfind('\n').unwrap_or(0);
         let indentation = &content[newline_index+1..insertion_point];
-        let thumbnail_tags = media_files.iter().filter(|file| is_image_file(file)).map(|file| {
-            format!("{}<a href='/static/{}/{}'><img src='/thumbnail/{}/{}'></a>\n", &indentation, media_route, file, media_dir, file)
-        }).collect::<String>();
+        let mut thumbnail_tags = media_files.iter().filter(|file| is_image_file(file)).map(|file| {
+            format!("{}<a href='/static/{}/{}'><img src='/thumbnail/{}/{}'></a>", &indentation, media_route, file, media_dir, file)
+        }).collect::<Vec<String>>().join("\n");
+        if !thumbnail_tags.is_empty() {
+            let first_line_end = thumbnail_tags.find('\n').unwrap_or(thumbnail_tags.len());
+            let (first_line, rest) = thumbnail_tags.split_at(first_line_end);
+            thumbnail_tags = format!("{}{}", first_line.trim_start(), rest);
+        }
         content = content.replacen("<!-- THUMBNAIL_INSERTION_POINT -->", &thumbnail_tags, 1);
     }
 
