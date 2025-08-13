@@ -1,5 +1,5 @@
 use axum::response::Html;
-use std::fs;
+use tokio::fs;
 use crate::utils::{
     read_media_files,
     is_image_file, is_video_file, is_audio_file, is_pdf_file, is_zip_file,
@@ -10,14 +10,14 @@ use rand::{seq::SliceRandom, rng};
 use solarized::{print_fancy, RED, BOLD, PrintMode::NewLine};
 
 pub async fn render_error_page() -> Html<String> {
-    match fs::read_to_string("static/error.html") {
+    match fs::read_to_string("static/error.html").await {
         Ok(contents) => Html(contents),
         Err(_) => Html("<h1>Internal Server Error</h1>".to_string()),
     }
 }
 
 pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_route: &str, sort_method: Option<&str>) -> Html<String> {
-    let mut content = match fs::read_to_string(file_path) {
+    let mut content = match fs::read_to_string(file_path).await {
         Ok(c) => c,
         Err(e) => {
             print_fancy(&[
@@ -29,7 +29,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
         }
     };
 
-    let mut media_files = match read_media_files(media_dir) {
+    let mut media_files = match read_media_files(media_dir).await {
         Ok(files) => files,
         Err(_) => {
             print_fancy(&[
@@ -110,7 +110,7 @@ pub async fn render_html_with_media(file_path: &str, media_dir: &str, media_rout
 
 
 pub async fn render_html(file_path: &str) -> Html<String> {
-    let content = match fs::read_to_string(file_path) {
+    let content = match fs::read_to_string(file_path).await {
         Ok(c) => c,
         Err(e) => {
             print_fancy(&[

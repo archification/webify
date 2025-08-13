@@ -1,4 +1,4 @@
-use std::fs;
+use tokio::fs;
 use axum::{
     extract::{Path, DefaultBodyLimit, Query},
     routing::{
@@ -27,7 +27,7 @@ use solarized::{
 
 async fn not_found() -> impl IntoResponse {
     let file_path = "static/error.html";
-    let custom_404_html = fs::read_to_string(file_path).unwrap_or_else(|_| {
+    let custom_404_html = fs::read_to_string(file_path).await.unwrap_or_else(|_| {
     String::from(r#"
 <!doctype html>
 <html lang="en-US">
@@ -154,7 +154,7 @@ pub async fn app(config: &Config) -> Router {
 
 async fn render_post(Path(post_name): Path<String>) -> Html<String> {
     let file_path = format!("static/posts/{}.md", post_name);
-    let markdown_content = match fs::read_to_string(&file_path) {
+    let markdown_content = match fs::read_to_string(&file_path).await {
         Ok(content) => content,
         Err(_) => return Html("Post not found".to_string()),
     };
