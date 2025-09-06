@@ -4,10 +4,8 @@ pub async fn read_media_files(dir: &str) -> std::io::Result<Vec<String>> {
     let mut dir_reader = fs::read_dir(dir).await?;
     let mut files = Vec::new();
     while let Some(entry) = dir_reader.next_entry().await? {
-        if entry.file_type().await?.is_file() {
-            if let Some(file_name) = entry.file_name().to_str() {
+        if entry.file_type().await?.is_file() && let Some(file_name) = entry.file_name().to_str() {
                 files.push(file_name.to_string());
-            }
         }
     }
     /*
@@ -26,7 +24,7 @@ pub fn is_image_file(file_name: &str) -> bool {
 }
 
 pub fn is_video_file(file_name: &str) -> bool {
-    file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg") || file_name.ends_with(".mkv")
+    file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg")
 }
 
 pub fn is_audio_file(file_name: &str) -> bool {
