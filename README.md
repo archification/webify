@@ -2,8 +2,6 @@
 
 ## Introduction
 Welcome to the Webify project!
-Have you ever wanted to start a web server at a moment's notice so that your friends could download files from your computer or you could view files on one machine from any device on your local wifi?
-This program allows you to do just that. After having a brief look at a config file and running a standalone program from command line, you'll be able to view and share any content you've made.
 
 This CLI application is configurable web server developed in Rust using the `axum` crate.
 The config.toml file allows us to determine paths to web routes and local files, IP address and port, and whether things like SSL are enabled.
@@ -11,16 +9,15 @@ The config.toml file allows us to determine paths to web routes and local files,
 ## Features
 - Configuration via a toml config file including routes, paths, ip, and port.
 - SSL support.
-- HTMX todo page. (feature currently absent)
 - Server exists as a single binary for portability.
-- Can open the default system browser to the configured home page on launch.
+- Generate thumbnails and serve them to a page live.
 
 ## Getting Started
 - Place the program file inside an empty folder.
-- Run the file from either a windows cmd or linux terminal.
+- Run the file from either a windows or linux cli.
 - If the program asks to generate default files, type the letter y and press enter.
 - View and modify the config file in notepad or any text editor.
-- Run the program again to use this config file.
+- Run the program again to use the adjacent config file.
 
 ### Notes
 - Running `webify -h` or `webify --help` will show help output with further information.
@@ -41,9 +38,6 @@ Contents of the generated config file.
 Output of the running program.  
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
 
-The todo page.  
-![screenshot](https://github.com/archification/webify/blob/main/images/todo.png)
-
 ## Background
 This project started from a desire to make media and other files accessible via browser from other devices on the lan.
-The became larger as I learned more and this process will likely continue over time into the future.
+Things became larger as I learned more. This process will likely continue into the future.
