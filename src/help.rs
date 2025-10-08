@@ -5,7 +5,7 @@ use solarized::{
     PrintMode::NewLine,
 };
 
-pub fn print_help(binaryname: String) {
+pub fn print_help(_binaryname: String) {
     print_fancy(&[
         ("This program is designed to be a modular web service.\n", CYAN, vec![]),
         ("All paths and routes are configured in config.toml\n", CYAN, vec![]),
