@@ -39,7 +39,6 @@ struct PartialConfig {
     browser: bool,
     slideshow_autoplay: bool,
     slideshow_timer: u64,
-    // The [routes] table from config.toml will be ignored by this struct.
 }
 
 pub fn read_config() -> Option<Config> {
@@ -75,15 +74,13 @@ pub fn read_config() -> Option<Config> {
             in_routes_section = false;
             continue;
         }
-        if in_routes_section && trimmed_line.contains('=') {
-            if let Some((key, value)) = trimmed_line.split_once('=') {
-                let path = key.trim().trim_matches('"').to_string();
-                let settings_str = value.trim().trim_start_matches('[').trim_end_matches(']');
-                let settings = settings_str.split(',')
-                    .map(|s| s.trim().trim_matches('"').to_string())
-                    .collect();
-                routes.push((path, settings));
-            }
+        if in_routes_section && trimmed_line.contains('=') && let Some((key, value)) = trimmed_line.split_once('=') {
+            let path = key.trim().trim_matches('"').to_string();
+            let settings_str = value.trim().trim_start_matches('[').trim_end_matches(']');
+            let settings = settings_str.split(',')
+                .map(|s| s.trim().trim_matches('"').to_string())
+                .collect();
+            routes.push((path, settings));
         }
     }
     Some(Config {
@@ -101,16 +98,4 @@ pub fn read_config() -> Option<Config> {
         slideshow_autoplay: partial_config.slideshow_autoplay,
         slideshow_timer: partial_config.slideshow_timer,
     })
-/*
-    match toml::from_str(&contents) {
-        Ok(config) => Some(config),
-        Err(e) => {
-            print_fancy(&[
-                ("Error parsing config file in read_config\n\n", ORANGE, vec![]),
-                (&format!("{}", &e), RED, vec![BOLD])
-            ], NewLine);
-            None
-        }
-    }
-*/
 }
