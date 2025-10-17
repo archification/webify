@@ -77,9 +77,10 @@ pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
     <h1>Home Page</h1>
     <a href="/">home</a>
 
+    <h1>Welcome to the stuff page.</h1>
+    <p>This page shows media files.</p>
+
     <div class="container">
-        <h1>Welcome to the stuff page.</h1>
-        <p>This page shows media files.</p>
         <!-- MEDIA_INSERTION_POINT -->
     </div>
 </body>
@@ -99,6 +100,12 @@ pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
         display: block;
         margin: 0 auto;
     }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content:center;
+    }
     </style>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
@@ -109,9 +116,10 @@ pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
     <h1>Home Page</h1>
     <a href="/">home</a>
 
+    <h1>Welcome to the stuff page.</h1>
+    <p>This page shows media files as thumbnails.</p>
+
     <div class="container">
-        <h1>Welcome to the stuff page.</h1>
-        <p>This page shows media files as thumbnails.</p>
         <!-- THUMBNAIL_INSERTION_POINT -->
     </div>
 </body>
