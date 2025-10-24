@@ -26,6 +26,7 @@ use solarized::{
     print_colored,
 };
 use std::env;
+use webbrowser;
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
     match scope {
@@ -51,6 +52,28 @@ async fn main() {
     );
     if let Some(config) = read_config() {
         setup().await;
+        if config.browser && (config.scope == "localhost" || config.scope == "local") {
+            let addr = if config.ssl_enabled {
+                format!(
+                    "https://{}",
+                    format_address(config.scope.as_str(), &config.ip, config.ssl_port)
+                )
+            } else {
+                format!(
+                    "http://{}",
+                    format_address(config.scope.as_str(), &config.ip, config.port)
+                )
+            };
+            tokio::spawn(async move {
+                if let Err(e) = webbrowser::open(&addr) {
+                    print_colored(
+                        &["Failed to open browser: ", &e.to_string()],
+                        &[ORANGE, RED],
+                        NewLine,
+                    );
+                }
+            });
+        }
         let app = app(&config).await;
         if config.ssl_enabled {
             let ssladdr =

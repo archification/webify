@@ -31,6 +31,7 @@ toml = "0.8.20"
 tower-http = { version = "0.6.2", features = ["fs", "trace"] }
 uuid = { version = "1.13.1", features = ["serde", "v4"] }
 walkdir = "2.5.0"
+webbrowser = "1.0.6"
 
 [profile.release]
 strip = true
