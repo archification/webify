@@ -1,6 +1,7 @@
 use tokio::fs;
+use axum_extra::extract::Host;
 use axum::{
-    extract::{Path, DefaultBodyLimit, Query},
+    extract::{Path, DefaultBodyLimit, Query, Request},
     routing::{
         get, post, get_service
     },
@@ -24,6 +25,9 @@ use solarized::{
     BOLD,
     PrintMode::NewLine,
 };
+use std::collections::HashMap;
+use std::sync::Arc;
+use tower::Service;
 
 async fn not_found() -> impl IntoResponse {
     let file_path = "static/error.html";
@@ -57,99 +61,116 @@ fn routes_uploads() -> Router {
 }
 
 pub async fn app(config: &Config) -> Router {
-    let mut router = Router::new()
-        .route("/thumbnail/{*path}", get(generate_thumbnail))
-        .route("/blog/{post_name}", get(render_post))
-        .merge(routes_static())
-        .merge(routes_uploads())
-        .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
-        .nest_service("/styles", ServeDir::new("styles"))
-        .nest_service("/scripts", ServeDir::new("scripts"))
-        .nest_service("/images", ServeDir::new("images"))
-        .fallback(get(not_found));
-    for (path, settings) in &config.routes {
-        match settings.as_slice() {
-            [settings_type, slides_dir] if settings_type == "slideshow" => {
-                let slides_dir_clone = slides_dir.clone();
-                let autoplay = config.slideshow_autoplay;
-                let timer = config.slideshow_timer;
-                router = router.route(
-                    path,
-                    get(move |query: Query<SlideQuery>| {
-                        let dir = slides_dir_clone.clone();
+    let mut site_routers = HashMap::new();
+    for (domain, routes) in &config.sites {
+        let mut router = Router::new()
+            .route("/thumbnail/{*path}", get(generate_thumbnail))
+            .route("/blog/{post_name}", get(render_post))
+            .merge(routes_static())
+            .merge(routes_uploads())
+            .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
+            .nest_service("/styles", ServeDir::new("styles"))
+            .nest_service("/scripts", ServeDir::new("scripts"))
+            .nest_service("/images", ServeDir::new("images"))
+            .fallback(get(not_found));
+        for (path, settings) in routes {
+            match settings.as_slice() {
+                [settings_type, slides_dir] if settings_type == "slideshow" => {
+                    let slides_dir_clone = slides_dir.clone();
+                    let autoplay = config.slideshow_autoplay;
+                    let timer = config.slideshow_timer;
+                    router = router.route(
+                        path,
+                        get(move |query: Query<SlideQuery>| {
+                            let dir = slides_dir_clone.clone();
+                            async move {
+                                handle_slideshow(query, &dir, autoplay, timer).await
+                            }
+                        }),
+                    );
+                }
+                [file_path, media_dir, ..] => {
+                    let sort_method = settings.get(2).map(|s| s.as_str());
+                    let media_route = path.trim_start_matches('/');
+                    let file_clone = file_path.clone();
+                    let media_dir_clone = media_dir.clone();
+                    let media_route_clone = media_route.to_string();
+                    let sort_method_clone = sort_method.map(|s| s.to_string());
+                    router = router.route(path, get(move || {
+                        let file = file_clone.clone();
+                        let media = media_dir_clone.clone();
+                        let route = media_route_clone.clone();
+                        let sort = sort_method_clone.clone();
                         async move {
-                            handle_slideshow(query, &dir, autoplay, timer).await
+                            render_html_with_media(&file, &media, &route, sort.as_deref()).await
                         }
-                    }),
+                    }));
+                    let serve_dir = ServeDir::new(media_dir);
+                    router = router
+                        .nest_service(&format!("/static/{media_route}"), serve_dir);
+                }
+                [file_path] => {
+                    let file_clone = file_path.clone();
+                    router = router.route(path, get(move || {
+                        async move {
+                            render_html(&file_clone).await
+                        }
+                    }));
+                }
+                _ => {}
+            }
+        }
+        let storage_limit = config.upload_storage_limit;
+        match parse_upload_limit(&config.upload_size_limit).await {
+            Ok(num) => {
+                router = router.route(
+                    "/upload",
+                    post(move |multipart| upload(multipart, storage_limit))
+                    .layer(DefaultBodyLimit::max(num))
+                );
+            },
+            Err("disabled") => {
+                router = router.route(
+                    "/upload",
+                    post(move |multipart| upload(multipart, storage_limit))
+                    .layer(DefaultBodyLimit::disable())
+                );
+            },
+            _ => {
+                print_fancy(&[
+                    ("Error", RED, vec![BOLD]),
+                    (": ", CYAN, vec![]),
+                    ("config.upload_size_limit", VIOLET, vec![]),
+                    (" is ", CYAN, vec![]),
+                    ("null", ORANGE, vec![]),
+                    (": ", CYAN, vec![]),
+                    ("Defaulting to ", CYAN, vec![]),
+                    ("2GB", VIOLET, vec![]),
+                ], NewLine);
+                let default_limit = 2 * 1000 * 1000 * 1000;
+                router = router.route(
+                    "/upload",
+                    post(move |multipart| upload(multipart, storage_limit))
+                    .layer(DefaultBodyLimit::max(default_limit))
                 );
             }
-            [file_path, media_dir, ..] => {
-                let sort_method = settings.get(2).map(|s| s.as_str());
-                let media_route = path.trim_start_matches('/');
-                let file_clone = file_path.clone();
-                let media_dir_clone = media_dir.clone();
-                let media_route_clone = media_route.to_string();
-                let sort_method_clone = sort_method.map(|s| s.to_string());
-                router = router.route(path, get(move || {
-                    let file = file_clone.clone();
-                    let media = media_dir_clone.clone();
-                    let route = media_route_clone.clone();
-                    let sort = sort_method_clone.clone();
-                    async move {
-                        render_html_with_media(&file, &media, &route, sort.as_deref()).await
-                    }
-                }));
-                let serve_dir = ServeDir::new(media_dir);
-                router = router
-                    .nest_service(&format!("/static/{media_route}"), serve_dir);
-            }
-            [file_path] => {
-                let file_clone = file_path.clone();
-                router = router.route(path, get(move || {
-                    async move {
-                        render_html(&file_clone).await
-                    }
-                }));
-            }
-            _ => {}
         }
+        site_routers.insert(domain.clone(), router);
     }
-    let something = config.upload_storage_limit;
-    match parse_upload_limit(&config.upload_size_limit).await {
-        Ok(num) => {
-            router = router.route(
-                "/upload",
-                post(move |multipart| upload(multipart, something))
-                .layer(DefaultBodyLimit::max(num))
-            );
-        },
-        Err("disabled") => {
-            router = router.route(
-                "/upload",
-                post(move |multipart| upload(multipart, something))
-                .layer(DefaultBodyLimit::disable())
-            );
-        },
-        _ => {
-            print_fancy(&[
-                ("Error", RED, vec![BOLD]),
-                (": ", CYAN, vec![]),
-                ("config.upload_size_limit", VIOLET, vec![]),
-                (" is ", CYAN, vec![]),
-                ("null", ORANGE, vec![]),
-                (": ", CYAN, vec![]),
-                ("Defaulting to ", CYAN, vec![]),
-                ("2 * 1000 * 1000 * 1000 || 2GB", VIOLET, vec![]),
-            ], NewLine);
-            let default_limit = 2 * 1000 * 1000 * 1000;
-            router = router.route(
-                "/upload",
-                post(move |multipart| upload(multipart, something))
-                .layer(DefaultBodyLimit::max(default_limit))
-            );
+    let site_routers = Arc::new(site_routers);
+    Router::new().fallback(move |host: Host, req: Request| {
+        let routers = Arc::clone(&site_routers);
+        async move {
+            let hostname = host.0.split(':').next().unwrap_or("").to_string();
+            if let Some(router) = routers.get(&hostname) {
+                router.clone().call(req).await.unwrap().into_response()
+            } else if let Some(default) = routers.get("default") {
+                default.clone().call(req).await.unwrap().into_response()
+            } else {
+                not_found().await.into_response()
+            }
         }
-    }
-    router
+    })
 }
 
 async fn render_post(Path(post_name): Path<String>) -> Html<String> {

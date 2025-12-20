@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use solarized::{
     print_fancy,
@@ -21,6 +22,7 @@ pub struct Config {
     pub upload_storage_limit: Option<u64>,
     pub browser: bool,
     pub routes: Vec<(String, Vec<String>)>,
+    pub sites: HashMap<String, Vec<(String, Vec<String>)>>,
     pub slideshow_autoplay: bool,
     pub slideshow_timer: u64,
 }
@@ -64,23 +66,33 @@ pub fn read_config() -> Option<Config> {
     };
     let mut routes = Vec::new();
     let mut in_routes_section = false;
+    let mut sites = HashMap::new();
+    let mut current_domain = None;
     for line in contents.lines() {
         let trimmed_line = line.trim();
-        if trimmed_line == "[routes]" {
-            in_routes_section = true;
+        if trimmed_line.starts_with("[routes.\"") && trimmed_line.ends_with("\"]") {
+            let domain = trimmed_line[9..trimmed_line.len()-2].to_string();
+            current_domain = Some(domain.clone());
+            sites.entry(domain).or_insert(Vec::new());
+            continue;
+        } else if trimmed_line == "[routes]" {
+            current_domain = Some("default".to_string());
+            sites.entry("default".to_string()).or_insert(Vec::new());
             continue;
         }
-        if trimmed_line.starts_with('[') && trimmed_line != "[routes]" {
-            in_routes_section = false;
+        if trimmed_line.starts_with('[') {
+            current_domain = None;
             continue;
         }
-        if in_routes_section && trimmed_line.contains('=') && let Some((key, value)) = trimmed_line.split_once('=') {
-            let path = key.trim().trim_matches('"').to_string();
-            let settings_str = value.trim().trim_start_matches('[').trim_end_matches(']');
-            let settings = settings_str.split(',')
-                .map(|s| s.trim().trim_matches('"').to_string())
-                .collect();
-            routes.push((path, settings));
+        if let Some(domain) = &current_domain {
+            if trimmed_line.contains('=') && let Some((key, value)) = trimmed_line.split_once('=') {
+                let path = key.trim().trim_matches('"').to_string();
+                let settings_str = value.trim().trim_start_matches('[').trim_end_matches(']');
+                let settings = settings_str.split(',')
+                    .map(|s| s.trim().trim_matches('"').to_string())
+                    .collect();
+                sites.get_mut(domain).unwrap().push((path, settings));
+            }
         }
     }
     Some(Config {
@@ -95,6 +107,7 @@ pub fn read_config() -> Option<Config> {
         upload_storage_limit: partial_config.upload_storage_limit,
         browser: partial_config.browser,
         routes, // Use the ordered routes.
+        sites,
         slideshow_autoplay: partial_config.slideshow_autoplay,
         slideshow_timer: partial_config.slideshow_timer,
     })
