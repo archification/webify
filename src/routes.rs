@@ -1,7 +1,7 @@
 use tokio::fs;
 use axum_extra::extract::Host;
 use axum::{
-    extract::{Path, DefaultBodyLimit, Query, Request},
+    extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo},
     routing::{
         get, post, get_service
     },
@@ -27,6 +27,7 @@ use solarized::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::net::SocketAddr;
 use tower::Service;
 
 async fn not_found() -> impl IntoResponse {
@@ -62,6 +63,7 @@ fn routes_uploads() -> Router {
 
 pub async fn app(config: &Config) -> Router {
     let mut site_routers = HashMap::new();
+    let whitelists = Arc::new(config.whitelists.clone());
     for (domain, routes) in &config.sites {
         let mut router = Router::new()
             .route("/thumbnail/{*path}", get(generate_thumbnail))
@@ -158,10 +160,17 @@ pub async fn app(config: &Config) -> Router {
         site_routers.insert(domain.clone(), router);
     }
     let site_routers = Arc::new(site_routers);
-    Router::new().fallback(move |host: Host, req: Request| {
+Router::new().fallback(move |host: Host, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
         let routers = Arc::clone(&site_routers);
+        let whitelist_map = Arc::clone(&whitelists);
         async move {
             let hostname = host.0.split(':').next().unwrap_or("").to_string();
+            let client_ip = addr.ip().to_string();
+            if let Some(ips) = whitelist_map.get(&hostname).or_else(|| whitelist_map.get("default")) {
+                if !ips.is_empty() && !ips.contains(&client_ip) {
+                    return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+                }
+            }
             if let Some(router) = routers.get(&hostname) {
                 router.clone().call(req).await.unwrap().into_response()
             } else if let Some(default) = routers.get("default") {

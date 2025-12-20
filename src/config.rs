@@ -23,6 +23,7 @@ pub struct Config {
     pub browser: bool,
     pub routes: Vec<(String, Vec<String>)>,
     pub sites: HashMap<String, Vec<(String, Vec<String>)>>,
+    pub whitelists: HashMap<String, Vec<String>>,
     pub slideshow_autoplay: bool,
     pub slideshow_timer: u64,
 }
@@ -64,10 +65,12 @@ pub fn read_config() -> Option<Config> {
             return None;
         }
     };
-    let mut routes = Vec::new();
-    let mut in_routes_section = false;
+    let routes = Vec::new();
+    let mut _in_routes_section = false;
     let mut sites = HashMap::new();
+    let mut whitelists = HashMap::new();
     let mut current_domain = None;
+    let mut current_whitelist_domain = None;
     for line in contents.lines() {
         let trimmed_line = line.trim();
         if trimmed_line.starts_with("[routes.\"") && trimmed_line.ends_with("\"]") {
@@ -80,9 +83,33 @@ pub fn read_config() -> Option<Config> {
             sites.entry("default".to_string()).or_insert(Vec::new());
             continue;
         }
+        if trimmed_line.starts_with("[whitelist.\"") && trimmed_line.ends_with("\"]") {
+            let domain = trimmed_line[12..trimmed_line.len()-2].to_string();
+            current_whitelist_domain = Some(domain.clone());
+            current_domain = None; // Reset route context
+            whitelists.entry(domain).or_insert(Vec::new());
+            continue;
+        } else if trimmed_line == "[whitelist]" {
+            current_whitelist_domain = Some("default".to_string());
+            current_domain = None;
+            whitelists.entry("default".to_string()).or_insert(Vec::new());
+            continue;
+        }
         if trimmed_line.starts_with('[') {
             current_domain = None;
             continue;
+        }
+        if let Some(domain) = &current_whitelist_domain {
+            if trimmed_line.contains('=') && let Some((_, value)) = trimmed_line.split_once('=') {
+                let ips: Vec<String> = value.trim()
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .split(',')
+                    .map(|s| s.trim().trim_matches('"').to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                whitelists.get_mut(domain).unwrap().extend(ips);
+            }
         }
         if let Some(domain) = &current_domain {
             if trimmed_line.contains('=') && let Some((key, value)) = trimmed_line.split_once('=') {
@@ -108,6 +135,7 @@ pub fn read_config() -> Option<Config> {
         browser: partial_config.browser,
         routes, // Use the ordered routes.
         sites,
+        whitelists,
         slideshow_autoplay: partial_config.slideshow_autoplay,
         slideshow_timer: partial_config.slideshow_timer,
     })

@@ -26,6 +26,7 @@ use solarized::{
     print_colored,
 };
 use std::env;
+use std::net::SocketAddr;
 use webbrowser;
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
@@ -93,18 +94,20 @@ async fn main() {
             let server =
                 axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
                     .set_upgrade(true)
-                    .serve(app.clone().into_make_service());
-            let server_task = tokio::spawn(async {
-                server.await.unwrap();
+                    .serve(app.clone().into_make_service_with_connect_info::<SocketAddr>());
+            let server_task = tokio::spawn(async move {
+                let result: Result<(), std::io::Error> = server.await;
+                result.expect("SSL server failed");
             });
             server_task.await.unwrap();
         }
         if !config.ssl_enabled {
             let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-            let server = axum::serve(listener, app);
-            let server_task = tokio::spawn(async {
-                server.await.unwrap();
+            let server = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>());
+            let server_task = tokio::spawn(async move {
+                let result: Result<(), std::io::Error> = server.await;
+                result.expect("HTTP server failed");
             });
             server_task.await.unwrap();
         }
