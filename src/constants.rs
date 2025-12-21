@@ -14,6 +14,12 @@ browser = false
 slideshow_autoplay = false
 slideshow_timer = 20
 
+[whitelist]
+"default" = ["127.0.0.1", "5.6.7.8"]
+
+[whitelist."example.local"]
+"allowed_ips" = ["192.168.1.50", "192.168.1.51"]
+
 [routes]
 "/" = ["static/home.html"]
 "/stuff" = ["static/stuff.html", "static/media", "random"]
@@ -25,6 +31,9 @@ slideshow_timer = 20
 "/files" = ["static/uploads.html", "uploads"]
 "/slideshow" = ["slideshow", "static/slides"]
 "/blog" = ["static/blog.html", "static/posts"]
+
+[routes."example.com"]
+"/" = ["static/examplesite/guacamole.html"]
 "#;
 pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 <html lang="en-US">

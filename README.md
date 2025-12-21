@@ -4,26 +4,40 @@
 Welcome to the Webify project!
 
 This CLI application is configurable web server developed in Rust using the `axum` crate.
-The config.toml file allows us to determine paths to web routes and local files, IP address and port, and whether things like SSL are enabled.
+It is designed to be a single-binary solution for serving media, documents, and interactive content across a local network or the web.
 
 ## Features
-- Configuration via a toml config file including routes, paths, ip, and port.
-- SSL support.
-- Server exists as a single binary for portability.
-- Generate thumbnails and serve them to a page live.
+* Multi-Domain Support: Host different sets of routes and files for different hostnames using the sites configuration.
+* IP Whitelisting: Restrict access to specific domains or the entire server based on client IP addresses.
+* Markdown Blogging: Automatically renders .md files into clean, readable blog posts with built-in syntax highlighting (Solarized theme).
+* Interactive Slideshow:
+  * Markdown-based slide creation.
+  * On-the-fly UI controls for autoplay and timer intervals.
+  * Persistence of user settings via localStorage.
+  * Keyboard navigation support.
+* Upload & Storage Management:
+  * Configure maximum file size for individual uploads.
+  * Enforce a total storage limit for the uploads/ directory to prevent disk exhaustion.
+* Dynamic Media Galleries: Supports rendering directories of images, videos, audio, and PDFs with optional "random" or "alphanumeric" sorting.
+* Live Thumbnails: Efficiently generates and serves 150x150 thumbnails for image galleries on demand.
 
 ## Getting Started
-- Place the program file inside an empty folder.
-- Run the file from either a windows or linux cli.
-- If the program asks to generate default files, type the letter y and press enter.
-- View and modify the config file in notepad or any text editor.
-- Run the program again to use the adjacent config file.
+1. Run the Binary: Place webify in an empty folder and execute it from your terminal.
+2. Generate Environment: If no config.toml is found, the program will offer to create a complete example project structure, including sample HTML templates, Markdown posts, and directories.
+3. Configure: Open the generated config.toml to customize your routes, ports, and security settings.
+4. Restart: Run the program again to launch the server with your new configuration.
 
-### Notes
-- Running `webify -h` or `webify --help` will show help output with further information.
-- The ip field is only used if scope is lan. A scope of localhost overrides the ip field with 127.0.0.1 and a scope of public overrides the ip field with 0.0.0.0.
-- Dual protocol is built-in. This means http and https exist on the same port when SSL is enabled.
-- Ensure that if todo is enabled, it's assigned a different port than the main server.
+## Build Process
+The project nwo utilizes cross for multi-platform compilation and upx for binary compression to ensure maximum portability and minimal file size.
+```sh
+cross build --target x86_64-unknown-linux-musl --release
+upx --best --lzma target/x86_64-unknown-linux-musl/release/webify
+```
+
+## Technical Notes
+* Dual Protocol: HTTP and HTTPS are served on the same port when SSL is enabled, with automatic u pgrades from HTTP to HTTPS.
+* Scope Overrides: Setting `scope` to `localhost` or `public` will override the manual ip field with 127.0.0.1 or 0.0.0.0 respectively.
+* Help: Run `webify -h` or `webify --help` at any time to see a detailed breakdown of configuration options.
 
 ### Images
 Program not detecting a present config file.  
@@ -39,5 +53,4 @@ Output of the running program.
 ![screenshot](https://github.com/archification/webify/blob/main/images/running.png)
 
 ## Background
-This project started from a desire to make media and other files accessible via browser from other devices on the lan.
-Things became larger as I learned more. This process will likely continue into the future.
+This project started from a desire to make media and other files accessible via browser from other devices on the LAN. It has since grown into a moduler service capable of handling blogging, presentations, and secure file sharing.
