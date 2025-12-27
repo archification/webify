@@ -30,10 +30,11 @@ use std::net::SocketAddr;
 use webbrowser;
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
-    match scope {
+    let scope = scope.trim().to_lowercase();
+    match scope.as_str() {
         "localhost" | "local" => format!("127.0.0.1:{}", &port),
         "lan" => format!("{}:{}", &ip, &port),
-        "public" | "production" | "prod" => format!("0.0.0.0:{}", &port),
+        "public" | "production" | "prod" => format!("[::]:{}", &port),
         _ => format!("127.0.0.1:{}", &port),
     }
 }
@@ -53,6 +54,7 @@ async fn main() {
     );
     if let Some(config) = read_config() {
         setup().await;
+        
         if config.browser && (config.scope == "localhost" || config.scope == "local") {
             let addr = if config.ssl_enabled {
                 format!(
@@ -95,22 +97,16 @@ async fn main() {
                 axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
                     .set_upgrade(true)
                     .serve(app.clone().into_make_service_with_connect_info::<SocketAddr>());
-            let server_task = tokio::spawn(async move {
+            tokio::spawn(async move {
                 let result: Result<(), std::io::Error> = server.await;
                 result.expect("SSL server failed");
             });
-            server_task.await.unwrap();
         }
-        if !config.ssl_enabled {
-            let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
-            let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-            let server = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>());
-            let server_task = tokio::spawn(async move {
-                let result: Result<(), std::io::Error> = server.await;
-                result.expect("HTTP server failed");
-            });
-            server_task.await.unwrap();
-        }
+        let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
+        let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
+        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .expect("HTTP server failed");
     } else {
         generate_files();
     }
