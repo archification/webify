@@ -139,7 +139,7 @@ pub fn generate_files() {
         }
         let binary_files = [
             ("static/media/qrcode.png", IMAGE_DATA, "qrcode.png"),
-            ("static/documents/asdf.pdf", PDF_DATA, "asdf.pdf"),
+            ("static/documents/example.pdf", PDF_DATA, "example.pdf"),
         ];
         for (file_path, contents, filename) in binary_files.iter() {
             let path = Path::new(file_path);
