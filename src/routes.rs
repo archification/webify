@@ -1,4 +1,6 @@
 use tokio::fs;
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use std::io::SeekFrom;
 use axum_extra::extract::Host;
 use axum::{
     extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo},
@@ -53,6 +55,11 @@ async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, Html(custom_404_html))
 }
 
+#[derive(serde::Deserialize)]
+pub struct LiveQuery {
+    pub offset: Option<u64>,
+}
+
 fn routes_static() -> Router {
     Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
@@ -90,6 +97,38 @@ pub async fn app(config: &Config) -> Router {
                             }
                         }),
                     );
+                }
+                [file_path, watch_file, mode] if mode == "live" => {
+                    let file_clone = file_path.clone();
+                    let watch_clone = watch_file.clone();
+                    let path_clone = path.clone();
+                    router = router.route(&path_clone, get(move || {
+                        let f = file_clone.clone();
+                        async move { render_html(&f).await }
+                    }));
+                    let content_path = format!("{}/live_content", path_clone.trim_end_matches('/'));
+                    router = router.route(&content_path, get(move |query: Query<LiveQuery>| {
+                        let w = watch_clone.clone();
+                        async move {
+                            let mut file = match tokio::fs::File::open(&w).await {
+                                Ok(f) => f,
+                                Err(_) => return Html(format!("<p>Error opening log: {}</p>", w)),
+                            };
+                            let file_len = file.metadata().await.unwrap().len();
+                            let start_offset = match query.offset {
+                                Some(o) if o <= file_len => o,
+                                _ => if file_len > 10_000 { file_len - 10_000 } else { 0 },
+                            };
+                            let _ = file.seek(SeekFrom::Start(start_offset)).await;
+                            let mut buffer = Vec::new();
+                            let _ = file.read_to_end(&mut buffer).await;
+                            let content = String::from_utf8_lossy(&buffer);
+                            Html(format!(
+                                r#"{}<input id="current-offset" name="offset" value="{}" hx-swap-oob="true" type="hidden">"#,
+                                content, file_len
+                            ))
+                        }
+                    }));
                 }
                 [file_path, media_dir, ..] => {
                     let sort_method = settings.get(2).map(|s| s.as_str());

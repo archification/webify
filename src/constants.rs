@@ -26,6 +26,7 @@ slideshow_timer = 20
 "/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]
+"/live" = ["static/watch.html", "static/file.log", "live"]
 "/playlists" = ["static/playlists.html", "static/audio/"]
 "/upload" = ["static/upload.html"]
 "/files" = ["static/uploads.html", "uploads"]
@@ -214,6 +215,51 @@ pub static EXAMPLE_DOWNLOADS: &str = r#"<!doctype html>
         <h1>Welcome to the downloads page.</h1>
         <p>This page hosts files for download.</p>
         </div>
+</body>
+</html>
+"#;
+pub static EXAMPLE_WATCH: &str = r#"<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <title>Live Watcher</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <style>
+        html, body { overflow-anchor: none; }
+        #log-container {
+            tab-size: 4;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            border-left: 4px solid #268bd2;
+            padding-left: 15px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            background: #002b36;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body style="max-width: 95%; margin: 20px auto;">
+    <h1>Live File Update</h1>
+    <a href="/">Back to Home</a>
+    <hr>
+    <input id="current-offset" name="offset" value="0" type="hidden">
+    <pre
+id="log-container"
+        hx-get="/logframe/live_content" 
+        hx-trigger="load, every 1s" 
+        hx-include="\#current-offset"
+        hx-swap="beforeend"
+        hx-on::before-request="
+            const threshold = 50;
+            this.wasAtBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - threshold);
+        "
+        hx-on::after-settle="
+            if (this.wasAtBottom) {
+                window.scrollTo(0, document.documentElement.scrollHeight);
+            }
+        "
+    ><p>Connecting to log stream...</p></pre>
 </body>
 </html>
 "#;
