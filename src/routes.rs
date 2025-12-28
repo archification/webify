@@ -21,6 +21,7 @@ use crate::limits::parse_upload_limit;
 use crate::thumbnail::generate_thumbnail;
 use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
+use crate::php::handle_php;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -129,6 +130,13 @@ pub async fn app(config: &Config) -> Router {
                             ))
                         }
                     }));
+                }
+                [dir_path, fpm_addr, mode] if mode == "php" => {
+                    let path_clone = path.clone();
+                    router = router.route(
+                        &format!("{}/{{*path}}", path_clone.trim_end_matches('/')),
+                        get(handle_php).post(handle_php)
+                    );
                 }
                 [file_path, media_dir, ..] => {
                     let sort_method = settings.get(2).map(|s| s.as_str());

@@ -10,6 +10,7 @@ mod upload;
 mod utils;
 mod slideshow;
 mod thumbnail;
+mod php;
 
 use crate::config::read_config;
 use crate::generate::*;
