@@ -109,6 +109,7 @@ pub fn generate_files() {
             ("static/upload.html", UPLOAD, "upload.html"),
             ("static/uploads.html", FILES, "uploads.html"),
             ("static/error.html", EXAMPLE_ERROR, "error.html"),
+            ("static/forum.html", EXAMPLE_FORUM, "forum.html"),
             ("static/slides/0.md", EXAMPLE_FIRST_SLIDE, "0.md"),
             ("static/slides/1.md", EXAMPLE_SECOND_SLIDE, "1.md"),
             ("static/posts/Rust.md", EXAMPLE_FIRST_POST, "Rust.md"),

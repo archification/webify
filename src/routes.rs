@@ -75,16 +75,7 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
     let mut site_routers = HashMap::new();
     let whitelists = Arc::new(config.whitelists.clone());
     for (domain, routes) in &config.sites {
-        let forum_routes = Router::new()
-            .route("/", get(list_posts))
-            .route("/new", get(new_post_form))
-            .route("/create", post(create_post))
-            .route("/register", get(register_form).post(register))
-            .route("/login", get(login_form).post(login))
-            .route("/logout", get(logout))
-            .with_state(db.clone());
         let mut router = Router::new()
-            .nest("/forum", forum_routes)
             .route("/thumbnail/{*path}", get(generate_thumbnail))
             .route("/blog/{post_name}", get(render_post))
             .merge(routes_static())
@@ -96,6 +87,22 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
             .fallback(get(not_found));
         for (path, settings) in routes {
             match settings.as_slice() {
+                [template_path, mode] if mode == "forum" => {
+                    let forum_state = Arc::new(ForumState {
+                        db: db.clone(),
+                        template_path: template_path.clone(),
+                        base_path: path.clone(),
+                    });
+                    let forum_routes = Router::new()
+                        .route("/", get(list_posts))
+                        .route("/new", get(new_post_form))
+                        .route("/create", post(create_post))
+                        .route("/register", get(register_form).post(register))
+                        .route("/login", get(login_form).post(login))
+                        .route("/logout", get(logout))
+                        .with_state(forum_state);
+                    router = router.nest(path, forum_routes);
+                }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
                     let slides_dir_clone = slides_dir.clone();
                     let autoplay = config.slideshow_autoplay;

@@ -32,6 +32,7 @@ slideshow_timer = 20
 "/files" = ["static/uploads.html", "uploads"]
 "/slideshow" = ["slideshow", "static/slides"]
 "/blog" = ["static/blog.html", "static/posts"]
+"/forum" = ["static/forum.html", "forum"]
 
 [routes."example.com"]
 "/" = ["static/examplesite/guacamole.html"]
@@ -60,6 +61,22 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Files</h1>
     <a href="/files">Files</a>
+</body>
+</html>
+"#;
+pub static EXAMPLE_FORUM: &str = r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Forum</title>
+    <link rel="stylesheet" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+</head>
+<body style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h1>Webify Forum</h1>
+    {{AUTH}}
+    <hr>
+    {{POSTS}}
+    <div class="posts-container">
+        </div>
 </body>
 </html>
 "#;
