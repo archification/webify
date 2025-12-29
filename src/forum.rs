@@ -23,7 +23,22 @@ pub struct Post {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
     pub username: String,
+    pub email: String,
     pub password_hash: String,
+}
+
+#[derive(Deserialize)]
+pub struct RegisterForm {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    pub confirm_password: String,
+}
+
+#[derive(Deserialize)]
+pub struct LoginForm {
+    pub username: String,
+    pub password: String,
 }
 
 pub type ForumDb = Arc<Surreal<Db>>;
@@ -94,7 +109,9 @@ pub async fn register_form(State(state): State<Arc<ForumState>>) -> Html<String>
             <h1>Register</h1>
             <form action="{}/register" method="post">
                 <input type="text" name="username" placeholder="Username" style="width:100%" required><br><br>
+                <input type="email" name="email" placeholder="Email Address" style="width:100%" required><br><br>
                 <input type="password" name="password" placeholder="Password" style="width:100%" required><br><br>
+                <input type="password" name="confirm_password" placeholder="Confirm Password" style="width:100%" required><br><br>
                 <button type="submit" style="width:100%">Create Account</button>
             </form>
             <p><a href="{}/login">Already have an account? Login</a></p>
@@ -103,21 +120,21 @@ pub async fn register_form(State(state): State<Arc<ForumState>>) -> Html<String>
     "#, base, base))
 }
 
-#[derive(Deserialize)]
-pub struct AuthForm {
-    pub username: String,
-    pub password: String,
-}
-
 pub async fn register(
     State(state): State<Arc<ForumState>>, 
-    Form(form): Form<AuthForm>
+    Form(form): Form<RegisterForm>
 ) -> impl IntoResponse {
+    if form.password != form.confirm_password {
+        return Html(format!(
+            "<h1>Error</h1><p>Passwords do not match.</p><a href='{}/register'>Try again</a>",
+            state.base_path.trim_end_matches('/')
+        )).into_response();
+    }
     let hashed = hash(form.password, DEFAULT_COST).unwrap();
-    let user = User { username: form.username.clone(), password_hash: hashed };
+    let user = User { username: form.username.clone(), email: form.email, password_hash: hashed };
     let _: Option<User> = state.db.create(("users", &form.username)).content(user).await.unwrap();
     let redirect_url = format!("{}/login", state.base_path.trim_end_matches('/'));
-    Redirect::to(&redirect_url)
+    Redirect::to(&redirect_url).into_response()
 }
 
 pub async fn login_form(State(state): State<Arc<ForumState>>) -> Html<String> {
@@ -142,7 +159,7 @@ pub async fn login_form(State(state): State<Arc<ForumState>>) -> Html<String> {
 pub async fn login(
     State(state): State<Arc<ForumState>>, 
     jar: CookieJar, 
-    Form(form): Form<AuthForm>
+    Form(form): Form<LoginForm>
 ) -> impl IntoResponse {
     let user: Option<User> = state.db.select(("users", &form.username)).await.unwrap();
     if let Some(user) = user {
@@ -155,7 +172,10 @@ pub async fn login(
             return (jar.add(cookie), Redirect::to(&redirect_url)).into_response();
         }
     }
-    Html(format!("<h1>Invalid Credentials</h1><a href='{}/login'>Try again</a>", state.base_path.trim_end_matches('/'))).into_response()
+    Html(format!(
+        "<h1>Invalid Credentials</h1><a href='{}/login'>Try again</a>",
+        state.base_path.trim_end_matches('/')
+    )).into_response()
 }
 
 pub async fn logout(State(state): State<Arc<ForumState>>, jar: CookieJar) -> impl IntoResponse {
