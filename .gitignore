@@ -4,6 +4,7 @@ config.toml
 /static
 /uploads
 /pems
+/forum.db
 testing.sh
 note
 todo

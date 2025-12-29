@@ -11,12 +11,14 @@ mod utils;
 mod slideshow;
 mod thumbnail;
 mod php;
+mod forum;
 
 use crate::config::read_config;
 use crate::generate::*;
 use crate::help::print_help;
 use crate::out::setup;
 use crate::routes::app;
+use crate::forum::{init_db, ForumDb};
 
 use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
@@ -55,7 +57,6 @@ async fn main() {
     );
     if let Some(config) = read_config() {
         setup().await;
-        
         if config.browser && (config.scope == "localhost" || config.scope == "local") {
             let addr = if config.ssl_enabled {
                 format!(
@@ -78,7 +79,8 @@ async fn main() {
                 }
             });
         }
-        let app = app(&config).await;
+        let forum_db: ForumDb = init_db().await;
+        let app = app(&config, forum_db).await;
         if config.ssl_enabled {
             let ssladdr =
                 format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);

@@ -22,6 +22,8 @@ use crate::thumbnail::generate_thumbnail;
 use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
+//use crate::forum::{ForumDb, list_posts, new_post_form, create_post};
+use crate::forum::*;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -69,11 +71,20 @@ fn routes_uploads() -> Router {
     Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
 }
 
-pub async fn app(config: &Config) -> Router {
+pub async fn app(config: &Config, db: ForumDb) -> Router {
     let mut site_routers = HashMap::new();
     let whitelists = Arc::new(config.whitelists.clone());
     for (domain, routes) in &config.sites {
+        let forum_routes = Router::new()
+            .route("/", get(list_posts))
+            .route("/new", get(new_post_form))
+            .route("/create", post(create_post))
+            .route("/register", get(register_form).post(register))
+            .route("/login", get(login_form).post(login))
+            .route("/logout", get(logout))
+            .with_state(db.clone());
         let mut router = Router::new()
+            .nest("/forum", forum_routes)
             .route("/thumbnail/{*path}", get(generate_thumbnail))
             .route("/blog/{post_name}", get(render_post))
             .merge(routes_static())

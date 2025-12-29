@@ -9,11 +9,15 @@ name = "webify"
 
 [dependencies]
 anyhow = "1.0.98"
+askama = "0.15.1"
 axum = { version = "0.8.1", features = ["multipart"] }
-axum-extra = "0.12.2"
+axum-extra = { version = "0.12.2", features = ["cookie"] }
+axum-login = "0.18.0"
 axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 axum-server-dual-protocol = "0.7.0"
+bcrypt = "0.17.1"
 bytes = "1.10.0"
+chrono = { version = "0.4.42", features = ["serde"] }
 fastcgi-client = "0.10.0"
 futures = "0.3.31"
 headers = "0.4.0"
@@ -27,6 +31,8 @@ sanitize-filename = "0.6.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 solarized = { git = "https://github.com/archification/solarized.git", branch = "main" }
+sqlx = { version = "0.7", features = ["runtime-tokio", "tls-rustls", "sqlite", "macros"] }
+surrealdb = { version = "2.4.0", features = ["kv-rocksdb"] }
 tempfile = "3.20.0"
 tera = "1.20.1"
 tokio = { version = "1.43.0", features = ["full"] }
