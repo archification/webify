@@ -10,7 +10,7 @@ ssl_key_path = "pems/key.pem"
 upload_size_limit = 2147483648 # 2 GB (2 * 1024 * 1024 * 1024)
 #upload_size_limit = "disabled" # allows any size
 upload_storage_limit = 2147483648
-browser = false
+browser = true
 slideshow_autoplay = false
 slideshow_timer = 20
 
@@ -26,7 +26,7 @@ slideshow_timer = 20
 "/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]
 "/downloads" = ["static/downloads.html", "static/files"]
-"/live" = ["static/watch.html", "static/file.log", "live"]
+"/live" = ["static/watch.html", "static/watch.html", "live"]
 "/playlists" = ["static/playlists.html", "static/audio/"]
 "/upload" = ["static/upload.html"]
 "/files" = ["static/uploads.html", "uploads"]
@@ -61,6 +61,9 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Files</h1>
     <a href="/files">Files</a>
+
+    <h1>Forum</h1>
+    <a href="/forum">Forum</a>
 </body>
 </html>
 "#;
