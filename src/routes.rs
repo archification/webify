@@ -12,9 +12,10 @@ use axum::{
     },
     Router
 };
+use axum::extract::State;
+use tera::Context;
 use tower_http::services::{ServeDir, ServeFile};
 use pulldown_cmark::{Parser, Options, html};
-use crate::config::Config;
 use crate::media::{render_html, render_html_with_media};
 use crate::upload::upload;
 use crate::limits::parse_upload_limit;
@@ -22,6 +23,7 @@ use crate::thumbnail::generate_thumbnail;
 use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
+use crate::AppState;
 //use crate::forum::{ForumDb, list_posts, new_post_form, create_post};
 use crate::forum::*;
 use solarized::{
@@ -63,6 +65,7 @@ pub struct LiveQuery {
     pub offset: Option<u64>,
 }
 
+/*
 fn routes_static() -> Router {
     Router::new().nest_service("/static", get_service(ServeDir::new("static")))
 }
@@ -70,16 +73,19 @@ fn routes_static() -> Router {
 fn routes_uploads() -> Router {
     Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
 }
+*/
 
-pub async fn app(config: &Config, db: ForumDb) -> Router {
+pub async fn app(state: Arc<AppState>) -> Router {
     let mut site_routers = HashMap::new();
-    let whitelists = Arc::new(config.whitelists.clone());
-    for (domain, routes) in &config.sites {
+    let whitelists = Arc::new(state.config.whitelists.clone());
+    for (domain, routes) in &state.config.sites {
         let mut router = Router::new()
             .route("/thumbnail/{*path}", get(generate_thumbnail))
             .route("/blog/{post_name}", get(render_post))
-            .merge(routes_static())
-            .merge(routes_uploads())
+            .nest_service("/static", ServeDir::new("static"))
+            .nest_service("/uploads", ServeDir::new("uploads"))
+            //.merge(routes_static())
+            //.merge(routes_uploads())
             .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
             .nest_service("/styles", ServeDir::new("styles"))
             .nest_service("/scripts", ServeDir::new("scripts"))
@@ -89,7 +95,7 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
             match settings.as_slice() {
                 [template_path, mode] if mode == "forum" => {
                     let forum_state = Arc::new(ForumState {
-                        db: db.clone(),
+                        db: state.forum_db.clone(),
                         template_path: template_path.clone(),
                         base_path: path.clone(),
                     });
@@ -105,8 +111,8 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
                     let slides_dir_clone = slides_dir.clone();
-                    let autoplay = config.slideshow_autoplay;
-                    let timer = config.slideshow_timer;
+                    let autoplay = state.config.slideshow_autoplay;
+                    let timer = state.config.slideshow_timer;
                     router = router.route(
                         path,
                         get(move |query: Query<SlideQuery>| {
@@ -121,12 +127,12 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
                     let file_clone = file_path.clone();
                     let watch_clone = watch_file.clone();
                     let path_clone = path.clone();
-                    router = router.route(&path_clone, get(move || {
+                    router = router.route(&path_clone, get(move |s: State<Arc<AppState>>| {
                         let f = file_clone.clone();
-                        async move { render_html(&f).await }
+                        async move { render_html(&s.tera, &f).await }
                     }));
                     let content_path = format!("{}/live_content", path_clone.trim_end_matches('/'));
-                    router = router.route(&content_path, get(move |query: Query<LiveQuery>| {
+                    router = router.route(&content_path, get(move |State(_): State<Arc<AppState>>, query: Query<LiveQuery>| {
                         let w = watch_clone.clone();
                         async move {
                             let mut file = match tokio::fs::File::open(&w).await {
@@ -157,38 +163,36 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
                     );
                 }
                 [file_path, media_dir, ..] => {
-                    let sort_method = settings.get(2).map(|s| s.as_str());
-                    let media_route = path.trim_start_matches('/');
                     let file_clone = file_path.clone();
                     let media_dir_clone = media_dir.clone();
-                    let media_route_clone = media_route.to_string();
-                    let sort_method_clone = sort_method.map(|s| s.to_string());
-                    router = router.route(path, get(move || {
-                        let file = file_clone.clone();
-                        let media = media_dir_clone.clone();
-                        let route = media_route_clone.clone();
-                        let sort = sort_method_clone.clone();
+                    let media_route = path.trim_start_matches('/').to_string();
+                    let sort_method = settings.get(2).map(|s| s.to_string());
+                    router = router.route(path, get(move |s: State<Arc<AppState>>| {
+                        let f = file_clone.clone();
+                        let m = media_dir_clone.clone();
+                        let r = media_route.clone();
+                        let sort = sort_method.clone();
                         async move {
-                            render_html_with_media(&file, &media, &route, sort.as_deref()).await
+                            render_html_with_media(&s.tera, &f, &m, &r, sort.as_deref()).await
                         }
                     }));
                     let serve_dir = ServeDir::new(media_dir);
+                    let static_route = path.trim_start_matches('/');
                     router = router
-                        .nest_service(&format!("/static/{media_route}"), serve_dir);
+                        .nest_service(&format!("/static/{static_route}"), serve_dir);
                 }
                 [file_path] => {
                     let file_clone = file_path.clone();
-                    router = router.route(path, get(move || {
-                        async move {
-                            render_html(&file_clone).await
-                        }
+                    router = router.route(path, get(move |s: State<Arc<AppState>>| {
+                        let f = file_clone.clone();
+                        async move { render_tera_template(s, f).await }
                     }));
                 }
                 _ => {}
             }
         }
-        let storage_limit = config.upload_storage_limit;
-        match parse_upload_limit(&config.upload_size_limit).await {
+        let storage_limit = state.config.upload_storage_limit;
+        match parse_upload_limit(&state.config.upload_size_limit).await {
             Ok(num) => {
                 router = router.route(
                     "/upload",
@@ -222,11 +226,12 @@ pub async fn app(config: &Config, db: ForumDb) -> Router {
                 );
             }
         }
-        site_routers.insert(domain.clone(), router);
+        let final_site_router = router.with_state(state.clone());
+        site_routers.insert(domain.clone(), final_site_router);
     }
-    let site_routers = Arc::new(site_routers);
+    let site_routers_arc = Arc::new(site_routers);
 Router::new().fallback(move |host: Host, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
-        let routers = Arc::clone(&site_routers);
+        let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
         async move {
             let hostname = host.0.split(':').next().unwrap_or("").to_string();
@@ -279,4 +284,21 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
 </html>
     "#, post_name, html_output);
     Html(template)
+}
+
+async fn render_tera_template(
+    State(state): State<Arc<AppState>>, 
+    template_path: String
+) -> impl IntoResponse {
+    let mut context = Context::new();
+    context.insert("port", &state.config.port);
+    context.insert("ip", &state.config.ip);
+    let template_name = template_path.trim_start_matches("static/");
+    match state.tera.render(template_name, &context) {
+        Ok(rendered) => Html(rendered).into_response(),
+        Err(e) => {
+            eprintln!("Tera error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response()
+        }
+    }
 }

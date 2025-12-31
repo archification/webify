@@ -22,6 +22,7 @@ use crate::forum::{init_db, ForumDb};
 
 use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
+use tera::Tera;
 use solarized::{
     BLUE, CYAN, GREEN, MAGENTA, ORANGE, RED, VIOLET, YELLOW,
     PrintMode::NewLine,
@@ -29,6 +30,7 @@ use solarized::{
     print_colored,
 };
 use std::env;
+use std::sync::Arc;
 use std::net::SocketAddr;
 use webbrowser;
 
@@ -40,6 +42,12 @@ fn format_address(scope: &str, ip: &str, port: u16) -> String {
         "public" | "production" | "prod" => format!("[::]:{}", &port),
         _ => format!("127.0.0.1:{}", &port),
     }
+}
+
+pub struct AppState {
+    pub config: Arc<crate::config::Config>,
+    pub forum_db: crate::forum::ForumDb,
+    pub tera: Tera,
 }
 
 #[tokio::main]
@@ -79,17 +87,31 @@ async fn main() {
                 }
             });
         }
+        let mut tera = match Tera::new("static/**/*.html") {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Tera parsing error: {}", e);
+                std::process::exit(1);
+            }
+        };
+        tera.autoescape_on(vec![]);
+        let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
-        let app = app(&config, forum_db).await;
-        if config.ssl_enabled {
+        let state = Arc::new(AppState {
+            config: config_arc.clone(),
+            forum_db,
+            tera,
+        });
+        let app = app(state.clone()).await;
+        if state.config.ssl_enabled {
             let ssladdr =
-                format_address(config.scope.as_str(), config.ip.as_str(), config.ssl_port);
+                format_address(state.config.scope.as_str(), state.config.ip.as_str(), state.config.ssl_port);
             let ssl_config = RustlsConfig::from_pem_file(
-                config
+                state.config
                     .ssl_cert_path
                     .clone()
                     .expect("SSL cert path is required"),
-                config
+                state.config
                     .ssl_key_path
                     .clone()
                     .expect("SSL key path is required"),
@@ -105,7 +127,7 @@ async fn main() {
                 result.expect("SSL server failed");
             });
         }
-        let addr = format_address(config.scope.as_str(), config.ip.as_str(), config.port);
+        let addr = format_address(state.config.scope.as_str(), state.config.ip.as_str(), state.config.port);
         let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
         axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
             .await
