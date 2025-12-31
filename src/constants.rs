@@ -118,41 +118,79 @@ pub static EXAMPLE_STUFF: &str = r#"{% extends "base.html" %}
 {% endblock content %}
 "#;
 pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
-<html lang="en-US">
-<head>
+<html lang="en-US"> <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guacamole - Thumbnails</title>
+    
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    
     <style>
-    img, video {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-    }
-    .container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content:center;
-    }
+        body {
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .container img, .container video {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #586e75;
+        }
+
+        nav {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #586e75;
+            padding-bottom: 1rem;
+        }
+
+        nav a {
+            margin-right: 15px;
+            text-decoration: none;
+            font-weight: bold;
+        }
     </style>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-    <h1>PDF Document</h1>
-    <a href="/pdf">documents</a>
 
-    <h1>Home Page</h1>
-    <a href="/">home</a>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/stuff">Images</a>
+        <a href="/hardtease">HardTease</a>
+        <a href="/thumb">Thumbnails</a>
+    </nav>
 
-    <h1>Welcome to the stuff page.</h1>
+    <h1>Media Gallery</h1>
     <p>This page shows media files as thumbnails.</p>
 
     <div class="container">
-        <!-- THUMBNAIL_INSERTION_POINT -->
+    {%- for file in media_files -%}
+        {# Only attempt to generate thumbnails for images #}
+        {%- if file is ending_with(".png") or file is ending_with(".jpg") or file is ending_with(".jpeg") -%}
+            <div class="thumbnail-item">
+                <a href="/static/{{ media_route }}/{{ file }}">
+                    <img
+                        src="/thumbnail/{{ media_dir }}{{ file }}"
+                        alt="{{ file }}"
+                        loading="lazy"
+                        width="150"
+                        height="150"
+                    >
+                </a>
+            </div>
+        {%- endif -%}
+    {%- endfor -%}
     </div>
+
 </body>
 </html>
 "#;

@@ -12,6 +12,15 @@ const THUMBNAIL_WIDTH: u32 = 150;
 const THUMBNAIL_HEIGHT: u32 = 150;
 
 pub async fn generate_thumbnail(Path(path): Path<String>) -> impl IntoResponse {
+    let cache_dir = ".thumb_cache";
+    let cache_path = format!("{}/{}", cache_dir, path.replace("/", "_"));
+    if let Ok(cached_data) = tokio::fs::read(&cache_path).await {
+        return Response::builder()
+            .header(header::CONTENT_TYPE, "image/png")
+            .header(header::CACHE_CONTROL, "public, max-age=604800")
+            .body(Body::from(cached_data))
+            .unwrap();
+    }
     let image_bytes = match tokio::fs::read(&path).await {
         Ok(bytes) => bytes,
         Err(_) => {
@@ -37,6 +46,7 @@ pub async fn generate_thumbnail(Path(path): Path<String>) -> impl IntoResponse {
         Ok(Ok(buffer)) => Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "image/png")
+            .header(header::CACHE_CONTROL, "public, max-age=604800")
             .body(Body::from(buffer))
             .unwrap(),
         _ => Response::builder()

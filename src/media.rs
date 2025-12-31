@@ -43,6 +43,7 @@ pub async fn render_html_with_media(
     let mut context = Context::new();
     context.insert("media_files", &media_files);
     context.insert("media_route", &media_route);
+    context.insert("media_dir", &media_dir);
     let template_name = file_path.trim_start_matches("static/");
     match tera.render(template_name, &context) {
         Ok(rendered) => Html(rendered),
