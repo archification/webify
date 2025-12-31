@@ -98,6 +98,7 @@ pub fn generate_files() {
             }
         }
         let text_files = [
+            ("static/base.html", EXAMPLE_BASE, "base.html"),
             ("static/home.html", EXAMPLE_HOME, "home.html"),
             ("static/stuff.html", EXAMPLE_STUFF, "stuff.html"),
             ("static/thumb.html", EXAMPLE_THUMB, "thumb.html"),

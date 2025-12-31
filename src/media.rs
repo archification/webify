@@ -1,11 +1,7 @@
 use axum::response::Html;
 use tokio::fs;
 use tera::{Tera, Context};
-use crate::utils::{
-    read_media_files,
-    is_image_file, is_video_file,
-    get_video_mime_type,
-};
+use crate::utils::read_media_files;
 use rand::{seq::SliceRandom, rng};
 use solarized::{print_fancy, RED, BOLD, PrintMode::NewLine};
 
@@ -44,6 +40,19 @@ pub async fn render_html_with_media(
             media_files.sort();
         }
     }
+    let mut context = Context::new();
+    context.insert("media_files", &media_files);
+    context.insert("media_route", &media_route);
+    let template_name = file_path.trim_start_matches("static/");
+    match tera.render(template_name, &context) {
+        Ok(rendered) => Html(rendered),
+        Err(e) => {
+            eprintln!("Tera render error: {}", e);
+            return Html("<h1>Error reading media directory</h1>".to_string());
+        }
+    }
+/*
+    
     let media_tags = media_files.iter().map(|file| {
         if is_video_file(file) {
             format!("<video controls><source src='/static/{}/{}' type='video/{}'></video>", media_route, file, get_video_mime_type(file))
@@ -63,6 +72,7 @@ pub async fn render_html_with_media(
             render_error_page().await
         }
     }
+    */
 }
 
 pub async fn render_html(tera: &Tera, file_path: &str) -> Html<String> {

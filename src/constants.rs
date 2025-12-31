@@ -37,16 +37,30 @@ slideshow_timer = 20
 [routes."example.com"]
 "/" = ["static/examplesite/guacamole.html"]
 "#;
-pub static EXAMPLE_HOME: &str = r#"<!doctype html>
+pub static EXAMPLE_BASE: &str = r#"<!doctype html>
 <html lang="en-US">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Webify{% endblock title %}</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    {% block styles %}{% endblock styles %}
 </head>
 <body>
+    <nav>
+        <a href="/">Home</a> | <a href="/stuff">Stuff</a> | <a href="/upload">Upload</a>
+    </nav>
+    
+    <div class="content">
+        {% block content %}{% endblock content %}
+    </div>
+</body>
+</html>
+"#;
+pub static EXAMPLE_HOME: &str = r#"{% extends "base.html" %}
+
+{% block title %}My Media{% endblock title %}
+
+{% block content %}
     <h1>PDF Document</h1>
     <a href="/pdf">documents</a>
 
@@ -64,8 +78,7 @@ pub static EXAMPLE_HOME: &str = r#"<!doctype html>
 
     <h1>Forum</h1>
     <a href="/forum">Forum</a>
-</body>
-</html>
+{% endblock content %}
 "#;
 pub static EXAMPLE_FORUM: &str = r#"<!DOCTYPE html>
 <html>
@@ -83,38 +96,26 @@ pub static EXAMPLE_FORUM: &str = r#"<!DOCTYPE html>
 </body>
 </html>
 "#;
-pub static EXAMPLE_STUFF: &str = r#"<!doctype html>
-<html lang="en-US">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>guacamole</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
-    <style>
-    img, video {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-    }
-    </style>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <h1>PDF Document</h1>
-    <a href="/pdf">documents</a>
+pub static EXAMPLE_STUFF: &str = r#"{% extends "base.html" %}
 
-    <h1>Home Page</h1>
-    <a href="/">home</a>
+{% block title %}My Media{% endblock title %}
 
+{% block content %}
     <h1>Welcome to the stuff page.</h1>
     <p>This page shows media files.</p>
 
     <div class="container">
-        <!-- MEDIA_INSERTION_POINT -->
+        {%- for file in media_files -%}
+        {%- if file is ending_with(".mp4") or file is ending_with(".webm") -%}
+            <video controls>
+                <source src="/static/{{ media_route }}/{{ file }}">
+            </video>
+        {%- else -%}
+            <img src="/static/{{ media_route }}/{{ file }}">
+        {%- endif -%}
+    {%- endfor -%}
     </div>
-</body>
-</html>
+{% endblock content %}
 "#;
 pub static EXAMPLE_THUMB: &str = r#"<!doctype html>
 <html lang="en-US">
