@@ -24,7 +24,6 @@ use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
 use crate::AppState;
-//use crate::forum::{ForumDb, list_posts, new_post_form, create_post};
 use crate::forum::*;
 use solarized::{
     print_fancy,
@@ -65,16 +64,6 @@ pub struct LiveQuery {
     pub offset: Option<u64>,
 }
 
-/*
-fn routes_static() -> Router {
-    Router::new().nest_service("/static", get_service(ServeDir::new("static")))
-}
-
-fn routes_uploads() -> Router {
-    Router::new().nest_service("/uploads", get_service(ServeDir::new("uploads")))
-}
-*/
-
 pub async fn app(state: Arc<AppState>) -> Router {
     let mut site_routers = HashMap::new();
     let whitelists = Arc::new(state.config.whitelists.clone());
@@ -84,8 +73,6 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .route("/blog/{post_name}", get(render_post))
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/uploads", ServeDir::new("uploads"))
-            //.merge(routes_static())
-            //.merge(routes_uploads())
             .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
             .nest_service("/styles", ServeDir::new("styles"))
             .nest_service("/scripts", ServeDir::new("scripts"))

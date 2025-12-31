@@ -8,14 +8,6 @@ pub async fn read_media_files(dir: &str) -> std::io::Result<Vec<String>> {
                 files.push(file_name.to_string());
         }
     }
-    /*
-    for path in paths {
-        let path = path?.path();
-        if path.is_file() && let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
-                files.push(file_name.to_string());
-        }
-    }
-*/
     Ok(files)
 }
 
@@ -26,20 +18,6 @@ pub fn is_image_file(file_name: &str) -> bool {
 pub fn is_video_file(file_name: &str) -> bool {
     file_name.ends_with(".mp4") || file_name.ends_with(".webm") || file_name.ends_with(".ogg")
 }
-
-/*
-pub fn is_audio_file(file_name: &str) -> bool {
-    file_name.ends_with(".mp3") || file_name.ends_with(".wav")
-}
-
-pub fn is_pdf_file(file_name: &str) -> bool {
-    file_name.ends_with(".pdf")
-}
-
-pub fn is_zip_file(file_name: &str) -> bool {
-    file_name.ends_with(".zip")
-}
-*/
 
 pub fn get_video_mime_type(file_name: &str) -> &str {
     if file_name.ends_with(".mp4") || file_name.ends_with(".mkv") {
@@ -52,19 +30,3 @@ pub fn get_video_mime_type(file_name: &str) -> &str {
         "unknown"
     }
 }
-
-/*
-pub fn get_audio_mime_type(file_name: &str) -> &str {
-    if file_name.ends_with(".mp3") {
-        "mpeg"
-    } else if file_name.ends_with(".wav") {
-        "wav"
-    } else {
-        "unknown"
-    }
-}
-
-pub fn is_markdown_file(file_name: &str) -> bool {
-    file_name.ends_with(".md")
-}
-*/
