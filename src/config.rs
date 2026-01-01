@@ -21,7 +21,6 @@ pub struct Config {
     pub upload_size_limit: Option<Value>,
     pub upload_storage_limit: Option<u64>,
     pub browser: bool,
-    pub routes: Vec<(String, Vec<String>)>,
     pub sites: HashMap<String, Vec<(String, Vec<String>)>>,
     pub whitelists: HashMap<String, Vec<String>>,
     pub slideshow_autoplay: bool,
@@ -35,7 +34,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Deserialize)]
-struct PartialConfig {
+struct RawConfig {
     scope: String,
     ip: String,
     port: u16,
@@ -54,107 +53,82 @@ struct PartialConfig {
     smtp_username: Option<String>,
     smtp_password: Option<String>,
     email_from: Option<String>,
+    #[serde(default)]
+    routes: HashMap<String, RouteValue>,
+    #[serde(default)]
+    whitelist: HashMap<String, WhitelistValue>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RouteValue {
+    Settings(Vec<String>),
+    DomainMap(HashMap<String, Vec<String>>),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum WhitelistValue {
+    Ips(Vec<String>),
+    DomainMap(HashMap<String, Vec<String>>),
 }
 
 pub fn read_config() -> Option<Config> {
-    let contents = match fs::read_to_string("config.toml") {
-        Ok(c) => c,
-        Err(e) => {
-            print_fancy(&[
-                ("\nError reading config file in read_config\n", ORANGE, vec![]),
-                (&format!("{}", &e), RED, vec![BOLD])
-            ], NewLine);
-            return None;
-        }
-    };
-    let partial_config: PartialConfig = match toml::from_str(&contents) {
-        Ok(config) => config,
-        Err(e) => {
-            print_fancy(&[
-                ("Error parsing config file in read_config\n\n", ORANGE, vec![]),
-                (&format!("{}", &e), RED, vec![BOLD])
-            ], NewLine);
-            return None;
-        }
-    };
-    let routes = Vec::new();
-    let mut _in_routes_section = false;
+    let contents = fs::read_to_string("config.toml").ok()?;
+    let raw: RawConfig = toml::from_str(&contents).map_err(|e| {
+        print_fancy(&[
+            ("Error parsing config file: ", ORANGE, vec![]),
+            (&format!("{}", e), RED, vec![BOLD])
+        ], NewLine);
+    }).ok()?;
     let mut sites = HashMap::new();
-    let mut whitelists = HashMap::new();
-    let mut current_domain = None;
-    let mut current_whitelist_domain = None;
-    for line in contents.lines() {
-        let trimmed_line = line.trim();
-        if trimmed_line.starts_with("[routes.\"") && trimmed_line.ends_with("\"]") {
-            let domain = trimmed_line[9..trimmed_line.len()-2].to_string();
-            current_domain = Some(domain.clone());
-            sites.entry(domain).or_insert(Vec::new());
-            continue;
-        } else if trimmed_line == "[routes]" {
-            current_domain = Some("default".to_string());
-            sites.entry("default".to_string()).or_insert(Vec::new());
-            continue;
-        }
-        if trimmed_line.starts_with("[whitelist.\"") && trimmed_line.ends_with("\"]") {
-            let domain = trimmed_line[12..trimmed_line.len()-2].to_string();
-            current_whitelist_domain = Some(domain.clone());
-            current_domain = None; // Reset route context
-            whitelists.entry(domain).or_insert(Vec::new());
-            continue;
-        } else if trimmed_line == "[whitelist]" {
-            current_whitelist_domain = Some("default".to_string());
-            current_domain = None;
-            whitelists.entry("default".to_string()).or_insert(Vec::new());
-            continue;
-        }
-        if trimmed_line.starts_with('[') {
-            current_domain = None;
-            continue;
-        }
-        if let Some(domain) = &current_whitelist_domain {
-            if trimmed_line.contains('=') && let Some((_, value)) = trimmed_line.split_once('=') {
-                let ips: Vec<String> = value.trim()
-                    .trim_start_matches('[')
-                    .trim_end_matches(']')
-                    .split(',')
-                    .map(|s| s.trim().trim_matches('"').to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                whitelists.get_mut(domain).unwrap().extend(ips);
+    for (key, value) in raw.routes {
+        match value {
+            RouteValue::Settings(s) => {
+                sites.entry("default".to_string()).or_insert_with(Vec::new).push((key, s));
+            }
+            RouteValue::DomainMap(map) => {
+                let domain_routes = sites.entry(key).or_insert_with(Vec::new);
+                for (path, s) in map {
+                    domain_routes.push((path, s));
+                }
             }
         }
-        if let Some(domain) = &current_domain {
-            if trimmed_line.contains('=') && let Some((key, value)) = trimmed_line.split_once('=') {
-                let path = key.trim().trim_matches('"').to_string();
-                let settings_str = value.trim().trim_start_matches('[').trim_end_matches(']');
-                let settings = settings_str.split(',')
-                    .map(|s| s.trim().trim_matches('"').to_string())
-                    .collect();
-                sites.get_mut(domain).unwrap().push((path, settings));
+    }
+    let mut whitelists = HashMap::new();
+    for (key, value) in raw.whitelist {
+        match value {
+            WhitelistValue::Ips(ips) => {
+                whitelists.entry(key).or_insert_with(Vec::new).extend(ips);
+            }
+            WhitelistValue::DomainMap(map) => {
+                let domain_ips = whitelists.entry(key).or_insert_with(Vec::new);
+                for (_, ips) in map { // Flattens sub-keys like "allowed_ips"
+                    domain_ips.extend(ips);
+                }
             }
         }
     }
     Some(Config {
-        scope: partial_config.scope,
-        ip: partial_config.ip,
-        port: partial_config.port,
-        ssl_enabled: partial_config.ssl_enabled,
-        ssl_port: partial_config.ssl_port,
-        ssl_cert_path: partial_config.ssl_cert_path,
-        ssl_key_path: partial_config.ssl_key_path,
-        upload_size_limit: partial_config.upload_size_limit,
-        upload_storage_limit: partial_config.upload_storage_limit,
-        browser: partial_config.browser,
-        routes, // Use the ordered routes.
+        scope: raw.scope,
+        ip: raw.ip,
+        port: raw.port,
+        ssl_enabled: raw.ssl_enabled,
+        ssl_port: raw.ssl_port,
+        ssl_cert_path: raw.ssl_cert_path,
+        ssl_key_path: raw.ssl_key_path,
+        upload_size_limit: raw.upload_size_limit,
+        upload_storage_limit: raw.upload_storage_limit,
+        browser: raw.browser,
         sites,
         whitelists,
-        slideshow_autoplay: partial_config.slideshow_autoplay,
-        slideshow_timer: partial_config.slideshow_timer,
-        domain: partial_config.domain.trim().to_string(),
-        smtp_server: partial_config.smtp_server,
-        smtp_port: partial_config.smtp_port,
-        smtp_username: partial_config.smtp_username,
-        smtp_password: partial_config.smtp_password,
-        email_from: partial_config.email_from,
+        slideshow_autoplay: raw.slideshow_autoplay,
+        slideshow_timer: raw.slideshow_timer,
+        domain: raw.domain.trim().to_string(),
+        smtp_server: raw.smtp_server,
+        smtp_port: raw.smtp_port,
+        smtp_username: raw.smtp_username,
+        smtp_password: raw.smtp_password,
+        email_from: raw.email_from,
     })
 }

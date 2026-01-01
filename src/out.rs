@@ -4,9 +4,10 @@ use crate::format_address;
 use std::env;
 use solarized::{
     print_fancy,
-    VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED, MAGENTA,
+    VIOLET, BLUE, CYAN, GREEN, YELLOW, ORANGE, RED,
+    WHITE, GREY,
     BOLD, UNDERLINED, ITALIC,
-    PrintMode::NewLine,
+    PrintMode::{NewLine, SameLine},
 };
 
 pub async fn setup() {
@@ -82,7 +83,25 @@ pub async fn setup() {
         }
         print_fancy(&[
             ("Configured routes:", CYAN, vec![BOLD, ITALIC, UNDERLINED]),
-        ], NewLine);
+        ], SameLine);
+        for (domain, routes) in &config.sites {
+            print_fancy(&[
+                ("\nDomain: ", YELLOW, vec![BOLD]),
+                (domain, BLUE, vec![BOLD]),
+            ], SameLine);
+            for (path, settings) in routes {
+                let template = settings.get(0).map(|s| s.as_str()).unwrap_or("N/A");
+                let mode = settings.get(1).map(|s| s.as_str()).unwrap_or("Static");
+                print_fancy(&[
+                    ("\n  ", WHITE, vec![]),
+                    (path, BLUE, vec![]),
+                    (" -> ", CYAN, vec![]),
+                    (template, VIOLET, vec![]),
+                    (&format!(" ({})", mode), GREY, vec![]),
+                ], SameLine);
+            }
+        }
+        /*
         for (path, settings) in &config.routes {
             let file = settings.first()
                 .map(|s| s.to_string())
@@ -100,9 +119,10 @@ pub async fn setup() {
                 (&media_info, MAGENTA, vec![]),
             ], NewLine);
         }
+        */
         let path = env::current_dir().expect("asdf");
         print_fancy(&[
-            ("\nServer running in ", CYAN, vec![]),
+            ("\n\nServer running in ", CYAN, vec![]),
             (&format!("{}\n", path.display()), VIOLET, vec![]),
         ], NewLine);
         print_fancy(&[
