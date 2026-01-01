@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <title>{% block title %}Webify{% endblock title %}</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    {% block styles %}{% endblock styles %}
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a> | <a href="/stuff">Stuff</a> | <a href="/upload">Upload</a>
+    </nav>
+    
+    <div class="content">
+        {% block content %}{% endblock content %}
+    </div>
+</body>
+</html>

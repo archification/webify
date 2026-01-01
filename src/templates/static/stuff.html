@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}My Media{% endblock title %}
+
+{% block content %}
+    <h1>Welcome to the stuff page.</h1>
+    <p>This page shows media files.</p>
+
+    <div class="container">
+        {%- for file in media_files -%}
+        {%- if file is ending_with(".mp4") or file is ending_with(".webm") -%}
+            <video controls>
+                <source src="/static/{{ media_route }}/{{ file }}">
+            </video>
+        {%- else -%}
+            <img src="/static/{{ media_route }}/{{ file }}">
+        {%- endif -%}
+    {%- endfor -%}
+    </div>
+{% endblock content %}

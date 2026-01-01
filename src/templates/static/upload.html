@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>upload</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></link>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Home Page</h1>
+    <a href="/">home</a>
+    <h1>Upload a file</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" required>
+        <button type="button" onclick="uploadFile()">Upload</button>
+    </form>
+    <div id="progressBar" style="width: 0%; height: 20px; background-color: #4CAF50;"></div>
+    <script>
+        function uploadFile() {
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            formData.append("file", fileInput.files[0]);
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/upload", true);
+            let uploadComplete = false;
+            xhr.upload.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    const percentComplete = (event.loaded / event.total) * 100;
+                    document.getElementById('progressBar').style.width = percentComplete + '%';
+                    if (percentComplete === 100) {
+                        uploadComplete = true;
+                    }
+                }
+            };
+            xhr.onload = function() {
+                if (xhr.status == 200 && uploadComplete) {
+                    document.open();
+                    document.write(xhr.responseText);
+                    document.close();
+                } else if (xhr.status != 200) {
+                    alert('Error: ' + xhr.responseText);
+                }
+            };
+            xhr.send(formData);
+        }
+    </script>
+    <h1>Uploaded Files</h1>
+    <a href="/files">View Uploaded Files</a>
+</body>
+</html>
