@@ -85,6 +85,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         db: state.forum_db.clone(),
                         template_path: template_path.clone(),
                         base_path: path.clone(),
+                        config: state.config.clone(),
                     });
                     let forum_routes = Router::new()
                         .route("/", get(list_posts))
@@ -93,6 +94,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/register", get(register_form).post(register))
                         .route("/login", get(login_form).post(login))
                         .route("/logout", get(logout))
+                        .route("/verify", get(verify_email))
                         .with_state(forum_state);
                     router = router.nest(path, forum_routes);
                 }

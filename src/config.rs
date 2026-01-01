@@ -26,6 +26,12 @@ pub struct Config {
     pub whitelists: HashMap<String, Vec<String>>,
     pub slideshow_autoplay: bool,
     pub slideshow_timer: u64,
+    pub domain: String,
+    pub smtp_server: Option<String>,
+    pub smtp_port: Option<u16>,
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    pub email_from: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +48,12 @@ struct PartialConfig {
     browser: bool,
     slideshow_autoplay: bool,
     slideshow_timer: u64,
+    domain: String,
+    smtp_server: Option<String>,
+    smtp_port: Option<u16>,
+    smtp_username: Option<String>,
+    smtp_password: Option<String>,
+    email_from: Option<String>,
 }
 
 pub fn read_config() -> Option<Config> {
@@ -138,5 +150,11 @@ pub fn read_config() -> Option<Config> {
         whitelists,
         slideshow_autoplay: partial_config.slideshow_autoplay,
         slideshow_timer: partial_config.slideshow_timer,
+        domain: partial_config.domain.trim().to_string(),
+        smtp_server: partial_config.smtp_server,
+        smtp_port: partial_config.smtp_port,
+        smtp_username: partial_config.smtp_username,
+        smtp_password: partial_config.smtp_password,
+        email_from: partial_config.email_from,
     })
 }

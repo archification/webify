@@ -3,6 +3,10 @@ pub static PDF_DATA: &[u8] = include_bytes!("example.pdf");
 pub static EXAMPLE_CONFIG: &str = r#"scope = "localhost"
 ip = "192.168.1.142"
 port = 12345
+domain = "127.0.0.1:12345"
+smtp_server = "localhost"
+smtp_port = 25
+email_from = "no-reply@webify.local"
 ssl_enabled = false
 ssl_port = 12345
 ssl_cert_path = "pems/cert.pem"
