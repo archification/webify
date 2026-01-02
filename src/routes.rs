@@ -13,10 +13,9 @@ use axum::{
     Router
 };
 use axum::extract::State;
-use tera::Context;
 use tower_http::services::{ServeDir, ServeFile};
 use pulldown_cmark::{Parser, Options, html};
-use crate::media::{render_html, render_html_with_media};
+use crate::media::render_html_with_media;
 use crate::upload::upload;
 use crate::limits::parse_upload_limit;
 use crate::thumbnail::generate_thumbnail;
@@ -81,12 +80,6 @@ pub async fn app(state: Arc<AppState>) -> Router {
         for (path, settings) in routes {
             match settings.as_slice() {
                 [template_path, mode] if mode == "forum" => {
-                    let forum_state = Arc::new(ForumState {
-                        db: state.forum_db.clone(),
-                        template_path: template_path.clone(),
-                        base_path: path.clone(),
-                        config: state.config.clone(),
-                    });
                     let forum_routes = Router::new()
                         .route("/", get(list_posts))
                         .route("/new", get(new_post_form))
@@ -94,8 +87,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/register", get(register_form).post(register))
                         .route("/login", get(login_form).post(login))
                         .route("/logout", get(logout))
-                        .route("/verify", get(verify_email))
-                        .with_state(forum_state);
+                        .route("/verify", get(verify_email));
                     router = router.nest(path, forum_routes);
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
@@ -118,7 +110,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     let path_clone = path.clone();
                     router = router.route(&path_clone, get(move |s: State<Arc<AppState>>| {
                         let f = file_clone.clone();
-                        async move { render_html(&s.tera, &f).await }
+                        async move { render_tera_template(s, f, tera::Context::new()).await }
                     }));
                     let content_path = format!("{}/live_content", path_clone.trim_end_matches('/'));
                     router = router.route(&content_path, get(move |State(_): State<Arc<AppState>>, query: Query<LiveQuery>| {
@@ -174,7 +166,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     let file_clone = file_path.clone();
                     router = router.route(path, get(move |s: State<Arc<AppState>>| {
                         let f = file_clone.clone();
-                        async move { render_tera_template(s, f).await }
+                        async move { render_tera_template(s, f, tera::Context::new()).await }
                     }));
                 }
                 _ => {}
@@ -277,17 +269,17 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
 
 async fn render_tera_template(
     State(state): State<Arc<AppState>>, 
-    template_path: String
+    template_path: String,
+    mut context: tera::Context,
 ) -> impl IntoResponse {
-    let mut context = Context::new();
     context.insert("port", &state.config.port);
-    context.insert("ip", &state.config.ip);
+    context.insert("domain", &state.config.domain);
     let template_name = template_path.trim_start_matches("static/");
     match state.tera.render(template_name, &context) {
         Ok(rendered) => Html(rendered).into_response(),
         Err(e) => {
             eprintln!("Tera error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
         }
     }
 }

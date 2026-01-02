@@ -1,15 +1,33 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Forum</title>
-    <link rel="stylesheet" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
-</head>
-<body style="max-width: 800px; margin: 0 auto; padding: 20px;">
+{% extends "base.html" %}
+
+{% block title %}Forum{% endblock title %}
+
+{%block content %}
+
     <h1>Webify Forum</h1>
-    {{AUTH}}
+    <div class="auth-section">
+        {% if current_user %}
+            <a href="/">Home</a> |
+            Logged in as: <string>{{ current_user }}</strong> |
+            <a href="{{ base_path }}/logout">Logout</a> |
+            <a href="{{ base_path }}/new">New Post</a>
+        {% else %}
+            <a href="/">Home</a> |
+            <a href="{{ base_path }}/login">Login</a> |
+            <a href="{{ base_path }}/register">Register</a>
+        {% endif %}
+    </div>
     <hr>
-    {{POSTS}}
     <div class="posts-container">
-        </div>
-</body>
-</html>
+        {% for post in posts %}
+            <div class="post">
+                <h3>{{ post.title }}</h3>
+                <p>By {{ post.author }} on {{ post.created_at | date(format="%Y-%m-%d %H:%M") }}</p>
+                <div class="post-content">{{ post.content }}</div>
+            </div>
+            <hr>
+        {% else %}
+            <p>No posts yet.</p>
+        {% endfor %}
+    </div>
+{% endblock content %}

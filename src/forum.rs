@@ -4,13 +4,14 @@ use serde::{Deserialize, Serialize};
 use axum::{
     extract::{State, Form, Query},
     response::{Html, IntoResponse, Redirect},
+    http::StatusCode,
 };
+use crate::AppState;
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::Cookie;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use bcrypt::{hash, verify, DEFAULT_COST};
-use tokio::fs;
 use uuid::Uuid;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
@@ -52,14 +53,6 @@ pub struct VerifyQuery {
 }
 
 pub type ForumDb = Arc<Surreal<Db>>;
-
-#[derive(Clone)]
-pub struct ForumState {
-    pub db: ForumDb,
-    pub template_path: String,
-    pub base_path: String,
-    pub config: Arc<crate::config::Config>,
-}
 
 pub async fn init_db() -> ForumDb {
     let db = Surreal::new::<surrealdb::engine::local::RocksDb>("forum.db").await.unwrap();
@@ -106,43 +99,27 @@ pub async fn send_verification_email(
     Ok(())
 }
 
-pub async fn list_posts(State(state): State<Arc<ForumState>>, jar: CookieJar) -> impl IntoResponse {
-    let posts: Vec<Post> = state.db.select("posts").await.unwrap_or_default();
+pub async fn list_posts(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar
+) -> impl IntoResponse {
+    let posts: Vec<Post> = state.forum_db.select("posts").await.unwrap_or_default();
     let current_user = get_user(&jar);
-    let base = state.base_path.trim_end_matches('/');
-    
-    let auth_links = if let Some(user) = &current_user {
-        format!(
-            "<a href='/'>Home</a> | Logged in as: <strong>{}</strong> | <a href='{}/logout'>Logout</a> | <a href='{}/new'>New Post</a>",
-            user, base, base
-        )
-    } else {
-        format!(
-            "<a href='/'>Home</a> | <a href='{}/login'>Login</a> | <a href='{}/register'>Register</a>",
-            base, base
-        )
-    };
-
-    let mut posts_html = String::new();
-    for post in posts.iter().rev() {
-        posts_html.push_str(&format!(
-            "<div><h3>{}</h3><p>By {} on {}</p><p>{}</p></div><hr>",
-            post.title, post.author, post.created_at.format("%Y-%m-%d %H:%M"), post.content
-        ));
+    let mut context = tera::Context::new();
+    context.insert("posts", &posts);
+    context.insert("current_user", &current_user);
+    context.insert("base_path", &"/forum");
+    match state.tera.render("forum.html", &context) {
+        Ok(rendered) => Html(rendered).into_response(),
+        Err(e) => {
+            eprintln!("Tera error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Template error").into_response()
+        }
     }
-
-    let mut html = fs::read_to_string(&state.template_path).await.unwrap_or_else(|_| {
-        format!("<h1>Error: Template not found at {}</h1>", state.template_path)
-    });
-
-    if html.contains("{{AUTH}}") { html = html.replace("{{AUTH}}", &auth_links); }
-    if html.contains("{{POSTS}}") { html = html.replace("{{POSTS}}", &posts_html); }
-
-    Html(html)
 }
 
-pub async fn register_form(State(state): State<Arc<ForumState>>) -> Html<String> {
-    let base = state.base_path.trim_end_matches('/');
+pub async fn register_form(State(_state): State<Arc<AppState>>) -> Html<String> {
+    let base = "/forum";
     Html(format!(r#"
         <!DOCTYPE html>
         <html>
@@ -163,16 +140,14 @@ pub async fn register_form(State(state): State<Arc<ForumState>>) -> Html<String>
 }
 
 pub async fn register(
-    State(state): State<Arc<ForumState>>, 
+    State(state): State<Arc<AppState>>, 
     Form(form): Form<RegisterForm>
 ) -> impl IntoResponse {
     if form.password != form.confirm_password {
         return Html("<h1>Error</h1><p>Passwords do not match.</p>").into_response();
     }
-
     let token = Uuid::new_v4().to_string();
     let hashed = hash(form.password, DEFAULT_COST).unwrap();
-    
     let user = User { 
         username: form.username.clone(), 
         email: form.email.clone(), 
@@ -180,26 +155,23 @@ pub async fn register(
         is_verified: false,
         verification_token: token.clone(),
     };
-
-    let _: Option<User> = state.db.create(("users", &form.username)).content(user).await.unwrap();
+    let _: Option<User> = state.forum_db.create(("users", &form.username)).content(user).await.unwrap();
     let _ = send_verification_email(&state.config, &form.email, &token).await;
-
     Html("<h1>Check your email</h1><p>A verification link has been sent to your email.</p>").into_response()
 }
 
 pub async fn verify_email(
-    State(state): State<Arc<ForumState>>,
+    State(state): State<Arc<AppState>>,
     Query(query): Query<VerifyQuery>,
 ) -> impl IntoResponse {
-    println!("Verifying token: [{}]", query.token);
-    let mut result = state.db
+    let mut result = state.forum_db
         .query("SELECT * FROM users WHERE verification_token = $v_token")
         .bind(("v_token", query.token)) 
         .await
         .expect("Verification query failed"); 
     let users: Vec<User> = result.take(0).unwrap_or_default();
     if let Some(user) = users.into_iter().next() {
-        let _: Option<User> = state.db.update(("users", &user.username))
+        let _: Option<User> = state.forum_db.update(("users", &user.username))
             .merge(serde_json::json!({ "is_verified": true }))
             .await
             .expect("Failed to update user status");
@@ -209,8 +181,8 @@ pub async fn verify_email(
     }
 }
 
-pub async fn login_form(State(state): State<Arc<ForumState>>) -> Html<String> {
-    let base = state.base_path.trim_end_matches('/');
+pub async fn login_form(State(_state): State<Arc<AppState>>) -> Html<String> {
+    let base = "/forum";
     Html(format!(r#"
         <!DOCTYPE html>
         <html>
@@ -229,30 +201,33 @@ pub async fn login_form(State(state): State<Arc<ForumState>>) -> Html<String> {
 }
 
 pub async fn login(
-    State(state): State<Arc<ForumState>>, 
+    State(state): State<Arc<AppState>>, 
     jar: CookieJar, 
     Form(form): Form<LoginForm>
 ) -> impl IntoResponse {
-    let user: Option<User> = state.db.select(("users", &form.username)).await.unwrap();
+    let user: Option<User> = state.forum_db.select(("users", &form.username)).await.unwrap();
     if let Some(user) = user {
         if !user.is_verified {
             return Html("<h1>Please verify your email first</h1>").into_response();
         }
         if verify(form.password, &user.password_hash).unwrap() {
             let cookie = Cookie::build(("username", user.username)).path("/").http_only(true).build();
-            return (jar.add(cookie), Redirect::to(&state.base_path)).into_response();
+            return (jar.add(cookie), Redirect::to("/forum")).into_response();
         }
     }
     Html("<h1>Invalid Credentials</h1>").into_response()
 }
 
-pub async fn logout(State(state): State<Arc<ForumState>>, jar: CookieJar) -> impl IntoResponse {
+pub async fn logout(
+    State(_state): State<Arc<AppState>>,
+    jar: CookieJar
+) -> impl IntoResponse {
     let cookie = Cookie::build("username").path("/").build();
-    (jar.remove(cookie), Redirect::to(&state.base_path))
+    (jar.remove(cookie), Redirect::to("/forum"))
 }
 
-pub async fn new_post_form(State(state): State<Arc<ForumState>>, jar: CookieJar) -> impl IntoResponse {
-    let base = state.base_path.trim_end_matches('/');
+pub async fn new_post_form(State(_state): State<Arc<AppState>>, jar: CookieJar) -> impl IntoResponse {
+    let base = "/forum";
     if get_user(&jar).is_none() {
         return Redirect::to(&format!("{}/login", base)).into_response();
     }
@@ -279,15 +254,14 @@ pub struct CreatePost {
 }
 
 pub async fn create_post(
-    State(state): State<Arc<ForumState>>,
+    State(state): State<Arc<AppState>>,
     jar: CookieJar,
     Form(form): Form<CreatePost>,
 ) -> impl IntoResponse {
-    let base = state.base_path.trim_end_matches('/');
     let Some(username) = get_user(&jar) else {
-        return Redirect::to(&format!("{}/login", base)).into_response();
+        return Redirect::to("/forum/login").into_response();
     };
-    let _: Option<Post> = state.db.create("posts")
+    let _: Option<Post> = state.forum_db.create("posts")
         .content(Post {
             title: form.title,
             content: form.content,
@@ -296,5 +270,5 @@ pub async fn create_post(
         })
         .await
         .unwrap();
-    Redirect::to(&format!("{}", state.base_path)).into_response()
+    Redirect::to("/forum").into_response()
 }
