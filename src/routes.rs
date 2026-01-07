@@ -1,14 +1,14 @@
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use std::io::SeekFrom;
-use axum_extra::extract::Host;
 use axum::{
     extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo},
+    response::{Html, IntoResponse},
     routing::{
         get, post, get_service
     },
-    http::StatusCode, response::{
-        Html, IntoResponse
+    http::{
+        header, HeaderMap, StatusCode
     },
     Router
 };
@@ -73,7 +73,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/uploads", ServeDir::new("uploads"))
             .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
+            .nest_service("/css", ServeDir::new("css"))
             .nest_service("/styles", ServeDir::new("styles"))
+            .nest_service("/js", ServeDir::new("js"))
             .nest_service("/scripts", ServeDir::new("scripts"))
             .nest_service("/images", ServeDir::new("images"))
             .fallback(get(not_found));
@@ -211,11 +213,17 @@ pub async fn app(state: Arc<AppState>) -> Router {
         site_routers.insert(domain.clone(), final_site_router);
     }
     let site_routers_arc = Arc::new(site_routers);
-Router::new().fallback(move |host: Host, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
+Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
         let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
         async move {
-            let hostname = host.0.split(':').next().unwrap_or("").to_string();
+            //let hostname = host.0.split(':').next().unwrap_or("").to_string();
+            let hostname = headers
+                .get(header::HOST)
+                .and_then(|h| h.to_str().ok())
+                .and_then(|h| h.split(':').next())
+                .unwrap_or("")
+                .to_string();
             let client_ip = addr.ip().to_string();
             if let Some(ips) = whitelist_map.get(&hostname).or_else(|| whitelist_map.get("default")) {
                 if !ips.is_empty() && !ips.contains(&client_ip) {
