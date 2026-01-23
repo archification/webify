@@ -89,7 +89,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/register", get(register_form).post(register))
                         .route("/login", get(login_form).post(login))
                         .route("/logout", get(logout))
-                        .route("/verify", get(verify_email));
+                        .route("/verify", get(verify_email))
+                        .route("/auth/google", get(login_google))
+                        .route("/auth/google/callback", get(callback_google));
                     router = router.nest(path, forum_routes);
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
@@ -217,7 +219,6 @@ Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<
         let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
         async move {
-            //let hostname = host.0.split(':').next().unwrap_or("").to_string();
             let hostname = headers
                 .get(header::HOST)
                 .and_then(|h| h.to_str().ok())

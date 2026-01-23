@@ -31,6 +31,9 @@ pub struct Config {
     pub smtp_username: Option<String>,
     pub smtp_password: Option<String>,
     pub email_from: Option<String>,
+    pub google_client_id: Option<String>,
+    pub google_client_secret: Option<String>,
+    pub google_redirect_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +56,9 @@ struct RawConfig {
     smtp_username: Option<String>,
     smtp_password: Option<String>,
     email_from: Option<String>,
+    google_client_id: Option<String>,
+    google_client_secret: Option<String>,
+    google_redirect_url: Option<String>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -103,7 +109,7 @@ pub fn read_config() -> Option<Config> {
             }
             WhitelistValue::DomainMap(map) => {
                 let domain_ips = whitelists.entry(key).or_insert_with(Vec::new);
-                for (_, ips) in map { // Flattens sub-keys like "allowed_ips"
+                for (_, ips) in map {
                     domain_ips.extend(ips);
                 }
             }
@@ -130,5 +136,8 @@ pub fn read_config() -> Option<Config> {
         smtp_username: raw.smtp_username,
         smtp_password: raw.smtp_password,
         email_from: raw.email_from,
+        google_client_id: raw.google_client_id,
+        google_client_secret: raw.google_client_secret,
+        google_redirect_url: raw.google_redirect_url,
     })
 }

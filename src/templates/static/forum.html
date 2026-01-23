@@ -1,33 +1,94 @@
-{% extends "base.html" %}
-
-{% block title %}Forum{% endblock title %}
-
-{%block content %}
-
-    <h1>Webify Forum</h1>
-    <div class="auth-section">
-        {% if current_user %}
-            <a href="/">Home</a> |
-            Logged in as: <string>{{ current_user }}</strong> |
-            <a href="{{ base_path }}/logout">Logout</a> |
-            <a href="{{ base_path }}/new">New Post</a>
-        {% else %}
-            <a href="/">Home</a> |
-            <a href="{{ base_path }}/login">Login</a> |
-            <a href="{{ base_path }}/register">Register</a>
-        {% endif %}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Webify Forum</title>
+    <link rel="stylesheet" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    <style>
+        body {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #586e75;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .post {
+            background-color: #073642;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .post-title {
+            font-size: 1.2em;
+            color: #b58900;
+            font-weight: bold;
+        }
+        .post-meta {
+            font-size: 0.8em;
+            color: #93a1a1;
+            margin-bottom: 10px;
+        }
+        .post-content {
+            white-space: pre-wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #268bd2;
+            color: #fdf6e3;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #2aa198;
+        }
+        .btn-google {
+            background-color: #eee8d5;
+            color: #073642;
+        }
+        .btn-google:hover {
+            background-color: #93a1a1;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Webify Forum</h1>
+        <div class="actions">
+            {% if current_user %}
+                <span>Welcome, {{ current_user }}!</span>
+                <a href="{{ base_path }}/new" class="btn">New Post</a>
+                <a href="{{ base_path }}/logout" class="btn" style="background-color: #dc322f;">Logout</a>
+            {% else %}
+                <a href="{{ base_path }}/auth/google" class="btn btn-google">Login with Google</a>
+                <a href="{{ base_path }}/login" class="btn">Login</a>
+                <a href="{{ base_path }}/register" class="btn">Register</a>
+            {% endif %}
+        </div>
     </div>
-    <hr>
-    <div class="posts-container">
-        {% for post in posts %}
+
+    <div class="posts">
+        {% for post in posts | reverse %}
             <div class="post">
-                <h3>{{ post.title }}</h3>
-                <p>By {{ post.author }} on {{ post.created_at | date(format="%Y-%m-%d %H:%M") }}</p>
+                <div class="post-title">{{ post.title }}</div>
+                <div class="post-meta">Posted by {{ post.author }} on {{ post.created_at | date(format="%Y-%m-%d %H:%M") }}</div>
                 <div class="post-content">{{ post.content }}</div>
             </div>
-            <hr>
         {% else %}
-            <p>No posts yet.</p>
+            <p>No posts yet. Be the first to post!</p>
         {% endfor %}
     </div>
-{% endblock content %}
+</body>
+</html>
