@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interaction Room</title>
+    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
+    <style>
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .hidden { display: none; }
+        .btn-large { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 1.2em; cursor: pointer; }
+        .room-list-item { padding: 10px; border: 1px solid #586e75; margin-bottom: 5px; cursor: pointer; }
+        .room-list-item:hover { background-color: #073642; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; }
+        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        
+        /* Chat styles */
+        #chat-container { height: 300px; border: 1px solid #586e75; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #002b36; }
+        .message { margin-bottom: 10px; word-wrap: break-word; }
+        .system-msg { color: #b58900; font-style: italic; }
+        .chat-msg .sender { font-weight: bold; color: #268bd2; }
+        
+        /* Media Embeds */
+        .chat-media { max-width: 100%; max-height: 200px; display: block; margin-top: 5px; border-radius: 5px; }
+        
+        /* Doer Circle */
+        #signal-circle { width: 200px; height: 200px; border-radius: 50%; background-color: #808080; margin: 20px auto; transition: background-color 0.3s; }
+        
+        /* Controller Buttons */
+        .color-btn { width: 100px; height: 50px; margin: 5px; border: 2px solid transparent; color: white; cursor: pointer; font-weight: bold; opacity: 0.6; transition: all 0.2s; }
+        .color-btn:hover { opacity: 0.8; }
+        .color-btn.active { opacity: 1.0; border-color: white; transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        
+        .btn-red { background-color: #dc322f; }
+        .btn-green { background-color: #859900; }
+        .btn-blue { background-color: #268bd2; }
+        .btn-yellow { background-color: #b58900; }
+
+        /* Controls */
+        .chat-controls { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+    </nav>
+
+    <div class="container">
+        <div id="step-main">
+            <h1>Interaction Hub</h1>
+            <div class="input-group">
+                <label for="username-input">Enter your Username:</label>
+                <input type="text" id="username-input" placeholder="Guest" />
+            </div>
+            <button class="btn-large" onclick="checkUsername('create')">Create Room</button>
+            <button class="btn-large" onclick="checkUsername('join')">Join Room</button>
+        </div>
+
+        <div id="step-create" class="hidden">
+            <h1>Create Room</h1>
+            <div class="input-group">
+                <label>Role:</label>
+                <div style="display: flex; gap: 10px;">
+                    <button style="flex:1; padding: 10px;" onclick="setCreateRole('controller')" id="btn-role-c">Controller</button>
+                    <button style="flex:1; padding: 10px;" onclick="setCreateRole('doer')" id="btn-role-d">Doer</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Max Controllers:</label>
+                <input type="number" id="max-controllers" value="1" min="1" max="50">
+            </div>
+            <div class="input-group">
+                <label>Max Doers:</label>
+                <input type="number" id="max-doers" value="1" min="1" max="50">
+            </div>
+            <button class="btn-large" onclick="createRoom()">Create & Enter</button>
+            <button onclick="showStep('main')">Back</button>
+        </div>
+
+        <div id="step-join" class="hidden">
+            <h1>Join Room</h1>
+            <p>I want to be a:</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="btn-large" onclick="fetchRooms('controller')">Controller</button>
+                <button class="btn-large" onclick="fetchRooms('doer')">Doer</button>
+            </div>
+            <button onclick="showStep('main')">Back</button>
+            
+            <div id="room-list" class="hidden">
+                <h3>Available Rooms</h3>
+                <div id="rooms-container">Loading...</div>
+            </div>
+        </div>
+
+        <div id="step-room" class="hidden">
+            <h2 id="room-header">Room</h2>
+            
+            <div id="view-doer" class="hidden">
+                <div id="signal-circle"></div>
+                <p style="text-align: center;">Watch the circle!</p>
+            </div>
+
+            <div id="view-controller" class="hidden">
+                <div style="text-align: center;">
+                    <button class="color-btn btn-red" id="btn-ctrl-#dc322f" onclick="sendSignal('#dc322f')">Red</button>
+                    <button class="color-btn btn-green" id="btn-ctrl-#859900" onclick="sendSignal('#859900')">Green</button>
+                    <button class="color-btn btn-blue" id="btn-ctrl-#268bd2" onclick="sendSignal('#268bd2')">Blue</button>
+                    <button class="color-btn btn-yellow" id="btn-ctrl-#b58900" onclick="sendSignal('#b58900')">Yellow</button>
+                </div>
+            </div>
+
+            <h3>Chat</h3>
+            <div id="chat-container"></div>
+            <div class="chat-controls">
+                <input type="file" id="file-input" style="display: none;" onchange="uploadFile(this)">
+                <button onclick="document.getElementById('file-input').click()" style="padding: 10px; background-color: #586e75; color: white; border: none; cursor: pointer;">📎</button>
+                <input type="text" id="chat-input" style="flex-grow: 1; padding: 10px;" placeholder="Type a message..." onkeypress="handleEnter(event)">
+                <button onclick="sendChat()" style="padding: 10px;">Send</button>
+            </div>
+            <br>
+            <button onclick="leaveRoom()" style="background-color: #dc322f; color: white; padding: 10px; border: none; cursor: pointer;">Leave Room</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRole = null;
+        let currentUsername = "";
+        let selectedCreateRole = "controller";
+
+        function checkUsername(nextStep) {
+            const val = document.getElementById('username-input').value.trim();
+            if (!val) {
+                alert("Please enter a username.");
+                return;
+            }
+            currentUsername = val;
+            showStep(nextStep);
+        }
+
+        function showStep(stepId) {
+            document.querySelectorAll('.container > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('step-' + stepId).classList.remove('hidden');
+        }
+
+        // --- Create Logic ---
+        function setCreateRole(role) {
+            selectedCreateRole = role;
+            document.getElementById('btn-role-c').style.border = role === 'controller' ? '2px solid white' : '1px solid #586e75';
+            document.getElementById('btn-role-d').style.border = role === 'doer' ? '2px solid white' : '1px solid #586e75';
+        }
+
+        async function createRoom() {
+            const maxC = parseInt(document.getElementById('max-controllers').value);
+            const maxD = parseInt(document.getElementById('max-doers').value);
+            
+            try {
+                const response = await fetch('/interaction/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        role: selectedCreateRole,
+                        max_controllers: maxC,
+                        max_doers: maxD
+                    })
+                });
+                const data = await response.json();
+                enterRoom(data.room_id, selectedCreateRole);
+            } catch (err) {
+                alert("Failed to create room: " + err);
+            }
+        }
+
+        // --- Join Logic ---
+        async function fetchRooms(role) {
+            document.getElementById('room-list').classList.remove('hidden');
+            const container = document.getElementById('rooms-container');
+            container.innerHTML = 'Loading...';
+            
+            try {
+                const response = await fetch(`/interaction/list/${role}`);
+                const rooms = await response.json();
+                
+                container.innerHTML = '';
+                if (rooms.length === 0) {
+                    container.innerHTML = '<p>No matching rooms available.</p>';
+                    return;
+                }
+
+                rooms.forEach(room => {
+                    const div = document.createElement('div');
+                    div.className = 'room-list-item';
+                    
+                    const capacityInfo = role === 'controller' 
+                        ? `Controllers: ${room.controllers}/${room.max_controllers}`
+                        : `Doers: ${room.doers}/${room.max_doers}`;
+
+                    div.innerHTML = `
+                        <strong>${room.label}</strong> <small>(${capacityInfo})</small><br>
+                        <span style="font-size:0.8em; color:#93a1a1;">Created: ${new Date(room.created_at).toLocaleTimeString()}</span>
+                    `;
+                    div.onclick = () => enterRoom(room.id, role);
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                container.innerHTML = '<p>Error fetching rooms.</p>';
+                console.error(err);
+            }
+        }
+
+        // --- Room Logic ---
+        function enterRoom(roomId, role) {
+            currentRole = role;
+            
+            showStep('room');
+            document.getElementById('room-header').innerText = `Room (${role}) - ${currentUsername}`;
+            document.getElementById('view-doer').classList.add('hidden');
+            document.getElementById('view-controller').classList.add('hidden');
+            document.getElementById('chat-container').innerHTML = '';
+
+            if (role === 'doer') {
+                document.getElementById('view-doer').classList.remove('hidden');
+            } else {
+                document.getElementById('view-controller').classList.remove('hidden');
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/interaction/${roomId}?role=${role}&username=${encodeURIComponent(currentUsername)}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleMessage(msg);
+            };
+
+            ws.onclose = () => {
+                appendLog('System', 'Disconnected from server.');
+            };
+        }
+
+        function leaveRoom() {
+            if (ws) ws.close();
+            showStep('main');
+        }
+
+        function handleMessage(msg) {
+            if (msg.type === 'chat') {
+                appendLog(msg.payload.sender, msg.payload.text);
+            } else if (msg.type === 'status') {
+                appendSystemLog(msg.payload.text);
+            } else if (msg.type === 'signal') {
+                updateColorState(msg.payload.color);
+            } else if (msg.type === 'identity') {
+                updateColorState(msg.payload.current_color);
+            } else if (msg.type === 'error') {
+                alert(msg.payload.message);
+                leaveRoom();
+            }
+        }
+
+        function updateColorState(color) {
+            const circle = document.getElementById('signal-circle');
+            if (circle) circle.style.backgroundColor = color;
+
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = document.getElementById(`btn-ctrl-${color}`);
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text || !ws) return;
+            
+            ws.send(text);
+            input.value = '';
+        }
+
+        function sendSignal(color) {
+            if (!ws) return;
+            const msg = {
+                type: 'signal',
+                payload: { color: color }
+            };
+            ws.send(JSON.stringify(msg));
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') sendChat();
+        }
+
+        async function uploadFile(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.url) {
+                        // Send the URL to the chat
+                        if (ws) ws.send(window.location.origin + data.url);
+                    }
+                } else {
+                    alert('Upload failed.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Upload error.');
+            } finally {
+                input.value = ''; // Reset input
+            }
+        }
+
+function appendLog(sender, text) {
+            const div = document.createElement('div');
+            div.className = 'message chat-msg';
+            
+            // 1. Create Sender Label
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'sender';
+            senderSpan.innerText = sender + ': ';
+            div.appendChild(senderSpan);
+
+            // 2. Check for "Diskless" Media Broadcasts (Data URIs)
+            // These are trusted because they don't contain executable script tags, just data.
+            if (text.startsWith('data:image')) {
+                div.appendChild(document.createElement('br'));
+                const img = document.createElement('img');
+                img.src = text;
+                img.className = 'chat-media';
+                div.appendChild(img);
+            } 
+            else if (text.startsWith('data:video')) {
+                div.appendChild(document.createElement('br'));
+                const video = document.createElement('video');
+                video.src = text;
+                video.className = 'chat-media';
+                video.controls = true;
+                div.appendChild(video);
+            }
+            else {
+                // 3. THE CONTAINER STRATEGY (Safe Text Nodes)
+                // We parse links manually, but the bulk text is put in a container 
+                // using .textContent or .innerText. This neutralizes all HTML tags 
+                // (they render as visible text code) without us needing to write a regex.
+                
+                const contentSpan = document.createElement('span');
+                
+                // Check for URLs to make them clickable (Simple link detector)
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const parts = text.split(urlRegex);
+
+                parts.forEach(part => {
+                    if (part.match(urlRegex)) {
+                        // It's a link -> Make it an anchor tag
+                        const a = document.createElement('a');
+                        a.href = part;
+                        a.target = '_blank';
+                        a.style.color = '#268bd2';
+                        a.textContent = part; // Safe link text
+                        contentSpan.appendChild(a);
+                        
+                        // Check for standard media embeds (optional)
+                        checkForMediaEmbed(div, part);
+                    } else {
+                        // It's regular text -> Create a safe text node container
+                        const textNode = document.createTextNode(part);
+                        contentSpan.appendChild(textNode);
+                    }
+                });
+
+                div.appendChild(contentSpan);
+            }
+
+            const container = document.getElementById('chat-container');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function checkForMediaEmbed(containerDiv, url) {
+            const cleanUrl = url.split('?')[0].toLowerCase();
+            if (cleanUrl.match(/\.(jpeg|jpg|gif|png|webp|svg)$/)) {
+                containerDiv.appendChild(document.createElement('br'));
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'chat-media';
+                containerDiv.appendChild(img);
+            } else if (cleanUrl.match(/\.(mp4|webm|ogg)$/)) {
+                containerDiv.appendChild(document.createElement('br'));
+                const video = document.createElement('video');
+                video.src = url;
+                video.className = 'chat-media';
+                video.controls = true;
+                containerDiv.appendChild(video);
+            }
+        }
+
+        function appendSystemLog(text) {
+            const div = document.createElement('div');
+            div.className = 'message system-msg';
+            div.innerText = `[System] ${text}`;
+            const container = document.getElementById('chat-container');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -22,6 +22,7 @@ use crate::thumbnail::generate_thumbnail;
 use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
+use crate::interaction;
 use crate::AppState;
 use crate::forum::*;
 use solarized::{
@@ -78,6 +79,10 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .nest_service("/js", ServeDir::new("js"))
             .nest_service("/scripts", ServeDir::new("scripts"))
             .nest_service("/images", ServeDir::new("images"))
+            .route("/interaction", get(render_interaction_page))
+            .route("/interaction/create", post(interaction::create_room))
+            .route("/interaction/list/{role}", get(interaction::list_rooms))
+            .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
             .fallback(get(not_found));
         for (path, settings) in routes {
             match settings.as_slice() {
@@ -181,14 +186,14 @@ pub async fn app(state: Arc<AppState>) -> Router {
             Ok(num) => {
                 router = router.route(
                     "/upload",
-                    post(move |multipart| upload(multipart, storage_limit))
+                    post(move |headers, multipart| upload(headers, multipart, storage_limit))
                     .layer(DefaultBodyLimit::max(num))
                 );
             },
             Err("disabled") => {
                 router = router.route(
                     "/upload",
-                    post(move |multipart| upload(multipart, storage_limit))
+                    post(move |headers, multipart| upload(headers, multipart, storage_limit))
                     .layer(DefaultBodyLimit::disable())
                 );
             },
@@ -206,7 +211,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                 let default_limit = 2 * 1000 * 1000 * 1000;
                 router = router.route(
                     "/upload",
-                    post(move |multipart| upload(multipart, storage_limit))
+                    post(move |headers, multipart| upload(headers, multipart, storage_limit))
                     .layer(DefaultBodyLimit::max(default_limit))
                 );
             }
@@ -274,6 +279,10 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
 </html>
     "#, post_name, html_output);
     Html(template)
+}
+
+async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    render_tera_template(State(state), "static/interaction.html".to_string(), tera::Context::new()).await
 }
 
 async fn render_tera_template(

@@ -12,6 +12,7 @@ mod slideshow;
 mod thumbnail;
 mod php;
 mod forum;
+mod interaction;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -33,6 +34,7 @@ use std::env;
 use std::sync::Arc;
 use std::net::SocketAddr;
 use webbrowser;
+use rustls::crypto::ring;
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
     let scope = scope.trim().to_lowercase();
@@ -48,10 +50,12 @@ pub struct AppState {
     pub config: Arc<crate::config::Config>,
     pub forum_db: crate::forum::ForumDb,
     pub tera: Tera,
+    pub interaction: crate::interaction::InteractionState,
 }
 
 #[tokio::main]
 async fn main() {
+    let _ = ring::default_provider().install_default();
     clear();
     let args: Vec<String> = env::args().collect();
     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
@@ -97,41 +101,59 @@ async fn main() {
         tera.autoescape_on(vec![]);
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
+        let interaction = crate::interaction::InteractionState::new();
         let state = Arc::new(AppState {
             config: config_arc.clone(),
             forum_db,
             tera,
+            interaction,
         });
         let app = app(state.clone()).await;
         if state.config.ssl_enabled {
-            let ssladdr =
-                format_address(state.config.scope.as_str(), state.config.ip.as_str(), state.config.ssl_port);
+            let ssladdr = format_address(
+                state.config.scope.as_str(), 
+                state.config.ip.as_str(), 
+                state.config.ssl_port
+            );
             let ssl_config = RustlsConfig::from_pem_file(
-                state.config
-                    .ssl_cert_path
-                    .clone()
-                    .expect("SSL cert path is required"),
-                state.config
-                    .ssl_key_path
-                    .clone()
-                    .expect("SSL key path is required"),
+                state.config.ssl_cert_path.clone().expect("SSL cert path is required"),
+                state.config.ssl_key_path.clone().expect("SSL key path is required"),
             )
             .await
             .expect("Failed to configure SSL");
-            let server =
-                axum_server_dual_protocol::bind_dual_protocol(ssladdr.parse().unwrap(), ssl_config)
-                    .set_upgrade(true)
-                    .serve(app.clone().into_make_service_with_connect_info::<SocketAddr>());
-            tokio::spawn(async move {
-                let result: Result<(), std::io::Error> = server.await;
-                result.expect("SSL server failed");
-            });
+            let dual_server = axum_server_dual_protocol::bind_dual_protocol(
+                ssladdr.parse().unwrap(), 
+                ssl_config
+            )
+            .set_upgrade(true)
+            .serve(app.clone().into_make_service_with_connect_info::<SocketAddr>());
+            if state.config.port == state.config.ssl_port {
+                dual_server.await.expect("Dual protocol server failed");
+            } else {
+                tokio::spawn(async move {
+                    dual_server.await.expect("SSL server failed");
+                });
+                let addr = format_address(
+                    state.config.scope.as_str(), 
+                    state.config.ip.as_str(), 
+                    state.config.port
+                );
+                let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
+                axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+                    .await
+                    .expect("HTTP server failed");
+            }
+        } else {
+            let addr = format_address(
+                state.config.scope.as_str(), 
+                state.config.ip.as_str(), 
+                state.config.port
+            );
+            let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
+            axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+                .await
+                .expect("HTTP server failed");
         }
-        let addr = format_address(state.config.scope.as_str(), state.config.ip.as_str(), state.config.port);
-        let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
-        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-            .await
-            .expect("HTTP server failed");
     } else {
         generate_files();
     }
