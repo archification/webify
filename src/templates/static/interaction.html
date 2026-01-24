@@ -6,7 +6,20 @@
     <title>Interaction Room</title>
     <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
     <style>
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        /* UPDATED: Override external CSS restrictions on the body */
+        body {
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* UPDATED: Main container takes 95% of the full screen */
+        .container { 
+            max-width: 95%; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        
         .hidden { display: none; }
         .btn-large { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 1.2em; cursor: pointer; }
         .room-list-item { padding: 10px; border: 1px solid #586e75; margin-bottom: 5px; cursor: pointer; }
@@ -16,13 +29,13 @@
         .input-group input { width: 100%; padding: 8px; box-sizing: border-box; }
         
         /* Chat styles */
-        #chat-container { height: 300px; border: 1px solid #586e75; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #002b36; }
+        #chat-container { height: 60vh; border: 1px solid #586e75; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #002b36; }
         .message { margin-bottom: 10px; word-wrap: break-word; }
         .system-msg { color: #b58900; font-style: italic; }
         .chat-msg .sender { font-weight: bold; color: #268bd2; }
         
         /* Media Embeds */
-        .chat-media { max-width: 100%; max-height: 200px; display: block; margin-top: 5px; border-radius: 5px; }
+        .chat-media { max-width: 100%; max-height: 300px; display: block; margin-top: 5px; border-radius: 5px; }
         
         /* Doer Circle */
         #signal-circle { width: 200px; height: 200px; border-radius: 50%; background-color: #808080; margin: 20px auto; transition: background-color 0.3s; }
@@ -42,7 +55,7 @@
     </style>
 </head>
 <body>
-    <nav>
+    <nav style="padding: 10px 20px;">
         <a href="/">Home</a>
     </nav>
 
@@ -113,7 +126,7 @@
             <h3>Chat</h3>
             <div id="chat-container"></div>
             <div class="chat-controls">
-                <input type="file" id="file-input" style="display: none;" onchange="uploadFile(this)">
+                <input type="file" id="file-input" accept="image/*,video/*" style="display: none;" onchange="broadcastFile(this)">
                 <button onclick="document.getElementById('file-input').click()" style="padding: 10px; background-color: #586e75; color: white; border: none; cursor: pointer;">📎</button>
                 <input type="text" id="chat-input" style="flex-grow: 1; padding: 10px;" placeholder="Type a message..." onkeypress="handleEnter(event)">
                 <button onclick="sendChat()" style="padding: 10px;">Send</button>
@@ -128,9 +141,10 @@
         let currentRole = null;
         let currentUsername = "";
         let selectedCreateRole = "controller";
+        let currentRoomId = null;
 
         function checkUsername(nextStep) {
-            const val = document.getElementById('username-input').value.trim();
+            const val = document.getElementById("username-input").value.trim();
             if (!val) {
                 alert("Please enter a username.");
                 return;
@@ -212,6 +226,7 @@
         // --- Room Logic ---
         function enterRoom(roomId, role) {
             currentRole = role;
+            currentRoomId = roomId;
             
             showStep('room');
             document.getElementById('room-header').innerText = `Room (${role}) - ${currentUsername}`;
@@ -235,12 +250,13 @@
             };
 
             ws.onclose = () => {
-                appendLog('System', 'Disconnected from server.');
+                appendSystemLog('Disconnected from server.');
             };
         }
 
         function leaveRoom() {
             if (ws) ws.close();
+            currentRoomId = null;
             showStep('main');
         }
 
@@ -292,49 +308,37 @@
             if (e.key === 'Enter') sendChat();
         }
 
-        async function uploadFile(input) {
+        function broadcastFile(input) {
             if (!input.files || input.files.length === 0) return;
             const file = input.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json' },
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.url) {
-                        // Send the URL to the chat
-                        if (ws) ws.send(window.location.origin + data.url);
-                    }
-                } else {
-                    alert('Upload failed.');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Upload error.');
-            } finally {
-                input.value = ''; // Reset input
+            
+            if (file.size > 50 * 1024 * 1024) {
+                alert("File too large. Max 50MB for live broadcast.");
+                input.value = '';
+                return;
             }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                if (ws) ws.send(dataUrl);
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
         }
 
-function appendLog(sender, text) {
+        function appendLog(sender, text) {
             const div = document.createElement('div');
             div.className = 'message chat-msg';
             
-            // 1. Create Sender Label
             const senderSpan = document.createElement('span');
             senderSpan.className = 'sender';
             senderSpan.innerText = sender + ': ';
             div.appendChild(senderSpan);
 
-            // 2. Check for "Diskless" Media Broadcasts (Data URIs)
-            // These are trusted because they don't contain executable script tags, just data.
+            // 1. Check for "Diskless" Media Broadcasts (Data URIs)
             if (text.startsWith('data:image')) {
+                // This covers JPEG, PNG, WEBP, and GIF
                 div.appendChild(document.createElement('br'));
                 const img = document.createElement('img');
                 img.src = text;
@@ -350,31 +354,22 @@ function appendLog(sender, text) {
                 div.appendChild(video);
             }
             else {
-                // 3. THE CONTAINER STRATEGY (Safe Text Nodes)
-                // We parse links manually, but the bulk text is put in a container 
-                // using .textContent or .innerText. This neutralizes all HTML tags 
-                // (they render as visible text code) without us needing to write a regex.
-                
+                // 2. Safe Text & Link Container
                 const contentSpan = document.createElement('span');
-                
-                // Check for URLs to make them clickable (Simple link detector)
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
                 const parts = text.split(urlRegex);
 
                 parts.forEach(part => {
                     if (part.match(urlRegex)) {
-                        // It's a link -> Make it an anchor tag
                         const a = document.createElement('a');
                         a.href = part;
                         a.target = '_blank';
                         a.style.color = '#268bd2';
-                        a.textContent = part; // Safe link text
+                        a.textContent = part;
                         contentSpan.appendChild(a);
                         
-                        // Check for standard media embeds (optional)
                         checkForMediaEmbed(div, part);
                     } else {
-                        // It's regular text -> Create a safe text node container
                         const textNode = document.createTextNode(part);
                         contentSpan.appendChild(textNode);
                     }
@@ -409,7 +404,7 @@ function appendLog(sender, text) {
         function appendSystemLog(text) {
             const div = document.createElement('div');
             div.className = 'message system-msg';
-            div.innerText = `[System] ${text}`;
+            div.textContent = `[System] ${text}`;
             const container = document.getElementById('chat-container');
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;

@@ -1,11 +1,13 @@
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
-        Path, Query, State, WebSocketUpgrade,
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Path, Query, State,
     },
     http::StatusCode,
     response::{IntoResponse, Json},
 };
+// Removed invalid WebSocketConfig import
+
 use chrono::Utc;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
@@ -101,7 +103,7 @@ pub async fn create_room(
         users: HashMap::new(),
         max_controllers: payload.max_controllers,
         max_doers: payload.max_doers,
-        current_color: "#808080".to_string(), // Default gray
+        current_color: "#808080".to_string(),
     };
 
     state.interaction.rooms.write().await.insert(room_id.clone(), room);
@@ -167,13 +169,15 @@ pub async fn ws_handler(
         _ => return (StatusCode::BAD_REQUEST, "Invalid role").into_response(),
     };
     
-    // Simple username validation
     let username = params.username.trim().to_string();
     if username.is_empty() {
          return (StatusCode::BAD_REQUEST, "Username required").into_response();
     }
 
-    ws.on_upgrade(move |socket| handle_socket(socket, room_id, role, username, state))
+    // UPDATED: Apply limits directly to the WebSocketUpgrade builder
+    ws.max_message_size(128 * 1024 * 1024)
+      .max_frame_size(128 * 1024 * 1024)
+      .on_upgrade(move |socket| handle_socket(socket, room_id, role, username, state))
 }
 
 async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username: String, state: Arc<AppState>) {
@@ -181,11 +185,9 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
     let connection_id = Uuid::new_v4().to_string();
     let mut rx;
 
-    // Join Room Block
     {
         let mut rooms = state.interaction.rooms.write().await;
         if let Some(room) = rooms.get_mut(&room_id) {
-            // Check capacity
             let count = room.users.values().filter(|u| u.role == role).count();
             let max = match role {
                 Role::Controller => room.max_controllers,
@@ -206,14 +208,12 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
             
             rx = room.tx.subscribe();
 
-            // Send Identity with current color state
             let _ = sender.send(Message::Text(serde_json::to_string(&WsMessage::Identity {
                 role: role.clone(),
                 username: username.clone(),
                 current_color: room.current_color.clone(),
             }).unwrap().into())).await;
             
-            // Notify others
             let _ = room.tx.send(serde_json::to_string(&WsMessage::Status {
                 text: format!("{} ({:?}) joined the room.", username, role)
             }).unwrap());
@@ -226,7 +226,6 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         }
     }
 
-    // Forward broadcast messages to this client
     let mut send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             if sender.send(Message::Text(msg.into())).await.is_err() {
@@ -235,7 +234,6 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         }
     });
 
-    // Handle incoming messages from this client
     let tx_inner_state = state.clone();
     let room_id_inner = room_id.clone();
     let username_inner = username.clone();
@@ -245,13 +243,11 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
             if let Message::Text(text) = msg {
                 let text_string = text.to_string();
                 
-                // Try parsing as JSON first (for signals)
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text_string) {
                     if let Some(msg_type) = parsed.get("type").and_then(|v| v.as_str()) {
                          if msg_type == "signal" {
                              if let Some(payload) = parsed.get("payload") {
                                  if let Some(color) = payload.get("color").and_then(|v| v.as_str()) {
-                                     // Update State
                                      let mut rooms = tx_inner_state.interaction.rooms.write().await;
                                      if let Some(room) = rooms.get_mut(&room_id_inner) {
                                          room.current_color = color.to_string();
@@ -260,7 +256,6 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
                                  }
                              }
                          } else {
-                             // Re-broadcast other JSON messages
                              let rooms = tx_inner_state.interaction.rooms.read().await;
                              if let Some(room) = rooms.get(&room_id_inner) {
                                   let _ = room.tx.send(text_string);
@@ -268,7 +263,6 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
                          }
                     }
                 } else {
-                    // Plain text is chat
                     let rooms = tx_inner_state.interaction.rooms.read().await;
                     if let Some(room) = rooms.get(&room_id_inner) {
                         let chat_msg = WsMessage::Chat {
@@ -287,7 +281,6 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         _ = (&mut recv_task) => send_task.abort(),
     };
 
-    // Cleanup
     let mut rooms = state.interaction.rooms.write().await;
     if let Some(room) = rooms.get_mut(&room_id) {
         room.users.remove(&connection_id);
@@ -296,7 +289,7 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         }).unwrap());
         
         if room.users.is_empty() {
-             rooms.remove(&room_id);
+            rooms.remove(&room_id);
         }
     }
 }
