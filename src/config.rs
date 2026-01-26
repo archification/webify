@@ -9,6 +9,14 @@ use solarized::{
     PrintMode::NewLine,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PermanentRoom {
+    pub name: String,
+    pub max_controllers: usize,
+    pub max_doers: usize,
+    pub password: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub scope: String,
@@ -34,6 +42,7 @@ pub struct Config {
     pub google_client_id: Option<String>,
     pub google_client_secret: Option<String>,
     pub google_redirect_url: Option<String>,
+    pub permanent_rooms: Option<Vec<PermanentRoom>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +68,7 @@ struct RawConfig {
     google_client_id: Option<String>,
     google_client_secret: Option<String>,
     google_redirect_url: Option<String>,
+    pub permanent_rooms: Option<Vec<PermanentRoom>>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -139,5 +149,6 @@ pub fn read_config() -> Option<Config> {
         google_client_id: raw.google_client_id,
         google_client_secret: raw.google_client_secret,
         google_redirect_url: raw.google_redirect_url,
+        permanent_rooms: raw.permanent_rooms,
     })
 }

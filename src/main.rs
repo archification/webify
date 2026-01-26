@@ -20,6 +20,7 @@ use crate::help::print_help;
 use crate::out::setup;
 use crate::routes::app;
 use crate::forum::{init_db, ForumDb};
+use crate::interaction::Room; // Added import
 
 use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
@@ -35,6 +36,9 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 use webbrowser;
 use rustls::crypto::ring;
+use tokio::sync::broadcast; // Added import
+use chrono::Utc; // Added import
+use std::collections::HashMap; // Added import
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
     let scope = scope.trim().to_lowercase();
@@ -101,7 +105,32 @@ async fn main() {
         tera.autoescape_on(vec![]);
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
+        
         let interaction = crate::interaction::InteractionState::new();
+
+        // Initialize permanent rooms from config
+        if let Some(permanent_rooms) = &config_arc.permanent_rooms {
+            let mut rooms = interaction.rooms.write().await;
+            for room_config in permanent_rooms {
+                // Generate a simple ID from the name (slugify)
+                let room_id = room_config.name.trim().to_lowercase().replace(" ", "-");
+                let (tx, _rx) = broadcast::channel(100);
+                
+                let room = Room {
+                    id: room_id.clone(),
+                    label: room_config.name.clone(),
+                    tx,
+                    created_at: Utc::now(),
+                    users: HashMap::new(),
+                    max_controllers: room_config.max_controllers,
+                    max_doers: room_config.max_doers,
+                    current_color: "#808080".to_string(),
+                };
+                
+                rooms.insert(room_id, room);
+            }
+        }
+
         let state = Arc::new(AppState {
             config: config_arc.clone(),
             forum_db,
