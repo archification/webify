@@ -81,7 +81,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .nest_service("/images", ServeDir::new("images"))
             .route("/interaction", get(render_interaction_page))
             .route("/interaction/create", post(interaction::create_room))
+            .route("/interaction/join", post(interaction::join_room))
             .route("/interaction/list/{role}", get(interaction::list_rooms))
+            .route("/interaction/upload/{room_id}", post(interaction::upload_file).layer(DefaultBodyLimit::max(50 * 1024 * 1024)))
             .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
             .fallback(get(not_found));
         for (path, settings) in routes {
