@@ -1,18 +1,41 @@
-<!doctype html>
-<html lang="en-US">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <title>{% block title %}Webify{% endblock title %}</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
-    {% block styles %}{% endblock styles %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}My App{% endblock %}</title>
+    <style>
+        body { background-color: #002b36; color: #839496; font-family: sans-serif; margin: 0; padding: 0; }
+        a { color: #268bd2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .header { background-color: #073642; padding: 20px; border-bottom: 1px solid #586e75; }
+        .nav { display: flex; gap: 15px; margin-top: 10px; }
+        .content { padding: 20px; }
+        button { background-color: #586e75; color: #fdf6e3; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #657b83; }
+        input, select { background-color: #073642; border: 1px solid #586e75; color: #839496; padding: 8px; border-radius: 4px; }
+    </style>
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script> 
 </head>
 <body>
-    <nav>
-        <a href="/">Home</a> | <a href="/stuff">Stuff</a> | <a href="/upload">Upload</a>
-    </nav>
-    
+    <div class="header">
+        <h1><a href="/" style="color: #b58900;">Webify</a></h1>
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/forum">Forum</a>
+            <a href="/interaction">Interaction</a>
+            {% if user %}
+                <span>Hello, {{ user }}</span>
+                <a href="/logout">Logout</a>
+            {% else %}
+                <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="content">
-        {% block content %}{% endblock content %}
+        {% block content %}{% endblock %}
     </div>
 </body>
 </html>

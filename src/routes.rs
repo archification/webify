@@ -83,7 +83,10 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .route("/interaction/create", post(interaction::create_room))
             .route("/interaction/join", post(interaction::join_room))
             .route("/interaction/list/{role}", get(interaction::list_rooms))
-            .route("/interaction/upload/{room_id}", post(interaction::upload_file).layer(DefaultBodyLimit::max(50 * 1024 * 1024)))
+            .route("/interaction/upload/{room_id}",
+                post(interaction::upload_file)
+                    .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
+            )
             .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
             .fallback(get(not_found));
         for (path, settings) in routes {
@@ -283,8 +286,18 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
     Html(template)
 }
 
+/*
 async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     render_tera_template(State(state), "static/interaction.html".to_string(), tera::Context::new()).await
+}
+*/
+
+async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let context = tera::Context::new();
+    match state.tera.render("interaction.html", &context) {
+        Ok(html) => Html(html),
+        Err(e) => Html(format!("Error rendering interaction: {}", e)),
+    }
 }
 
 async fn render_tera_template(

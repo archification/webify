@@ -1,148 +1,118 @@
-<!doctype html>
-<html lang="en-US">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interaction Room</title>
-    <link rel="stylesheet" type="text/css" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
-    <style>
-        body {
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .container { 
-            max-width: 95%; 
-            margin: 0 auto; 
-            padding: 20px; 
-        }
-        .btn-large { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 1.2em; cursor: pointer; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; }
-        .input-group input, .input-group select { width: 100%; padding: 8px; box-sizing: border-box; }
-        
-        /* Styles used by the backend-rendered content */
-        .message { margin-bottom: 10px; word-wrap: break-word; }
-        .system-msg { color: #b58900; font-style: italic; }
-        .sender { font-weight: bold; color: #268bd2; }
-        
-        .color-btn { width: 100px; height: 50px; margin: 5px; border: 2px solid transparent; color: white; cursor: pointer; font-weight: bold; opacity: 0.6; transition: all 0.2s; }
-        .color-btn:hover { opacity: 0.8; }
-        .color-btn.active { opacity: 1.0; border-color: white; transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
-        
-        .btn-red { background-color: #dc322f; }
-        .btn-green { background-color: #859900; }
-        .btn-blue { background-color: #268bd2; }
-        .btn-yellow { background-color: #b58900; }
-    </style>
-</head>
-<body>
-    <nav style="padding: 10px 20px;">
-        <a href="/">Home</a>
-    </nav>
+{% extends "base.html" %}
 
-    <div id="main-container" class="container">
-        <h1>Interaction Hub</h1>
-        
-        <div class="input-group">
-            <label for="username">Enter your Username:</label>
-            <input type="text" id="username" name="username" placeholder="Guest" />
-        </div>
+{% block title %}Interaction{% endblock %}
 
-        <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #586e75;">
-            <h3>Create Room</h3>
-            <form hx-post="/interaction/create" hx-target="#main-container" hx-include="#username">
-                <div class="input-group">
-                    <label>Role:</label>
-                    <select name="role">
-                        <option value="controller">Controller</option>
-                        <option value="doer">Doer</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Max Controllers:</label>
-                    <input type="number" name="max_controllers" value="1" min="1" max="50">
-                </div>
-                <div class="input-group">
-                    <label>Max Doers:</label>
-                    <input type="number" name="max_doers" value="1" min="1" max="50">
-                </div>
-                <button class="btn-large" type="submit">Create & Enter</button>
+{% block content %}
+<style>
+    .color-btn {
+        width: 60px;
+        height: 60px;
+        border: none;
+        border-radius: 5px;
+        margin: 5px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity 0.2s, transform 0.1s;
+        color: transparent;
+    }
+    .color-btn:hover { opacity: 0.8; }
+    .color-btn.active { opacity: 1; border: 3px solid #fff; transform: scale(1.1); }
+    .btn-red { background-color: #dc322f; }
+    .btn-green { background-color: #859900; }
+    .btn-blue { background-color: #268bd2; }
+    .btn-yellow { background-color: #b58900; }
+
+    .interaction-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .panel {
+        background: #073642;
+        padding: 20px;
+        border-radius: 5px;
+        flex: 1;
+        min-width: 300px;
+    }
+    .room-list-item {
+        background: #002b36;
+        transition: background 0.2s;
+    }
+    .room-list-item:hover {
+        background: #073642;
+    }
+    input[type="text"], input[type="number"], input[type="password"], select {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        background: #002b36;
+        border: 1px solid #586e75;
+        color: #93a1a1;
+    }
+</style>
+
+<div id="main-container">
+    <div class="header">
+        <h1>Real-time Interaction</h1>
+        <p>Create a room or join an existing one.</p>
+    </div>
+
+    <div class="interaction-container">
+        <div class="panel">
+            <h2>Create New Room</h2>
+            <form hx-post="/interaction/create" hx-target="#main-container">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="Enter your name" required>
+
+                <label>Role</label>
+                <select name="role">
+                    <option value="controller">Controller (Control colors)</option>
+                    <option value="doer">Doer (Watch colors)</option>
+                </select>
+
+                <label>Max Controllers</label>
+                <input type="number" name="max_controllers" value="5" min="1" max="50">
+
+                <label>Max Doers</label>
+                <input type="number" name="max_doers" value="20" min="1" max="100">
+
+                <label>Password (Optional)</label>
+                <input type="password" name="password" placeholder="Leave empty for public room">
+
+                <button type="submit" style="width: 100%; margin-top: 10px;">Create Room</button>
             </form>
         </div>
 
-        <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #586e75;">
-            <h3>Join Room</h3>
-            <p>I want to be a:</p>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-large" hx-get="/interaction/list/controller" hx-target="#room-list" hx-include="#username">Controller</button>
-                <button class="btn-large" hx-get="/interaction/list/doer" hx-target="#room-list" hx-include="#username">Doer</button>
+        <div class="panel">
+            <h2>Join Existing Room</h2>
+            <div style="margin-bottom: 15px;">
+                <label>Username</label>
+                <input type="text" id="join-username" name="username" placeholder="Enter your name" 
+                       hx-get="/interaction/list/controller" 
+                       hx-trigger="keyup changed delay:500ms, load" 
+                       hx-target="#room-list-container"
+                       hx-include="[name='role-filter']"
+                       required>
+                
+                <label>Filter by Role</label>
+                <select name="role-filter" 
+                        hx-get="/interaction/list/ignore" 
+                        hx-target="#room-list-container"
+                        hx-trigger="change"
+                        onchange="
+                            let val = this.value; 
+                            let user = document.getElementById('join-username').value;
+                            htmx.ajax('GET', '/interaction/list/' + val + '?username=' + encodeURIComponent(user), '#room-list-container');
+                        ">
+                    <option value="controller">Join as Controller</option>
+                    <option value="doer">Join as Doer</option>
+                </select>
             </div>
-            
-            <div id="room-list" style="margin-top: 15px;">
-                </div>
+
+            <div id="room-list-container">
+                <p>Loading rooms...</p>
+            </div>
         </div>
     </div>
-    <script>
-        // Auto-scroll chat to bottom
-        document.body.addEventListener('htmx:oobAfterSwap', function(evt) {
-            const chat = document.getElementById("chat-container");
-            if (chat) {
-                chat.scrollTop = chat.scrollHeight;
-            }
-        });
-
-        // CLIENT-SIDE VALIDATION
-        // This runs BEFORE the request is sent. If the file is too big,
-        // it cancels the request immediately. This prevents "Network Errors" in the console.
-        document.body.addEventListener('htmx:configRequest', function(evt) {
-            // Check if this is an upload request (has hx-encoding="multipart/form-data")
-            // or we can check the path or the element type.
-            if (evt.target.tagName === 'FORM' && evt.target.enctype === 'multipart/form-data') {
-                const fileInput = evt.target.querySelector('input[type="file"]');
-                
-                if (fileInput && fileInput.files.length > 0) {
-                    const file = fileInput.files[0];
-                    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
-                    
-                    if (file.size > maxSize) {
-                        // Cancel the HTMX request
-                        evt.preventDefault();
-                        
-                        // Show error message manually
-                        const status = evt.target.querySelector('#upload-status');
-                        if (status) {
-                            // Format size for display (e.g. "77.5 MB")
-                            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-                            status.innerHTML = `<span style='color: red;'>File too large (${sizeMB} MB). Limit is 50MB.</span>`;
-                        }
-                        
-                        // Clear the input so they can try again
-                        fileInput.value = "";
-                    }
-                }
-            }
-        });
-
-        // Fallback: Handle Network Errors (if check is bypassed or fails)
-        document.body.addEventListener('htmx:sendError', function(evt) {
-            if (evt.detail.requestConfig && evt.detail.requestConfig.target && evt.detail.requestConfig.target.id === 'upload-status') {
-                 evt.detail.target.innerHTML = "<span style='color: red;'>Upload Failed: File too large (Max 50MB)</span>";
-            }
-        });
-
-        // Fallback: Handle Explicit HTTP Errors
-        document.body.addEventListener('htmx:responseError', function(evt) {
-            if (evt.detail.requestConfig && evt.detail.requestConfig.target && evt.detail.requestConfig.target.id === 'upload-status') {
-                if (evt.detail.xhr.status === 413) {
-                    evt.detail.target.innerHTML = "<span style='color: red;'>File too large (Max 50MB)</span>";
-                } else {
-                    evt.detail.target.innerHTML = "<span style='color: red;'>Error: " + evt.detail.xhr.statusText + " (" + evt.detail.xhr.status + ")</span>";
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}

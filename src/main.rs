@@ -13,6 +13,7 @@ mod thumbnail;
 mod php;
 mod forum;
 mod interaction;
+mod commands; // Module declaration for the new commands.rs file
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -20,7 +21,7 @@ use crate::help::print_help;
 use crate::out::setup;
 use crate::routes::app;
 use crate::forum::{init_db, ForumDb};
-use crate::interaction::Room; // Added import
+use crate::interaction::Room;
 
 use axum_server::tls_rustls::RustlsConfig;
 use axum_server_dual_protocol::ServerExt;
@@ -36,9 +37,9 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 use webbrowser;
 use rustls::crypto::ring;
-use tokio::sync::broadcast; // Added import
-use chrono::Utc; // Added import
-use std::collections::HashMap; // Added import
+use tokio::sync::broadcast;
+use chrono::Utc;
+use std::collections::HashMap;
 
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
     let scope = scope.trim().to_lowercase();
@@ -106,9 +107,14 @@ async fn main() {
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
         
-        let interaction = crate::interaction::InteractionState::new();
+        // Initialize Interaction State
+        let mut interaction = crate::interaction::InteractionState::new();
 
-        // Initialize permanent rooms from config
+        // 1. Register Commands
+        // This calls the registry in src/commands.rs to load all available commands
+        crate::commands::register_all(&mut interaction);
+
+        // 2. Initialize Permanent Rooms from config
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
             let mut rooms = interaction.rooms.write().await;
             for room_config in permanent_rooms {
@@ -125,6 +131,7 @@ async fn main() {
                     max_controllers: room_config.max_controllers,
                     max_doers: room_config.max_doers,
                     current_color: "#808080".to_string(),
+                    password: room_config.password.clone(),
                 };
                 
                 rooms.insert(room_id, room);

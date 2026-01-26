@@ -14,8 +14,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
 use uuid::Uuid;
+use std::pin::Pin;
+use std::future::Future;
 
 use crate::AppState;
+
+// --- Types & Constants ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -33,12 +37,17 @@ impl std::fmt::Display for Role {
     }
 }
 
+pub type CommandFn = Box<dyn Fn(Vec<String>, broadcast::Sender<String>) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
+
+// --- Forms ---
+
 #[derive(Debug, Deserialize)]
 pub struct CreateRoomForm {
     pub username: String,
     pub role: String,
     pub max_controllers: usize,
     pub max_doers: usize,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,6 +55,7 @@ pub struct JoinRoomForm {
     pub username: String,
     pub role: String,
     pub room_id: String,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,6 +83,8 @@ pub struct UserSession {
     pub username: String,
 }
 
+// --- State Structs ---
+
 pub struct Room {
     pub id: String,
     pub label: String,
@@ -82,23 +94,39 @@ pub struct Room {
     pub max_controllers: usize,
     pub max_doers: usize,
     pub current_color: String,
+    pub password: Option<String>,
 }
 
 pub struct InteractionState {
     pub rooms: RwLock<HashMap<String, Room>>,
+    pub commands: HashMap<String, CommandFn>,
 }
 
 impl InteractionState {
     pub fn new() -> Self {
         Self {
             rooms: RwLock::new(HashMap::new()),
+            commands: HashMap::new(),
         }
     }
+
+    pub fn register_command<F, Fut>(&mut self, name: &str, handler: F)
+    where
+        F: Fn(Vec<String>, broadcast::Sender<String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        self.commands.insert(name.to_string(), Box::new(move |args, tx| {
+            Box::pin(handler(args, tx))
+        }));
+    }
 }
+
+// --- Helper Functions ---
 
 fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &str) -> String {
     let ws_url = format!("/ws/interaction/{}?role={:?}&username={}", 
         room_id, role, urlencoding::encode(username));
+    
     let controller_ui = if role == Role::Controller {
         let btn_class = "color-btn";
         let active = |c: &str| if current_color == c { "active" } else { "" };
@@ -121,6 +149,7 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
     } else {
         String::new()
     };
+
     let doer_ui = if role == Role::Doer {
         format!(r###"
             <div id="view-doer" style="margin-bottom: 20px; text-align: center;">
@@ -131,6 +160,7 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
     } else {
         String::new()
     };
+
     format!(r###"
         <div id="room-container" hx-ext="ws" ws-connect="{}">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #586e75; padding-bottom: 10px; margin-bottom: 20px;">
@@ -148,7 +178,7 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
 
             <div style="display: flex; gap: 10px;">
                 <form hx-ws="send" hx-on:htmx:ws-after-send="this.reset()" style="flex-grow: 1; display: flex; gap: 5px;">
-                    <input type="text" name="chat_message" placeholder="Type a message..." style="flex-grow: 1; padding: 10px;" required autocomplete="off">
+                    <input type="text" name="chat_message" placeholder="Type a message or /command..." style="flex-grow: 1; padding: 10px;" required autocomplete="off">
                     <button type="submit" style="padding: 10px;">Send</button>
                 </form>
 
@@ -162,6 +192,38 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
         </div>
     "###, ws_url, role, username, doer_ui, controller_ui, username, room_id, username)
 }
+
+fn render_password_prompt(room_id: &str, role: &str, username: &str, error: Option<&str>) -> String {
+    let err_html = if let Some(msg) = error {
+        format!("<p style='color: #dc322f;'>{}</p>", msg)
+    } else {
+        String::new()
+    };
+    
+    format!(r###"
+        <div style="border: 1px solid #586e75; padding: 20px; max-width: 400px; margin: 20px auto; background: #073642;">
+            <h3>Password Required</h3>
+            {}
+            <form hx-post="/interaction/join" hx-target="#main-container">
+                <input type="hidden" name="room_id" value="{}">
+                <input type="hidden" name="role" value="{}">
+                <input type="hidden" name="username" value="{}">
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Password:</label>
+                    <input type="password" name="password" style="width: 100%; padding: 8px;" autofocus required>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="padding: 10px 20px;">Unlock</button>
+                    <button hx-get="/interaction" hx-target="body" style="background: #dc322f; color: white; border: none; padding: 10px 20px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    "###, err_html, room_id, role, username)
+}
+
+// --- Handlers ---
 
 pub async fn create_room(
     State(state): State<Arc<AppState>>,
@@ -178,6 +240,13 @@ pub async fn create_room(
         Role::Doer => "Doer Room",
     };
     let default_color = "#808080".to_string();
+    
+    let password = if let Some(p) = form.password {
+        if p.trim().is_empty() { None } else { Some(p) }
+    } else {
+        None
+    };
+
     let room = Room {
         id: room_id.clone(),
         label: label.to_string(),
@@ -187,7 +256,9 @@ pub async fn create_room(
         max_controllers: form.max_controllers,
         max_doers: form.max_doers,
         current_color: default_color.clone(),
+        password,
     };
+    
     state.interaction.rooms.write().await.insert(room_id.clone(), room);
     Html(render_room_view(&room_id, user_role, &form.username, &default_color))
 }
@@ -197,16 +268,27 @@ pub async fn join_room(
     Form(form): Form<JoinRoomForm>,
 ) -> impl IntoResponse {
     let rooms = state.interaction.rooms.read().await;
+    
     if let Some(room) = rooms.get(&form.room_id) {
+        if let Some(required_pass) = &room.password {
+            if form.password.as_deref() != Some(required_pass) {
+                let err_msg = if form.password.is_some() { Some("Incorrect password") } else { None };
+                return Html(render_password_prompt(&form.room_id, &form.role, &form.username, err_msg));
+            }
+        }
+
         let role = match form.role.as_str() {
             "controller" => Role::Controller,
             _ => Role::Doer,
         };
+        
         let count = room.users.values().filter(|u| u.role == role).count();
         let max = if role == Role::Controller { room.max_controllers } else { room.max_doers };
+        
         if count >= max {
             return Html(format!("<div class='error'>Room is full for {:?}. <button hx-get='/interaction' hx-target='body'>Back</button></div>", role));
         }
+        
         Html(render_room_view(&room.id, role, &form.username, &room.current_color))
     } else {
         Html("<div class='error'>Room not found. <button hx-get='/interaction' hx-target='body'>Back</button></div>".to_string())
@@ -240,6 +322,7 @@ pub async fn list_rooms(
     if available_rooms.is_empty() {
         return Html("<p>No rooms available.</p>".to_string());
     }
+    
     let mut html = String::new();
     html.push_str("<div class='room-list'>");
     for (room, c_count, d_count) in available_rooms {
@@ -249,6 +332,9 @@ pub async fn list_rooms(
         } else {
             format!("Doers: {}/{}", d_count, room.max_doers)
         };
+        
+        let lock_icon = if room.password.is_some() { "🔒 " } else { "" };
+        
         html.push_str(&format!(r###"
             <div class="room-list-item" style="border: 1px solid #586e75; padding: 10px; margin-bottom: 5px;">
                 <form hx-post="/interaction/join" hx-target="#main-container">
@@ -257,7 +343,7 @@ pub async fn list_rooms(
                     <input type="hidden" name="room_id" value="{}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <strong>{}</strong> <small>({})</small><br>
+                            <strong>{}{}</strong> <small>({})</small><br>
                             <span style="font-size: 0.8em; color: #93a1a1;">{}</span>
                         </div>
                         <button type="submit">Join</button>
@@ -268,6 +354,7 @@ pub async fn list_rooms(
         params.username, 
         role_val, 
         room.id, 
+        lock_icon,
         room.label, 
         info, 
         room.created_at.format("%H:%M:%S")
@@ -286,54 +373,38 @@ pub async fn upload_file(
     let mut file_name = String::new();
     let mut file_content = Vec::new();
     let mut content_type = String::from("application/octet-stream");
+    
     loop {
         match multipart.next_field().await {
             Ok(Some(field)) => {
                 let name = field.name().unwrap_or_default().to_string();
                 if name == "username" {
-                    if let Ok(text) = field.text().await {
-                        username = text;
-                    }
+                    if let Ok(text) = field.text().await { username = text; }
                 } else if name == "file" {
                     file_name = field.file_name().unwrap_or_default().to_string();
                     file_name = sanitize_filename::sanitize(&file_name); 
-                    if let Some(ct) = field.content_type() {
-                        content_type = ct.to_string();
-                    }
-                    match field.bytes().await {
-                        Ok(bytes) => {
-                             file_content = bytes.to_vec();
-                        }
-                        Err(e) => {
-                             return Html(format!("<span style='color: red;'>Read Error: {}</span>", e));
-                        }
-                    }
+                    if let Some(ct) = field.content_type() { content_type = ct.to_string(); }
+                    if let Ok(bytes) = field.bytes().await { file_content = bytes.to_vec(); }
                 }
             },
             Ok(None) => break,
-            Err(e) => {
-                 return Html(format!("<span style='color: red;'>Upload Error: {}</span>", e));
-            }
+            Err(_) => return Html("<span style='color: red;'>Upload Error</span>".to_string()),
         }
     }
+    
     if file_content.is_empty() || file_name.is_empty() {
-        return Html("<span style='color: red;'>No file received or empty file.</span>".to_string());
+        return Html("<span style='color: red;'>No file received.</span>".to_string());
     }
+
     let b64 = general_purpose::STANDARD.encode(&file_content);
     let data_uri = format!("data:{};base64,{}", content_type, b64);
+    
     let content_html = if content_type.starts_with("image/") {
-        format!(r###"<br><img src="{}" alt="{}" style="max-width: 100%; max-height: 300px; border-radius: 5px; margin-top: 5px;">"###, 
-            data_uri, file_name)
-    } else if content_type.starts_with("video/") {
-        format!(r###"<br><video controls src="{}" style="max-width: 100%; max-height: 300px; margin-top: 5px;"></video>"###, 
-            data_uri)
-    } else if content_type.starts_with("audio/") {
-        format!(r###"<br><audio controls src="{}" style="margin-top: 5px;"></audio>"###, 
-            data_uri)
+        format!(r###"<br><img src="{}" alt="{}" style="max-width: 100%; max-height: 300px; border-radius: 5px; margin-top: 5px;">"###, data_uri, file_name)
     } else {
-        format!(r###"Shared file: <a href="{}" download="{}" style="color: #268bd2;">{}</a>"###, 
-            data_uri, file_name, file_name)
+        format!(r###"Shared file: <a href="{}" download="{}" style="color: #268bd2;">{}</a>"###, data_uri, file_name, file_name)
     };
+
     let rooms = state.interaction.rooms.read().await;
     if let Some(room) = rooms.get(&room_id) {
          let msg = format!(r###"<div hx-swap-oob="beforeend:#chat-container">
@@ -370,6 +441,7 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
     let (mut sender, mut receiver) = socket.split();
     let connection_id = Uuid::new_v4().to_string();
     let mut rx;
+
     {
         let mut rooms = state.interaction.rooms.write().await;
         if let Some(room) = rooms.get_mut(&room_id) {
@@ -378,47 +450,61 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
                 username: username.clone(),
             });
             rx = room.tx.subscribe();
-            let join_msg = format!(
+            
+            let _ = room.tx.send(format!(
                 r###"<div hx-swap-oob="beforeend:#chat-container"><div class="system-msg" style="color: #b58900; font-style: italic;">{} ({}) joined.</div></div>"###,
                 username, role
-            );
-            let _ = room.tx.send(join_msg);
+            ));
         } else {
             return;
         }
     }
+
     let mut send_task = tokio::spawn(async move {
         loop {
             match rx.recv().await {
                 Ok(msg) => {
-                    if sender.send(Message::Text(msg.into())).await.is_err() {
-                        break;
-                    }
+                    if sender.send(Message::Text(msg.into())).await.is_err() { break; }
                 },
-                Err(broadcast::error::RecvError::Lagged(_)) => {
-                    continue;
-                },
-                Err(broadcast::error::RecvError::Closed) => {
-                    break;
-                }
+                Err(_) => continue,
             }
         }
     });
+
     let tx_inner_state = state.clone();
     let room_id_inner = room_id.clone();
     let username_inner = username.clone();
+
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let Message::Text(text) = msg {
                 if let Ok(payload) = serde_json::from_str::<HtmxWsMessage>(&text) {
-                    let mut rooms = tx_inner_state.interaction.rooms.write().await;
-                    if let Some(room) = rooms.get_mut(&room_id_inner) {
-                        if !payload.chat_message.is_empty() {
-                            let safe_msg = payload.chat_message.replace("<", "&lt;").replace(">", "&gt;");
+                    
+                    if !payload.chat_message.is_empty() {
+                        let msg_text = payload.chat_message.trim();
+
+                        if msg_text.starts_with('/') {
+                            let parts: Vec<&str> = msg_text.split_whitespace().collect();
+                            if let Some(cmd_name) = parts.get(0) {
+                                let command_name = &cmd_name[1..];
+                                let args: Vec<String> = parts.iter().skip(1).map(|s| s.to_string()).collect();
+                                
+                                let room_tx = {
+                                    let rooms = tx_inner_state.interaction.rooms.read().await;
+                                    rooms.get(&room_id_inner).map(|r| r.tx.clone())
+                                };
+
+                                if let (Some(handler), Some(tx)) = (tx_inner_state.interaction.commands.get(command_name), room_tx) {
+                                    handler(args, tx).await;
+                                }
+                            }
+                        } else {
+                            let safe_msg = msg_text.replace("<", "&lt;").replace(">", "&gt;");
                             let mut formatted_msg = safe_msg.clone();
                             if safe_msg.starts_with("http") {
                                 formatted_msg = format!(r###"<a href="{}" target="_blank" style="color: #268bd2;">{}</a>"###, safe_msg, safe_msg);
                             }
+                            
                             let html = format!(
                                 r###"<div hx-swap-oob="beforeend:#chat-container">
                                     <div class="message">
@@ -428,15 +514,25 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
                                    </div>"###, 
                                 username_inner, formatted_msg
                             );
-                            let _ = room.tx.send(html);
+                            
+                            let rooms = tx_inner_state.interaction.rooms.read().await;
+                            if let Some(room) = rooms.get(&room_id_inner) {
+                                let _ = room.tx.send(html);
+                            }
                         }
-                        if !payload.signal.is_empty() {
+                    }
+                    
+                    if !payload.signal.is_empty() {
+                         let mut rooms = tx_inner_state.interaction.rooms.write().await;
+                         if let Some(room) = rooms.get_mut(&room_id_inner) {
                             room.current_color = payload.signal.clone();
+                            
                             let doer_html = format!(
                                 r###"<div id="signal-circle" style="width: 200px; height: 200px; border-radius: 50%; background-color: {}; margin: 0 auto; transition: background-color 0.3s;" hx-swap-oob="true"></div>"###,
                                 payload.signal
                             );
                             let _ = room.tx.send(doer_html);
+
                             let btn_class = "color-btn";
                             let active = |c: &str| if payload.signal == c { "active" } else { "" };
                             let controller_html = format!(r###"
@@ -456,16 +552,18 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
                             a_yellow=active("#b58900")
                             );
                             let _ = room.tx.send(controller_html);
-                        }
+                         }
                     }
                 }
             }
         }
     });
+
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
         _ = (&mut recv_task) => send_task.abort(),
     };
+
     let mut rooms = state.interaction.rooms.write().await;
     if let Some(room) = rooms.get_mut(&room_id) {
         room.users.remove(&connection_id);
@@ -476,7 +574,9 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         let _ = room.tx.send(leave_msg);
         
         if room.users.is_empty() {
-            rooms.remove(&room_id);
+             if room.id.len() == 36 { 
+                rooms.remove(&room_id);
+             }
         }
     }
 }
