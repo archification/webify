@@ -6,10 +6,9 @@ use axum::{
 use std::path::Path;
 use bytes::Bytes;
 use tokio::{
-    fs::{self, File, metadata},
+    fs::{self, File},
     io::AsyncWriteExt,
 };
-use futures::stream::{self, StreamExt};
 use sanitize_filename;
 use walkdir::WalkDir;
 use serde_json::json;
@@ -31,23 +30,18 @@ impl IntoResponse for UploadResponse {
 }
 
 async fn get_directory_size<P: AsRef<Path>>(path: P) -> u64 {
-    let entries = WalkDir::new(path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .map(|e| e.path().to_path_buf())
-        .collect::<Vec<_>>();
-    let entry_stream = stream::iter(entries);
-    let total_size = entry_stream
-        .then(|entry| async {
-            match metadata(entry).await {
-                Ok(meta) => meta.len(),
-                Err(_) => 0,
-            }
-        })
-        .fold(0, |acc, size| async move { acc + size })
-        .await;
-    total_size
+    let path = path.as_ref().to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let entries = WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .map(|e| e.path().to_path_buf())
+            .collect::<Vec<_>>();
+        entries.iter()
+            .map(|path| std::fs::metadata(path).map(|m| m.len()).unwrap_or(0))
+            .sum()
+    }).await.unwrap_or(0)
 }
 
 pub async fn upload(headers: HeaderMap, mut multipart: Multipart, upload_storage_limit: Option<u64>) -> impl IntoResponse {

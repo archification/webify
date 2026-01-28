@@ -177,6 +177,25 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
                     <span id="upload-status" style="font-size: 0.8em; margin-left: 5px;"></span>
                 </form>
             </div>
+            <script>
+                (function() {{
+                    var chatContainer = document.getElementById("chat-container");
+                    var isScrolledToBottom = true;
+
+                    chatContainer.addEventListener("scroll", function() {{
+                        // Check if we are within 50px of the bottom
+                        isScrolledToBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < 50;
+                    }});
+
+                    var observer = new MutationObserver(function() {{
+                        if (isScrolledToBottom) {{
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }}
+                    }});
+                    
+                    observer.observe(chatContainer, {{ childList: true, subtree: true }});
+                }})();
+            </script>
         </div>
     "###, ws_url, role, username, doer_ui, controller_ui, username, room_id, username)
 }
@@ -415,7 +434,10 @@ pub async fn ws_handler(
 
 async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username: String, state: Arc<AppState>) {
     let (mut sender, mut receiver) = socket.split();
-    let connection_id = Uuid::new_v4().to_string();
+    let connection_id = tokio::task::spawn_blocking(Uuid::new_v4)
+        .await
+        .unwrap()
+        .to_string();
     let mut rx;
     {
         let mut rooms = state.interaction.rooms.write().await;
