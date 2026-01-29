@@ -114,9 +114,15 @@ impl InteractionState {
     }
 }
 
+// src/interaction.rs
+
+// ... (imports and other functions remain unchanged)
+
 fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &str) -> String {
     let ws_url = format!("/ws/interaction/{}?role={:?}&username={}", 
         room_id, role, urlencoding::encode(username));
+    
+    // ... (controller_ui and doer_ui generation remain the same) ...
     let controller_ui = if role == Role::Controller {
         let btn_class = "color-btn";
         let active = |c: &str| if current_color == c { "active" } else { "" };
@@ -139,6 +145,7 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
     } else {
         String::new()
     };
+
     let doer_ui = if role == Role::Doer {
         format!(r###"
             <div id="view-doer" style="margin-bottom: 20px; text-align: center;">
@@ -149,6 +156,8 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
     } else {
         String::new()
     };
+
+    // Updated script logic
     format!(r###"
         <div id="room-container" hx-ext="ws" ws-connect="{}">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #586e75; padding-bottom: 10px; margin-bottom: 20px;">
@@ -177,19 +186,54 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
                     <span id="upload-status" style="font-size: 0.8em; margin-left: 5px;"></span>
                 </form>
             </div>
+
             <script>
                 (function() {{
                     var chatContainer = document.getElementById("chat-container");
                     var isScrolledToBottom = true;
 
+                    // Monitor scroll position to update sticky state
                     chatContainer.addEventListener("scroll", function() {{
-                        // Check if we are within 50px of the bottom
-                        isScrolledToBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < 50;
+                        // Allow a small buffer (10px) to consider it "at bottom"
+                        isScrolledToBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) <= 10;
                     }});
 
-                    var observer = new MutationObserver(function() {{
-                        if (isScrolledToBottom) {{
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                    var observer = new MutationObserver(function(mutations) {{
+                        // If we were at the bottom (or close to it) BEFORE this update, 
+                        // we want to stay at the bottom.
+                        // However, since mutations happen AFTER the DOM update, scrollHeight has already increased.
+                        // We rely on the isScrolledToBottom flag being true from the previous state.
+                        
+                        var shouldScroll = isScrolledToBottom;
+
+                        if (shouldScroll) {{
+                            // Scroll immediately for text
+                            requestAnimationFrame(() => {{
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }});
+                            
+                            // Handle images
+                            mutations.forEach(function(mutation) {{
+                                mutation.addedNodes.forEach(function(node) {{
+                                    if (node.nodeType === 1) {{ // Element
+                                        var imgs = node.getElementsByTagName("img");
+                                        for (var i = 0; i < imgs.length; i++) {{
+                                            var img = imgs[i];
+                                            
+                                            // Define the scroll function capturing the current intention
+                                            var forceScroll = function() {{
+                                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                                            }};
+
+                                            if (img.complete) {{
+                                                forceScroll();
+                                            }} else {{
+                                                img.addEventListener("load", forceScroll);
+                                            }}
+                                        }}
+                                    }}
+                                }});
+                            }});
                         }}
                     }});
                     
