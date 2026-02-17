@@ -3,7 +3,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use std::io::SeekFrom;
 use axum::{
     extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo},
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Redirect},
     routing::{
         get, post, get_service
     },
@@ -96,6 +96,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/", get(list_posts))
                         .route("/new", get(new_post_form))
                         .route("/create", post(create_post))
+                        .route("/thread/{id}", get(view_thread))
+                        .route("/thread/{id}/reply", post(post_reply))
+                        .route("/thread/{id}/lock", post(toggle_lock))
                         .route("/register", get(register_form).post(register))
                         .route("/login", get(login_form).post(login))
                         .route("/logout", get(logout))
@@ -117,6 +120,17 @@ pub async fn app(state: Arc<AppState>) -> Router {
                             }
                         }),
                     );
+                }
+                [dir_path, mode] if mode == "static" => {
+                    println!("The correct mode is selected for wiki");
+                    let serve_dir = ServeDir::new(dir_path);
+                    let path_no_slash = path.trim_end_matches('/').to_string();
+                    let path_slash = format!("{}/", path_no_slash);
+                    let redirect_target = path_slash.clone();
+                    router = router.route(&path_no_slash, get(move || async move {
+                        Redirect::permanent(&redirect_target)
+                    }));
+                    router = router.nest_service(&path_slash, serve_dir);
                 }
                 [file_path, watch_file, mode] if mode == "live" => {
                     let file_clone = file_path.clone();
@@ -285,12 +299,6 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
     "#, post_name, html_output);
     Html(template)
 }
-
-/*
-async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    render_tera_template(State(state), "static/interaction.html".to_string(), tera::Context::new()).await
-}
-*/
 
 async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let context = tera::Context::new();

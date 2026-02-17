@@ -13,9 +13,11 @@ fn countdown(args: Vec<String>, tx: broadcast::Sender<String>) -> impl Future<Ou
         let seconds = args.get(0)
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(5);
-        let finished = args.get(1)
-            .map(|s| s.as_str())
-            .unwrap_or("guacamole");
+        let finished = if args.len() > 1 {
+            args[1..].join(" ")
+        } else {
+                "guacamole".to_string()
+        };
         let seconds = seconds.clamp(1, 60);
         let start_msg = format!(
             r#"<div hx-swap-oob="beforeend:#chat-container"><div class="system-msg">Starting countdown from {}...</div></div>"#,
