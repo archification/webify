@@ -71,6 +71,8 @@ struct HtmxWsMessage {
     chat_message: String,
     #[serde(default)]
     signal: String,
+    #[serde(default)]
+    webrtc_signal: String,
 }
 
 #[derive(Debug, Clone)]
@@ -114,15 +116,10 @@ impl InteractionState {
     }
 }
 
-// src/interaction.rs
-
-// ... (imports and other functions remain unchanged)
-
 fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &str) -> String {
     let ws_url = format!("/ws/interaction/{}?role={:?}&username={}", 
         room_id, role, urlencoding::encode(username));
     
-    // ... (controller_ui and doer_ui generation remain the same) ...
     let controller_ui = if role == Role::Controller {
         let btn_class = "color-btn";
         let active = |c: &str| if current_color == c { "active" } else { "" };
@@ -157,7 +154,6 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
         String::new()
     };
 
-    // Updated script logic
     format!(r###"
         <div id="room-container" hx-ext="ws" ws-connect="{}">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #586e75; padding-bottom: 10px; margin-bottom: 20px;">
@@ -187,40 +183,43 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
                 </form>
             </div>
 
+            <div style="margin-top: 10px; padding: 10px; background: #073642; border-radius: 4px;">
+                <button id="mute-btn" style="padding: 10px; background: #268bd2; color: #fdf6e3; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    🎤 Mute Microphone
+                </button>
+                <span id="voice-status" style="margin-left: 10px; color: #859900;">Voice Chat Active</span>
+                
+                <div id="remote-audio-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;"></div>
+                
+                <form id="webrtc-form" hx-ws="send" style="display: none;" onsubmit="event.preventDefault();">
+                    <input type="hidden" id="webrtc-signal-input" name="webrtc_signal" value="">
+                    <button type="submit" id="webrtc-submit-btn"></button>
+                </form>
+            </div>
+
             <script>
                 (function() {{
                     var chatContainer = document.getElementById("chat-container");
                     var isScrolledToBottom = true;
 
-                    // Monitor scroll position to update sticky state
                     chatContainer.addEventListener("scroll", function() {{
-                        // Allow a small buffer (10px) to consider it "at bottom"
                         isScrolledToBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) <= 10;
                     }});
 
                     var observer = new MutationObserver(function(mutations) {{
-                        // If we were at the bottom (or close to it) BEFORE this update, 
-                        // we want to stay at the bottom.
-                        // However, since mutations happen AFTER the DOM update, scrollHeight has already increased.
-                        // We rely on the isScrolledToBottom flag being true from the previous state.
-                        
                         var shouldScroll = isScrolledToBottom;
 
                         if (shouldScroll) {{
-                            // Scroll immediately for text
                             requestAnimationFrame(() => {{
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }});
                             
-                            // Handle images
                             mutations.forEach(function(mutation) {{
                                 mutation.addedNodes.forEach(function(node) {{
-                                    if (node.nodeType === 1) {{ // Element
+                                    if (node.nodeType === 1) {{
                                         var imgs = node.getElementsByTagName("img");
                                         for (var i = 0; i < imgs.length; i++) {{
                                             var img = imgs[i];
-                                            
-                                            // Define the scroll function capturing the current intention
                                             var forceScroll = function() {{
                                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                                             }};
@@ -239,9 +238,159 @@ fn render_room_view(room_id: &str, role: Role, username: &str, current_color: &s
                     
                     observer.observe(chatContainer, {{ childList: true, subtree: true }});
                 }})();
+
+                // --- WebRTC Logic ---
+                (async function() {{
+                    const peerConnections = {{}};
+                    let localStream;
+                    const configuration = {{
+                        'iceServers': [
+                            {{'urls': 'stun:stun.l.google.com:19302'}},
+                            {{
+                                'urls': 'turn:openrelay.metered.ca:80',
+                                'username': 'openrelayproject',
+                                'credential': 'openrelayproject'
+                            }},
+                            {{
+                                'urls': 'turn:openrelay.metered.ca:443',
+                                'username': 'openrelayproject',
+                                'credential': 'openrelayproject'
+                            }},
+                            {{
+                                'urls': 'turn:openrelay.metered.ca:443?transport=tcp',
+                                'username': 'openrelayproject',
+                                'credential': 'openrelayproject'
+                            }}
+                        ]
+                    }};
+                    
+                    try {{
+                        localStream = await navigator.mediaDevices.getUserMedia({{ audio: true }});
+                    }} catch (e) {{
+                        document.getElementById('voice-status').innerText = "Mic Error";
+                        document.getElementById('voice-status').style.color = "#dc322f";
+                        return;
+                    }}
+
+                    let isMuted = false;
+                    document.getElementById('mute-btn').addEventListener('click', function() {{
+                        isMuted = !isMuted;
+                        localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+                        this.innerText = isMuted ? "🔇 Unmute Microphone" : "🎤 Mute Microphone";
+                        this.style.background = isMuted ? "#dc322f" : "#268bd2";
+                    }});
+
+                    window.sendWebRTCSignal = function(target_id, type, data = {{}}) {{
+                        const payload = JSON.stringify({{ target: target_id, type: type, ...data }});
+                        document.getElementById('webrtc-signal-input').value = payload;
+                        // FIX 2: Triggering a button click natively bubbles the event safely to HTMX
+                        document.getElementById('webrtc-submit-btn').click();
+                    }};
+
+                    async function handleWebRTCSignal(senderId, signal) {{
+                        // FIX 3: Ignore your own broadcasts!
+                        if (senderId === window.myConnectionId) return;
+                        if (signal.target && signal.target !== window.myConnectionId) return;
+                        
+                        if (signal.type === "join") {{
+                            const pc = createPeerConnection(senderId);
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            sendWebRTCSignal(senderId, "offer", {{ sdp: offer }});
+                        }} 
+                        else if (signal.type === "offer") {{
+                            const pc = createPeerConnection(senderId);
+                            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            sendWebRTCSignal(senderId, "answer", {{ sdp: answer }});
+                        }} 
+                        else if (signal.type === "answer") {{
+                            const pc = peerConnections[senderId];
+                            if (pc) await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                        }} 
+                        else if (signal.type === "ice") {{
+                            const pc = peerConnections[senderId];
+                            if (pc) await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                        }}
+                    }}
+
+                    window.handleWebRTCSignalGlobal = handleWebRTCSignal;
+                    
+                    // Prevent memory leak of attaching multiple event listeners if user swaps rooms frequently
+                    if (!window.webrtcListenerAttached) {{
+                        document.body.addEventListener('htmx:wsBeforeMessage', async function(e) {{
+                            if (typeof e.detail.message === 'string' && e.detail.message.startsWith('{{')) {{
+                                e.preventDefault();
+                                const data = JSON.parse(e.detail.message);
+                                if (data.webrtc_welcome) {{
+                                    window.myConnectionId = data.webrtc_welcome; // Catch the UUID assigned by the server
+                                }} else if (data.webrtc && window.handleWebRTCSignalGlobal) {{
+                                    await window.handleWebRTCSignalGlobal(data.sender_id, JSON.parse(data.webrtc));
+                                }}
+                            }}
+                        }});
+                        window.webrtcListenerAttached = true;
+                    }}
+
+                    function createPeerConnection(peerId) {{
+                        const pc = new RTCPeerConnection(configuration);
+                        peerConnections[peerId] = pc;
+
+                        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+                        pc.onicecandidate = event => {{
+                            if (event.candidate) {{
+                                sendWebRTCSignal(peerId, "ice", {{ candidate: event.candidate }});
+                            }}
+                        }};
+
+                        pc.ontrack = event => {{
+                            let audio = document.getElementById(`audio-${{peerId}}`);
+                            if (!audio) {{
+                                audio = document.createElement('audio');
+                                audio.id = `audio-${{peerId}}`;
+                                audio.autoplay = true;
+                                audio.controls = true;
+                                audio.style.height = '30px';
+                                audio.style.width = '100%';
+                                document.getElementById('remote-audio-container').appendChild(audio);
+                            }}
+                            if (event.streams && event.streams[0]) {{
+                                audio.srcObject = new MediaStream([event.track]);
+                            }}
+                            audio.play().catch(err => {{
+                                console.error("Browser blocked autoplay. User must click play manually.", err);
+                                document.getElementById('voice-status').innerText = "Autoplay Blocked - Click Play!";
+                                document.getElementById('voice-status').style.color = "#b58900"; // Yellow warning
+                            }});
+                        }};
+                        
+                        pc.oniceconnectionstatechange = () => {{
+                            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {{
+                                const audio = document.getElementById(`audio-${{peerId}}`);
+                                if (audio) audio.remove();
+                                delete peerConnections[peerId];
+                            }}
+                        }};
+
+                        return pc;
+                    }}
+
+                    setTimeout(() => sendWebRTCSignal(null, "join"), 500);
+                }})();
             </script>
         </div>
-    "###, ws_url, role, username, doer_ui, controller_ui, username, room_id, username)
+    "###,
+    ws_url,
+    room_id,
+    role,
+    doer_ui,
+    controller_ui,
+    username,
+    room_id,
+    username
+    )
 }
 
 fn render_password_prompt(room_id: &str, role: &str, username: &str, error: Option<&str>) -> String {
@@ -412,7 +561,7 @@ pub async fn upload_file(
     Path(room_id): Path<String>,
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+    ) -> impl IntoResponse {
     let mut username = String::from("Anonymous");
     let mut file_name = String::new();
     let mut file_content = Vec::new();
@@ -482,6 +631,14 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         .await
         .unwrap()
         .to_string();
+    let connection_id_inner = connection_id.clone();
+    
+    // FIX 4: Send the generated UUID back to the specific client so they know their identity
+    let welcome_msg = serde_json::json!({
+        "webrtc_welcome": connection_id_inner
+    }).to_string();
+    let _ = sender.send(Message::Text(welcome_msg.into())).await;
+
     let mut rx;
     {
         let mut rooms = state.interaction.rooms.write().await;
@@ -516,6 +673,16 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         while let Some(Ok(msg)) = receiver.next().await {
             if let Message::Text(text) = msg {
                 if let Ok(payload) = serde_json::from_str::<HtmxWsMessage>(&text) {
+                    if !payload.webrtc_signal.is_empty() {
+                        let broadcast_payload = serde_json::json!({
+                            "webrtc": payload.webrtc_signal,
+                            "sender_id": connection_id_inner,
+                        });
+                        let rooms = tx_inner_state.interaction.rooms.read().await;
+                        if let Some(room) = rooms.get(&room_id_inner) {
+                            let _ = room.tx.send(broadcast_payload.to_string());
+                        }
+                    }
                     if !payload.chat_message.is_empty() {
                         let msg_text = payload.chat_message.trim();
                         if msg_text.starts_with('/') {
