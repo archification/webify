@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Post - Forum{% endblock %}
+
+{% block content %}
+<style>
+    :root { --spring-dark: #3f5528; --spring-med: #6b8e23; --spring-border: #8fac6d; --spring-row1: #eef5e6; --spring-text: #2f3e1f; --spring-link: #3f5528; }
+    body { background-color: #dbe4cd; font-family: Verdana, Helvetica, Arial, sans-serif; color: var(--spring-text); }
+    .content { background-color: transparent; max-width: 100%; padding: 10px; }
+    a { color: var(--spring-link); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #d33682; }
+    .forum-container { max-width: 960px; margin: 0 auto; background-color: #fff; border: 1px solid var(--spring-border); border-radius: 5px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .forum-header { border-bottom: 2px solid var(--spring-border); padding-bottom: 10px; margin-bottom: 20px; }
+    .forum-title { font-size: 22px; font-weight: bold; color: var(--spring-dark); }
+    .forum-title-small { display: block; font-size: 12px; font-weight: normal; margin-top: 5px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; }
+    .form-control { width: 100%; padding: 8px; border: 1px solid var(--spring-border); border-radius: 4px; box-sizing: border-box; font-family: Verdana, Helvetica, Arial, sans-serif; font-size: 13px; }
+    .btn-submit { background-color: var(--spring-med); color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; font-size: 12px; text-transform: uppercase; border: 1px solid var(--spring-dark); cursor: pointer; }
+    .btn-submit:hover { background-color: var(--spring-dark); }
+</style>
+
+<div class="forum-container">
+    <div class="forum-header">
+        <div class="forum-title">
+            Edit Post
+            <span class="forum-title-small">
+                <a href="{{ base_path }}/thread/{{ post_id_str }}">&laquo; Back to Thread</a>
+            </span>
+        </div>
+    </div>
+
+    {% if post %}
+    <div style="margin-bottom:15px;padding:10px;background:#eef5e6;border:1px solid #8fac6d;border-radius:4px;font-size:12px;">
+        <strong>Thread:</strong> {{ post.title }}<br>
+        <strong>Author:</strong> {{ post.author }}
+    </div>
+    <form action="{{ base_path }}/admin/edit-post/{{ post_id_str }}" method="post">
+        <div class="form-group">
+            <label for="content">Content:</label>
+            <textarea id="content" name="content" class="form-control" rows="16" required>{{ post.content }}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <button type="submit" class="btn-submit">Save Changes</button>
+            <a href="{{ base_path }}/thread/{{ post_id_str }}" style="font-size:12px;color:#666;">Cancel</a>
+        </div>
+    </form>
+    {% else %}
+    <p>Post not found.</p>
+    {% endif %}
+</div>
+{% endblock %}

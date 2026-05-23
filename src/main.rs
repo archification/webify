@@ -13,7 +13,7 @@ mod thumbnail;
 mod php;
 mod forum;
 mod interaction;
-mod commands; // Module declaration for the new commands.rs file
+mod commands;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -53,6 +53,7 @@ fn format_address(scope: &str, ip: &str, port: u16) -> String {
 
 pub struct AppState {
     pub config: Arc<crate::config::Config>,
+    pub forum_config: Arc<crate::forum::ForumConfig>,
     pub forum_db: crate::forum::ForumDb,
     pub tera: Tera,
     pub interaction: crate::interaction::InteractionState,
@@ -106,15 +107,8 @@ async fn main() {
         tera.autoescape_on(vec![]);
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
-        
-        // Initialize Interaction State
         let mut interaction = crate::interaction::InteractionState::new();
-
-        // 1. Register Commands
-        // This calls the registry in src/commands.rs to load all available commands
         crate::commands::register_all(&mut interaction);
-
-        // 2. Initialize Permanent Rooms from config
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
             let mut rooms = interaction.rooms.write().await;
             for room_config in permanent_rooms {
@@ -137,9 +131,11 @@ async fn main() {
                 rooms.insert(room_id, room);
             }
         }
-
+        let forum_config = Arc::new(crate::forum::read_forum_config());
+        crate::forum::seed_categories(&forum_db, &forum_config).await;
         let state = Arc::new(AppState {
             config: config_arc.clone(),
+            forum_config,
             forum_db,
             tera,
             interaction,

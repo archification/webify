@@ -72,6 +72,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .route("/thumbnail/{*path}", get(generate_thumbnail))
             .route("/blog/{post_name}", get(render_post))
             .nest_service("/static", ServeDir::new("static"))
+            .nest_service("/templates", ServeDir::new("templates"))
             .nest_service("/uploads", ServeDir::new("uploads"))
             .route("/favicon.ico", get_service(ServeFile::new("static/favicon.ico")))
             .nest_service("/css", ServeDir::new("css"))
@@ -93,8 +94,10 @@ pub async fn app(state: Arc<AppState>) -> Router {
             match settings.as_slice() {
                 [template_path, mode] if mode == "forum" => {
                     let forum_routes = Router::new()
-                        .route("/", get(list_posts))
-                        .route("/new", get(new_post_form))
+                        .route("/", get(board_index))
+                        .route("/c/{category_id}", get(view_category)) // Shows threads in a category
+                        .route("/new/{category_id}", get(new_post_form))
+//                        .route("/new", get(new_post_form))
                         .route("/create", post(create_post))
                         .route("/thread/{id}", get(view_thread))
                         .route("/thread/{id}/reply", post(post_reply))
@@ -104,7 +107,15 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/logout", get(logout))
                         .route("/verify", get(verify_email))
                         .route("/auth/google", get(login_google))
-                        .route("/auth/google/callback", get(callback_google));
+                        .route("/auth/google/callback", get(callback_google))
+                        .route("/admin", get(admin_panel))
+                        .route("/admin/delete-post/{id}", post(admin_delete_post))
+                        .route("/admin/delete-reply/{id}", post(admin_delete_reply))
+                        .route("/admin/edit-post/{id}", get(admin_edit_post_form).post(admin_edit_post))
+                        .route("/admin/ban/{username}", post(admin_ban_user))
+                        .route("/admin/unban/{username}", post(admin_unban_user))
+                        .route("/admin/add-category", post(admin_add_category))
+                        .route("/admin/delete-category/{id}", post(admin_delete_category));
                     router = router.nest(path, forum_routes);
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {

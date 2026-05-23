@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{% if thread %}{{ thread.title }}{% else %}Thread{% endif %} - Forum{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --spring-dark: #3f5528;
+        --spring-med: #6b8e23;
+        --spring-border: #8fac6d;
+        --spring-row1: #eef5e6;
+        --spring-row2: #e4efd7;
+        --spring-text: #2f3e1f;
+        --spring-link: #3f5528;
+    }
+    body { background-color: #dbe4cd; font-family: Verdana, Helvetica, Arial, sans-serif; color: var(--spring-text); }
+    .content { background-color: transparent; max-width: 100%; padding: 10px; }
+    a { color: var(--spring-link); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #d33682; }
+    .topic-container { max-width: 960px; margin: 0 auto; }
+    .topic-header { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .topic-title { font-size: 20px; font-weight: bold; color: var(--spring-dark); margin: 0; }
+    .btn-action { background-color: var(--spring-med); color: white; padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; border: 1px solid var(--spring-dark); text-transform: uppercase; display: inline-block; cursor: pointer; }
+    .btn-action:hover { background-color: var(--spring-dark); color: white; text-decoration: none; }
+    .btn-danger { background-color: #dc322f; border-color: #b32019; }
+    .btn-danger:hover { background-color: #b32019; }
+    .btn-warn { background-color: #cb4b16; border-color: #a03b11; }
+    .btn-warn:hover { background-color: #a03b11; }
+    .action-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .post-block { background-color: #fff; border: 1px solid var(--spring-border); margin-bottom: 10px; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .post-header { background: linear-gradient(to bottom, #7ca333, #6b8e23); color: white; padding: 6px 10px; font-size: 11px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--spring-dark); }
+    .post-header a { color: #eef5e6; font-weight: bold; }
+    .post-body { display: flex; flex-direction: row; }
+    .post-author { width: 140px; background-color: var(--spring-row1); padding: 10px; font-size: 11px; border-right: 1px solid var(--spring-border); text-align: center; flex-shrink: 0; }
+    .author-name { font-size: 13px; font-weight: bold; color: var(--spring-dark); margin-bottom: 5px; display: block; }
+    .author-role { font-style: italic; color: #666; margin-bottom: 10px; display: block; }
+    .post-content { flex-grow: 1; padding: 15px; background-color: #fcfdfa; font-size: 13px; line-height: 1.5; min-height: 100px; white-space: pre-wrap; word-break: break-word; }
+    .post-footer { background-color: var(--spring-row2); padding: 5px 10px; display: flex; justify-content: flex-end; gap: 6px; border-top: 1px solid #ddd; }
+    .reply-box { background-color: #fff; border: 1px solid var(--spring-border); padding: 15px; margin-top: 20px; border-radius: 4px; }
+    textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--spring-border); padding: 10px; font-family: inherit; background-color: #fcfdfa; resize: vertical; }
+    .breadcrumb { margin-bottom: 10px; font-size: 11px; }
+    @media (max-width: 600px) {
+        .post-body { flex-direction: column; }
+        .post-author { width: auto; border-right: none; border-bottom: 1px solid var(--spring-border); text-align: left; display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
+        .author-role { margin-bottom: 0; }
+    }
+</style>
+
+<div class="topic-container">
+    <div class="breadcrumb">
+        <a href="{{ base_path }}">Index</a>
+        {% if thread %} &raquo; <a href="{{ base_path }}/c/{{ thread.category_id }}">{{ thread.category_id }}</a> &raquo; {{ thread.title }}{% endif %}
+    </div>
+
+    <div class="topic-header">
+        <h1 class="topic-title">{% if thread %}{{ thread.title }}{% else %}Thread Not Found{% endif %}</h1>
+        <div class="action-row">
+            {% if is_admin %}
+                <a href="{{ base_path }}/admin/edit-post/{{ thread_id_str }}" class="btn-action">Edit</a>
+                <form action="{{ base_path }}/admin/delete-post/{{ thread_id_str }}" method="post" onsubmit="return confirm('Delete this entire thread?')" style="display:inline;">
+                    <button type="submit" class="btn-action btn-danger">Delete Thread</button>
+                </form>
+                <form action="{{ base_path }}/thread/{{ thread_id_str }}/lock" method="post" style="display:inline;">
+                    <button type="submit" class="btn-action btn-warn">
+                        {% if thread.is_locked %}Unlock{% else %}Lock{% endif %}
+                    </button>
+                </form>
+            {% elif can_moderate %}
+                <form action="{{ base_path }}/thread/{{ thread_id_str }}/lock" method="post" style="display:inline;">
+                    <button type="submit" class="btn-action btn-warn">
+                        {% if thread.is_locked %}Unlock{% else %}Lock{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+            {% if can_reply %}
+                <a href="#reply-area" class="btn-action">Post Reply</a>
+            {% elif thread.is_locked %}
+                <span class="btn-action" style="background:#aaa;border-color:#888;cursor:default;">Locked</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if thread %}
+    <div class="post-block">
+        <div class="post-header">
+            <span>{{ thread_created_at_str }} UTC</span>
+            <a href="#op">#1</a>
+        </div>
+        <div class="post-body">
+            <div class="post-author">
+                <span class="author-name">{{ thread.author }}</span>
+                <span class="author-role">Original Poster</span>
+            </div>
+            <div class="post-content" id="op">{{ thread.content }}</div>
+        </div>
+        {% if is_admin %}
+        <div class="post-footer">
+            <form action="{{ base_path }}/admin/ban/{{ thread.author }}" method="post" onsubmit="return confirm('Ban user {{ thread.author }}?')" style="display:inline;">
+                <button type="submit" class="btn-action btn-danger" style="font-size:10px;padding:3px 8px;">Ban {{ thread.author }}</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    {% for reply in replies %}
+    <div class="post-block">
+        <div class="post-header">
+            <span>{{ reply.created_at_str }} UTC</span>
+            <a href="#r{{ loop.index }}">#{{ loop.index + 1 }}</a>
+        </div>
+        <div class="post-body">
+            <div class="post-author">
+                <span class="author-name">{{ reply.author }}</span>
+                <span class="author-role">Member</span>
+            </div>
+            <div class="post-content" id="r{{ loop.index }}">{{ reply.content }}</div>
+        </div>
+        {% if is_admin %}
+        <div class="post-footer">
+            <form action="{{ base_path }}/admin/ban/{{ reply.author }}" method="post" onsubmit="return confirm('Ban user {{ reply.author }}?')" style="display:inline;">
+                <button type="submit" class="btn-action btn-danger" style="font-size:10px;padding:3px 8px;">Ban {{ reply.author }}</button>
+            </form>
+            <form action="{{ base_path }}/admin/delete-reply/{{ reply.id_str }}" method="post" onsubmit="return confirm('Delete this reply?')" style="display:inline;">
+                <input type="hidden" name="thread_id" value="{{ thread_id_str }}">
+                <button type="submit" class="btn-action btn-warn" style="font-size:10px;padding:3px 8px;">Delete Reply</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if thread.is_locked and not is_admin %}
+    <div class="reply-box" style="text-align:center;color:#dc322f;">
+        🔒 This topic is locked.
+    </div>
+    {% elif can_reply %}
+    <div id="reply-area" class="reply-box">
+        <h3 style="margin-top:0;color:var(--spring-dark);font-size:16px;">Post a Reply</h3>
+        <form action="{{ base_path }}/thread/{{ thread_id_str }}/reply" method="post">
+            <textarea name="content" rows="8" required placeholder="Type your reply here..."></textarea>
+            <div style="margin-top:10px;">
+                <button type="submit" class="btn-action">Submit Reply</button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="reply-box" style="text-align:center;">
+        <a href="{{ base_path }}/login">Login</a> or <a href="{{ base_path }}/register">Register</a> to reply.
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="reply-box" style="text-align:center;color:#666;">Thread not found.</div>
+    {% endif %}
+
+    <div style="margin-top:20px;text-align:center;font-size:11px;color:#999;">
+        <a href="{{ base_path }}">Return to Forum Index</a> &bull; All times are UTC
+    </div>
+</div>
+{% endblock %}

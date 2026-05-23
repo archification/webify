@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Forum{% endblock %}
+
+{% block content %}
+<style>
+    :root { --spring-dark: #3f5528; --spring-med: #6b8e23; --spring-border: #8fac6d; --spring-row1: #eef5e6; --spring-row2: #e4efd7; --spring-text: #2f3e1f; --spring-link: #3f5528; }
+    body { background-color: #dbe4cd; font-family: Verdana, Helvetica, Arial, sans-serif; color: var(--spring-text); }
+    .content { background-color: transparent; max-width: 100%; padding: 10px; }
+    a { color: var(--spring-link); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #d33682; }
+    .forum-container { max-width: 960px; margin: 0 auto; background-color: #fff; border: 1px solid var(--spring-border); border-radius: 5px; padding: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .forum-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid var(--spring-border); }
+    .forum-title { font-size: 22px; font-weight: bold; color: var(--spring-dark); }
+    .forum-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .forum-table th { background: linear-gradient(to bottom, #7ca333, #6b8e23); color: white; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; border: 1px solid var(--spring-dark); }
+    .forum-table td { padding: 8px 10px; border: 1px solid white; font-size: 12px; }
+    .row1 { background-color: var(--spring-row1); }
+    .row2 { background-color: var(--spring-row2); }
+    .btn { background-color: var(--spring-med); color: white; padding: 5px 12px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid var(--spring-dark); cursor: pointer; }
+    .btn:hover { background-color: var(--spring-dark); }
+    .btn-green { background-color: #2aa198; border-color: #1a7f78; }
+    .btn-green:hover { background-color: #1a7f78; }
+    .section-title { font-size: 15px; font-weight: bold; color: var(--spring-dark); margin: 20px 0 8px; border-bottom: 1px solid var(--spring-border); padding-bottom: 4px; }
+</style>
+
+<div class="forum-container">
+    <div class="forum-header">
+        <div class="forum-title">Admin Panel</div>
+        <a href="{{ base_path }}" style="font-size:12px;">← Back to Forum</a>
+    </div>
+
+    <div class="section-title">Categories</div>
+
+    {% if categories %}
+    <table class="forum-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th width="100">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat in categories %}
+            <tr class="{% if loop.index0 % 2 == 0 %}row1{% else %}row2{% endif %}">
+                <td><code>{{ cat.id }}</code></td>
+                <td><strong>{{ cat.name }}</strong></td>
+                <td>{{ cat.description }}</td>
+                <td>
+                    <form action="{{ base_path }}/admin/delete-category/{{ cat.id }}" method="post" onsubmit="return confirm('Delete category &quot;{{ cat.name }}&quot; and all its posts?')">
+                        <button type="submit" class="btn" style="background-color:#dc322f;border-color:#b02020;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#666;font-size:13px;padding:10px 0;">No categories found.</p>
+    {% endif %}
+
+    <div class="section-title">Add Category</div>
+    <form action="{{ base_path }}/admin/add-category" method="post" style="background:#f0f5eb;padding:12px;border:1px solid var(--spring-border);border-radius:4px;margin-bottom:20px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:120px;">
+                <label style="font-size:11px;font-weight:bold;text-transform:uppercase;">ID (slug)</label><br>
+                <input type="text" name="id" required placeholder="e.g. off-topic" style="width:100%;padding:5px;font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="flex:2;min-width:160px;">
+                <label style="font-size:11px;font-weight:bold;text-transform:uppercase;">Name</label><br>
+                <input type="text" name="name" required placeholder="e.g. Off Topic" style="width:100%;padding:5px;font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="flex:3;min-width:200px;">
+                <label style="font-size:11px;font-weight:bold;text-transform:uppercase;">Description</label><br>
+                <input type="text" name="description" placeholder="Short description" style="width:100%;padding:5px;font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+                <button type="submit" class="btn btn-green">Add</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="section-title">Banned Users</div>
+
+    {% if banned_users %}
+    <table class="forum-table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th width="100">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in banned_users %}
+            <tr class="{% if loop.index0 % 2 == 0 %}row1{% else %}row2{% endif %}">
+                <td><strong>{{ user.username }}</strong></td>
+                <td>{{ user.email }}</td>
+                <td>
+                    <form action="{{ base_path }}/admin/unban/{{ user.username }}" method="post">
+                        <button type="submit" class="btn btn-green">Unban</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#666;font-size:13px;padding:10px 0;">No banned users.</p>
+    {% endif %}
+</div>
+{% endblock %}

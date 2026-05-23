@@ -1,0 +1,11 @@
+admins = ["archification@gmail.com"]
+
+[[category]]
+id = "general"
+name = "General Discussion"
+description = "Talk about anything and everything."
+
+[[category]]
+id = "announcements"
+name = "Announcements"
+description = "Official news and updates."

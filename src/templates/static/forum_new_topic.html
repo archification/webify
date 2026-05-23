@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}New Topic - Webify Forum{% endblock %}
+
+{% block content %}
+<style>
+    /* Spring Element-esque Theme Overrides */
+    :root {
+        --spring-dark: #3f5528;
+        --spring-med: #6b8e23;
+        --spring-light: #f5fcf0;
+        --spring-border: #8fac6d;
+        --spring-row1: #eef5e6;
+        --spring-row2: #e4efd7;
+        --spring-text: #2f3e1f;
+        --spring-link: #3f5528;
+    }
+
+    body {
+        background-color: #dbe4cd;
+        font-family: Verdana, Helvetica, Arial, sans-serif;
+        color: var(--spring-text);
+    }
+
+    .content {
+        background-color: transparent;
+        max-width: 100%;
+        padding: 10px;
+    }
+
+    a { color: var(--spring-link); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #d33682; }
+
+    .forum-container {
+        max-width: 960px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border: 1px solid var(--spring-border);
+        border-radius: 5px;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .forum-header {
+        border-bottom: 2px solid var(--spring-border);
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+
+    .forum-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--spring-dark);
+        background: url('/static/images/leaf_icon.png') no-repeat left center;
+        padding-left: 5px; 
+    }
+    
+    .forum-title-small {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        margin-top: 5px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+        font-size: 12px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--spring-border);
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-family: Verdana, Helvetica, Arial, sans-serif;
+        font-size: 13px;
+    }
+
+    .btn-submit {
+        background-color: var(--spring-med);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 12px;
+        text-transform: uppercase;
+        border: 1px solid var(--spring-dark);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-submit:hover {
+        background-color: var(--spring-dark);
+    }
+</style>
+
+<div class="forum-container">
+    <div class="forum-header">
+        <div class="forum-title">
+            Post a New Topic
+            <span class="forum-title-small">
+                <a href="{{ base_path }}/c/{{ category_id }}">&laquo; Back to {% if category %}{{ category.name }}{% else %}Category{% endif %}</a>
+            </span>
+        </div>
+    </div>
+
+    <form action="{{ base_path }}/create" method="post">
+        <input type="hidden" name="category_id" value="{{ category_id }}">
+        
+        <div class="form-group">
+            <label for="title">Subject:</label>
+            <input type="text" id="title" name="title" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="content">Message Body:</label>
+            <textarea id="content" name="content" class="form-control" rows="12" required></textarea>
+        </div>
+
+        {% if current_user.role == "Admin" or current_user.role == "Owner" %}
+        <div class="form-group">
+            <label for="min_reply_role">Minimum Role Required to Reply:</label>
+            <select id="min_reply_role" name="min_reply_role" class="form-control" style="width: 200px;">
+                <option value="Member">Member</option>
+                <option value="Admin">Admin</option>
+                <option value="Owner">Owner</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div style="text-align: right;">
+            <button type="submit" class="btn-submit">Submit Topic</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

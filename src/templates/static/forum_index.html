@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Webify Community{% endblock %}
+
+{% block content %}
+<style>
+    /* Spring Element-esque Theme Overrides */
+    :root {
+        --spring-dark: #3f5528;
+        --spring-med: #6b8e23;
+        --spring-light: #f5fcf0;
+        --spring-border: #8fac6d;
+        --spring-row1: #eef5e6;
+        --spring-row2: #e4efd7;
+        --spring-text: #2f3e1f;
+        --spring-link: #3f5528;
+    }
+
+    body {
+        background-color: #dbe4cd;
+        font-family: Verdana, Helvetica, Arial, sans-serif;
+        color: var(--spring-text);
+    }
+
+    .content {
+        background-color: transparent;
+        max-width: 100%;
+        padding: 10px;
+    }
+
+    a { color: var(--spring-link); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #d33682; }
+
+    .forum-container {
+        max-width: 960px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border: 1px solid var(--spring-border);
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .forum-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--spring-border);
+    }
+
+    .forum-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--spring-dark);
+        background: url('/static/images/leaf_icon.png') no-repeat left center;
+        padding-left: 5px; 
+    }
+
+    .btn-new-topic {
+        background-color: var(--spring-med);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 12px;
+        text-transform: uppercase;
+        border: 1px solid var(--spring-dark);
+        transition: background 0.2s;
+    }
+    .btn-new-topic:hover {
+        background-color: var(--spring-dark);
+        text-decoration: none;
+        color: white;
+    }
+
+    .forum-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    .forum-table th {
+        background-color: var(--spring-med);
+        background-image: linear-gradient(to bottom, #7ca333, #6b8e23);
+        color: white;
+        padding: 10px;
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        border: 1px solid var(--spring-dark);
+    }
+
+    .forum-table td {
+        padding: 8px 10px;
+        border: 1px solid white;
+        font-size: 12px;
+    }
+
+    .row1 { background-color: var(--spring-row1); }
+    .row2 { background-color: var(--spring-row2); }
+    .row1:hover, .row2:hover { background-color: #dceac5; }
+
+    .topic-title {
+        font-size: 14px;
+        font-weight: bold;
+    }
+    
+    .topic-meta {
+        font-size: 10px;
+        color: #666;
+    }
+
+    .status-icon {
+        width: 30px;
+        text-align: center;
+        font-size: 18px;
+        color: var(--spring-med);
+    }
+</style>
+
+<div class="forum-container">
+    <div class="forum-header">
+        <div class="forum-title">Webify Community</div>
+        {% if current_user %}
+            <a href="{{ base_path }}/logout" class="btn-new-topic" style="background-color: #dc322f;">Logout</a>
+        {% else %}
+            <a href="{{ base_path }}/auth/google" class="btn-new-topic">Login</a>
+        {% endif %}
+    </div>
+
+    <table class="forum-table">
+        <thead>
+            <tr>
+                <th width="30">&nbsp;</th>
+                <th>Categories</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat in categories %}
+                <tr class="{% if loop.index0 % 2 == 0 %}row1{% else %}row2{% endif %}">
+                    <td class="status-icon">
+                        <span title="Category">📁</span>
+                    </td>
+                    <td>
+                        <div class="topic-title">
+                            <a href="{{ base_path }}/c/{{ cat.id }}">{{ cat.name }}</a>
+                        </div>
+                        <div class="topic-meta">
+                            {{ cat.description }}
+                        </div>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="2" style="text-align: center; padding: 20px;" class="row1">
+                        No categories found. Please update forum.toml.
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
