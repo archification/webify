@@ -43,6 +43,7 @@ pub struct Config {
     pub google_client_secret: Option<String>,
     pub google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
+    pub public_ip: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +70,7 @@ struct RawConfig {
     google_client_secret: Option<String>,
     google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
+    pub public_ip: Option<String>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -150,5 +152,6 @@ pub fn read_config() -> Option<Config> {
         google_client_secret: raw.google_client_secret,
         google_redirect_url: raw.google_redirect_url,
         permanent_rooms: raw.permanent_rooms,
+        public_ip: raw.public_ip,
     })
 }

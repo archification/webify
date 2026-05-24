@@ -23,6 +23,7 @@ use crate::slideshow::handle_slideshow;
 use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
 use crate::interaction;
+use crate::stream;
 use crate::AppState;
 use crate::forum::*;
 use solarized::{
@@ -90,7 +91,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
             )
             .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
             .fallback(get(not_found));
+        let mut config_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
         for (path, settings) in routes {
+            config_paths.insert(path.clone());
             match settings.as_slice() {
                 [template_path, mode] if mode == "forum" => {
                     let forum_routes = Router::new()
@@ -114,6 +117,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/admin/edit-post/{id}", get(admin_edit_post_form).post(admin_edit_post))
                         .route("/admin/ban/{username}", post(admin_ban_user))
                         .route("/admin/unban/{username}", post(admin_unban_user))
+                        .route("/admin/set-role/{username}", post(admin_set_role))
                         .route("/admin/add-category", post(admin_add_category))
                         .route("/admin/delete-category/{id}", post(admin_delete_category));
                     router = router.nest(path, forum_routes);
@@ -210,6 +214,28 @@ pub async fn app(state: Arc<AppState>) -> Router {
                 }
                 _ => {}
             }
+        }
+        // Add streaming routes after config routes to avoid conflicts with any config-defined paths
+        if !config_paths.contains("/live") {
+            router = router.route("/live", get(stream::live_handler));
+        }
+        if !config_paths.contains("/live/whip") {
+            router = router.route("/live/whip", post(stream::whip_ingest));
+        }
+        if !config_paths.contains("/live/whip/{session_id}") {
+            router = router.route("/live/whip/{session_id}", axum::routing::patch(stream::whip_patch).delete(stream::whip_delete));
+        }
+        if !config_paths.contains("/watch") {
+            router = router.route("/watch", get(stream::watch_handler));
+        }
+        if !config_paths.contains("/watch/status") {
+            router = router.route("/watch/status", get(stream::watch_status));
+        }
+        if !config_paths.contains("/watch/whep") {
+            router = router.route("/watch/whep", post(stream::whep_handler));
+        }
+        if !config_paths.contains("/watch/whep/{session_id}") {
+            router = router.route("/watch/whep/{session_id}", axum::routing::patch(stream::whep_patch));
         }
         let storage_limit = state.config.upload_storage_limit;
         match parse_upload_limit(&state.config.upload_size_limit).await {

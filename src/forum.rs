@@ -324,6 +324,12 @@ pub async fn init_db() -> ForumDb {
             created_at TEXT NOT NULL
         )"
     ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS stream_keys (
+            username TEXT PRIMARY KEY,
+            stream_key TEXT UNIQUE NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
     Arc::new(pool)
 }
 
@@ -349,7 +355,7 @@ pub async fn get_categories(db: &ForumDb) -> Vec<Category> {
     .unwrap_or_default()
 }
 
-async fn get_current_user(state: &Arc<AppState>, jar: &CookieJar) -> Option<User> {
+pub async fn get_current_user(state: &Arc<AppState>, jar: &CookieJar) -> Option<User> {
     let username = jar.get("username")?.value().to_string();
     let row = sqlx::query_as::<_, DbUser>("SELECT * FROM users WHERE username = ?")
         .bind(&username)
@@ -953,12 +959,22 @@ pub async fn admin_panel(
     .await.unwrap_or_default()
     .into_iter().map(User::from).collect();
 
+    let all_users: Vec<User> = sqlx::query_as::<_, DbUser>(
+        "SELECT * FROM users ORDER BY role DESC, username ASC"
+    )
+    .fetch_all(&*state.forum_db)
+    .await.unwrap_or_default()
+    .into_iter().map(User::from).collect();
+
     let categories = get_categories(&state.forum_db).await;
+    let is_owner = current_user.role >= Role::Owner;
     let mut context = tera::Context::new();
     context.insert("banned_users", &banned_users);
+    context.insert("all_users", &all_users);
     context.insert("categories", &categories);
     context.insert("current_user", &current_user);
     context.insert("is_admin", &true);
+    context.insert("is_owner", &is_owner);
     context.insert("base_path", &"/forum");
     match state.tera.render("forum_admin.html", &context) {
         Ok(rendered) => Html(rendered).into_response(),
@@ -1068,6 +1084,40 @@ pub async fn admin_edit_post(
     .execute(&*state.forum_db)
     .await;
     Redirect::to(&format!("/forum/thread/{}", post_id)).into_response()
+}
+
+#[derive(Deserialize)]
+pub struct SetRoleForm {
+    pub role: String,
+}
+
+pub async fn admin_set_role(
+    State(state): State<Arc<AppState>>,
+    Path(username): Path<String>,
+    jar: CookieJar,
+    Form(form): Form<SetRoleForm>,
+) -> impl IntoResponse {
+    let current_user = match get_current_user(&state, &jar).await {
+        Some(u) => u,
+        None => return (StatusCode::UNAUTHORIZED, "Login required").into_response(),
+    };
+    if current_user.role < Role::Owner {
+        return (StatusCode::FORBIDDEN, "Only the Owner can change roles").into_response();
+    }
+    if current_user.username == username {
+        return (StatusCode::BAD_REQUEST, "Cannot change your own role").into_response();
+    }
+    let new_role = match form.role.as_str() {
+        "Admin" => Role::Admin,
+        "Owner" => Role::Owner,
+        _ => Role::Member,
+    };
+    let _ = sqlx::query("UPDATE users SET role = ? WHERE username = ?")
+        .bind(new_role.to_string())
+        .bind(&username)
+        .execute(&*state.forum_db)
+        .await;
+    Redirect::to("/forum/admin").into_response()
 }
 
 pub async fn admin_ban_user(

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch — Live Stream</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neu-bg-primary: #374151;
+      --neu-bg-secondary: #1f2937;
+      --neu-shadow-dark: #111827;
+      --neu-shadow-light: #4b5563;
+      --neu-primary: #7c3aed;
+      --neu-primary-dark: #6d28d9;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --green-live: #22c55e;
+      --transition-fast: 150ms;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+      min-height: 100vh;
+      color: var(--text-primary);
+    }
+
+    .neu-raised {
+      background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+      box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+    }
+
+    .neu-raised-sm {
+      background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+      box-shadow: 4px 4px 8px var(--neu-shadow-dark), -4px -4px 8px var(--neu-shadow-light);
+    }
+
+    .neu-inset {
+      background: linear-gradient(145deg, var(--neu-bg-secondary), var(--neu-bg-primary));
+      box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .back-link {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color var(--transition-fast);
+    }
+    .back-link:hover { color: var(--text-secondary); }
+
+    /* Video container */
+    .video-wrap {
+      border-radius: 24px;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    #stream-video:fullscreen,
+    #stream-video:-webkit-full-screen {
+      border-radius: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .video-aspect {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
+
+    #stream-video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #000;
+      border-radius: 20px;
+    }
+
+    /* Offline Overlay */
+    .offline-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #1a1f2e, #0f131c);
+      border-radius: 20px;
+      gap: 16px;
+    }
+
+    .offline-overlay.hidden { display: none; }
+
+    .signal-icon {
+      font-size: 4rem;
+      animation: signal-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes signal-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.95); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+
+    .offline-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .offline-sub {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .countdown-ring {
+      width: 40px;
+      height: 40px;
+    }
+
+    .countdown-ring circle {
+      fill: none;
+      stroke: rgba(124, 58, 237, 0.3);
+      stroke-width: 3;
+    }
+
+    .countdown-ring .progress {
+      stroke: var(--neu-primary);
+      stroke-linecap: round;
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      transform-origin: center;
+      transform: rotate(-90deg);
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    /* Connecting overlay */
+    .connecting-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(17, 24, 39, 0.85);
+      border-radius: 20px;
+      gap: 12px;
+      backdrop-filter: blur(4px);
+    }
+
+    .connecting-overlay.hidden { display: none; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(124, 58, 237, 0.2);
+      border-top-color: var(--neu-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .connecting-text {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    /* Stream info bar */
+    .stream-info {
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stream-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .broadcaster-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+      color: white;
+      background: linear-gradient(145deg, var(--neu-primary), var(--neu-primary-dark));
+      flex-shrink: 0;
+    }
+
+    .broadcaster-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .broadcaster-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .stream-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .live-badge.live {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green-live);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .live-badge.offline {
+      background: rgba(107, 114, 128, 0.12);
+      color: var(--text-muted);
+      border: 1px solid rgba(107, 114, 128, 0.2);
+    }
+
+    .viewer-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <h1>Live Stream</h1>
+      <a href="/" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </a>
+    </header>
+
+    <!-- Video Player -->
+    <div class="video-wrap neu-raised">
+      <div class="video-aspect">
+        <video id="stream-video" controls muted playsinline autoplay></video>
+
+        <!-- Offline state -->
+        <div class="offline-overlay" id="offline-overlay">
+          <div class="signal-icon">📡</div>
+          <div class="offline-title">Stream is offline</div>
+          <div class="offline-sub" id="offline-sub">Checking again in 5s…</div>
+        </div>
+
+        <!-- Connecting state -->
+        <div class="connecting-overlay hidden" id="connecting-overlay">
+          <div class="spinner"></div>
+          <div class="connecting-text">Connecting to stream…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stream Info -->
+    <div class="stream-info neu-raised-sm">
+      <div class="stream-meta">
+        <div class="broadcaster-avatar" id="broadcaster-avatar">?</div>
+        <div>
+          <div class="broadcaster-name" id="broadcaster-display">
+            {% if broadcaster %}{{ broadcaster }}{% else %}—{% endif %}
+          </div>
+          <div class="broadcaster-sub">Streamer</div>
+        </div>
+      </div>
+      <div class="stream-badges">
+        <div class="live-badge {% if is_live %}live{% else %}offline{% endif %}" id="live-badge">
+          {% if is_live %}LIVE{% else %}OFFLINE{% endif %}
+        </div>
+        <div class="viewer-count" id="viewer-count" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="viewer-num">1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DOMAIN = '{{ domain }}';
+    const INITIAL_LIVE = {% if is_live %}true{% else %}false{% endif %};
+    const INITIAL_BROADCASTER = '{{ broadcaster }}';
+
+    const video = document.getElementById('stream-video');
+    const offlineOverlay = document.getElementById('offline-overlay');
+    const offlineSub = document.getElementById('offline-sub');
+    const connectingOverlay = document.getElementById('connecting-overlay');
+    const liveBadge = document.getElementById('live-badge');
+    const broadcasterDisplay = document.getElementById('broadcaster-display');
+    const broadcasterAvatar = document.getElementById('broadcaster-avatar');
+    const viewerCount = document.getElementById('viewer-count');
+
+    let pc = null;
+    let whepLocation = null;
+    let pollTimer = null;
+    let countdownTimer = null;
+    let connected = false;
+
+    function setLiveUI(broadcaster) {
+      offlineOverlay.classList.add('hidden');
+      connectingOverlay.classList.remove('hidden');
+      liveBadge.className = 'live-badge live';
+      liveBadge.textContent = 'LIVE';
+      broadcasterDisplay.textContent = broadcaster || 'Unknown';
+      broadcasterAvatar.textContent = (broadcaster || '?')[0].toUpperCase();
+      viewerCount.style.display = 'flex';
+    }
+
+    function setOfflineUI(message) {
+      offlineOverlay.classList.remove('hidden');
+      connectingOverlay.classList.add('hidden');
+      liveBadge.className = 'live-badge offline';
+      liveBadge.textContent = 'OFFLINE';
+      viewerCount.style.display = 'none';
+      if (message) offlineSub.textContent = message;
+      connected = false;
+    }
+
+    function setConnectedUI() {
+      connectingOverlay.classList.add('hidden');
+    }
+
+    async function connectWhep() {
+      if (pc) {
+        try { pc.close(); } catch(e) {}
+        pc = null;
+      }
+
+      pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      const mediaStream = new MediaStream();
+      video.srcObject = mediaStream;
+
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+
+      pc.ontrack = (e) => {
+        mediaStream.addTrack(e.track);
+        if (mediaStream.getTracks().length >= 1) {
+          video.play().catch(() => {});
+          setConnectedUI();
+          connected = true;
+        }
+      };
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate && whepLocation) {
+          const frag = `a=ice-ufrag:${e.candidate.usernameFragment || ''}\r\na=ice-pwd:\r\na=candidate:${e.candidate.candidate}\r\n`;
+          fetch(whepLocation, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/trickle-ice-sdpfrag' },
+            body: frag
+          }).catch(() => {});
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        const s = pc.connectionState;
+        if (s === 'failed' || s === 'disconnected' || s === 'closed') {
+          setOfflineUI('Stream ended. Checking again in 5s…');
+          connected = false;
+          startPolling();
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Wait for ICE gathering to complete
+      await new Promise(resolve => {
+        if (pc.iceGatheringState === 'complete') { resolve(); return; }
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') resolve();
+        };
+        setTimeout(resolve, 4000); // fallback
+      });
+
+      let resp;
+      try {
+        resp = await fetch('/watch/whep', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: pc.localDescription.sdp,
+        });
+      } catch(e) {
+        setOfflineUI('Connection failed. Retrying in 5s…');
+        startPolling();
+        return;
+      }
+
+      if (!resp.ok) {
+        setOfflineUI('Stream unavailable. Checking again in 5s…');
+        startPolling();
+        return;
+      }
+
+      whepLocation = resp.headers.get('Location') || null;
+      const answerSdp = await resp.text();
+
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+    }
+
+    function startPolling() {
+      if (pollTimer) return;
+      let count = 5;
+      offlineSub.textContent = `Checking again in ${count}s…`;
+
+      countdownTimer = setInterval(() => {
+        count--;
+        offlineSub.textContent = count > 0
+          ? `Checking again in ${count}s…`
+          : 'Checking…';
+        if (count <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }, 1000);
+
+      pollTimer = setTimeout(async () => {
+        pollTimer = null;
+        try {
+          const r = await fetch('/watch/status');
+          const data = await r.json();
+          if (data.live) {
+            setLiveUI(data.broadcaster);
+            await connectWhep();
+          } else {
+            startPolling();
+          }
+        } catch(e) {
+          startPolling();
+        }
+      }, 5000);
+    }
+
+    // Init
+    (async () => {
+      if (INITIAL_LIVE) {
+        setLiveUI(INITIAL_BROADCASTER);
+        await connectWhep();
+      } else {
+        setOfflineUI('Stream is currently offline. Checking again in 5s…');
+        startPolling();
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ mod limits;
 mod media;
 mod out;
 mod routes;
+mod stream;
 mod upload;
 mod utils;
 mod slideshow;
@@ -57,6 +58,7 @@ pub struct AppState {
     pub forum_db: crate::forum::ForumDb,
     pub tera: Tera,
     pub interaction: crate::interaction::InteractionState,
+    pub stream: crate::stream::StreamState,
 }
 
 #[tokio::main]
@@ -133,12 +135,14 @@ async fn main() {
         }
         let forum_config = Arc::new(crate::forum::read_forum_config());
         crate::forum::seed_categories(&forum_db, &forum_config).await;
+        let stream = crate::stream::StreamState::new(config_arc.public_ip.clone()).expect("Failed to initialize stream state");
         let state = Arc::new(AppState {
             config: config_arc.clone(),
             forum_config,
             forum_db,
             tera,
             interaction,
+            stream,
         });
         let app = app(state.clone()).await;
         if state.config.ssl_enabled {
