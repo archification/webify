@@ -616,26 +616,450 @@ pub async fn verify_email(
 
 pub async fn login_form(State(_state): State<Arc<AppState>>) -> Html<String> {
     let base = "/forum";
-    Html(format!(r#"
-        <!DOCTYPE html>
-        <html>
-        <head><link rel="stylesheet" href="https://thomasf.github.io/solarized-css/solarized-dark.min.css"></head>
-        <body style="max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #586e75;">
-            <h1>Login</h1>
-            <form action="{}/login" method="post">
-                <input type="text" name="username" placeholder="Username" style="width:100%" required><br><br>
-                <input type="password" name="password" placeholder="Password" style="width:100%" required><br><br>
-                <button type="submit" style="width:100%">Login</button>
-            </form>
-            <br>
-            <div style="text-align: center;">
-                <a href="{}/auth/google" style="background-color: #eee8d5; color: #073642; padding: 10px; text-decoration: none; display: block; border-radius: 4px;">Login with Google</a>
+    let html = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCHIFICATION // ACCESS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void:   #02030a;
+            --bg-card:   #0c0f1e;
+            --g:  #00ff41;
+            --c:  #00e5ff;
+            --v:  #bf5fff;
+            --text-hi:   #e8f4ff;
+            --text-body: #7a9cc0;
+            --text-dim:  #243450;
+            --border:    rgba(0, 229, 255, 0.07);
+            --border-hi: rgba(0, 229, 255, 0.22);
+            --glow-g: 0 0 8px var(--g), 0 0 22px rgba(0,255,65,0.28);
+            --glow-c: 0 0 8px var(--c), 0 0 22px rgba(0,229,255,0.28);
+            --glow-v: 0 0 8px var(--v), 0 0 22px rgba(191,95,255,0.28);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-void);
+            color: var(--text-body);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,229,255,0.022) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,229,255,0.022) 1px, transparent 1px);
+            background-size: 44px 44px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,0.07) 3px,
+                rgba(0,0,0,0.07) 4px
+            );
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center,
+                transparent 38%,
+                rgba(2,3,10,0.65) 100%
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #rain-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .corner {
+            position: fixed;
+            width: 18px;
+            height: 18px;
+            z-index: 200;
+        }
+        .corner::before, .corner::after {
+            content: '';
+            position: absolute;
+            background: var(--c);
+            box-shadow: var(--glow-c);
+        }
+        .corner::before { width: 2px; height: 100%; top: 0; left: 0; }
+        .corner::after  { width: 100%; height: 2px; top: 0; left: 0; }
+        .corner-tl { top: 10px;    left: 10px; }
+        .corner-tr { top: 10px;    right: 10px; transform: scaleX(-1); }
+        .corner-bl { bottom: 10px; left: 10px;  transform: scaleY(-1); }
+        .corner-br { bottom: 10px; right: 10px; transform: scale(-1); }
+
+        .login-wrap {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 1.5rem;
+        }
+
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,65,0.7), 0 0 6px var(--g); }
+            50%       { box-shadow: 0 0 0 6px rgba(0,255,65,0),  0 0 10px var(--g); }
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border-radius: 4px;
+            padding: 2.5rem 2.25rem 2rem;
+            position: relative;
+            animation: fade-up 0.4s ease both;
+            box-shadow:
+                10px 10px 28px rgba(0,0,0,0.78),
+                -10px -10px 28px rgba(0,229,255,0.03),
+                0 0 0 1px rgba(0,229,255,0.08);
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 18px; height: 18px;
+            border-top: 2px solid var(--c);
+            border-left: 2px solid var(--c);
+            box-shadow: -1px -1px 8px rgba(0,229,255,0.3);
+        }
+        .login-card::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; right: -1px;
+            width: 18px; height: 18px;
+            border-bottom: 2px solid var(--c);
+            border-right: 2px solid var(--c);
+            box-shadow: 1px 1px 8px rgba(0,229,255,0.3);
+        }
+
+        .card-header { text-align: center; margin-bottom: 2rem; }
+
+        .card-logo {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.05rem;
+            letter-spacing: 0.22em;
+            color: var(--c);
+            text-shadow: var(--glow-c);
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 0.75rem;
+        }
+        .card-logo::before { content: '[ '; color: var(--g); text-shadow: var(--glow-g); }
+        .card-logo::after  { content: ' ]'; color: var(--g); text-shadow: var(--glow-g); }
+
+        .card-subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.62rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--g);
+            box-shadow: 0 0 6px var(--g);
+            animation: pulse-dot 2.2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+
+        .field { margin-bottom: 1.25rem; }
+
+        .field-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 0.5rem;
+            padding-left: 0.15rem;
+        }
+
+        .field-input {
+            width: 100%;
+            padding: 0.78rem 1rem;
+            border-radius: 3px;
+            border: 1px solid rgba(0, 229, 255, 0.18);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 0.06em;
+            color: var(--text-hi);
+            background: linear-gradient(145deg, #080b16, #0f1222);
+            box-shadow:
+                inset 4px 4px 12px rgba(0,0,0,0.65),
+                inset -4px -4px 12px rgba(0,229,255,0.025);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        .field-input::placeholder { color: #3d5878; }
+
+        .field-input:focus {
+            border-color: rgba(0,229,255,0.35);
+            box-shadow:
+                inset 4px 4px 12px rgba(0,0,0,0.65),
+                inset -4px -4px 12px rgba(0,229,255,0.025),
+                0 0 0 1px rgba(0,229,255,0.22),
+                0 0 18px rgba(0,229,255,0.08);
+        }
+
+        .card-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-hi), transparent);
+            margin: 1.5rem 0;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            margin-top: 0.25rem;
+            margin-bottom: 1rem;
+            border-radius: 3px;
+            border: 1px solid rgba(0,229,255,0.28);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.68rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--c);
+            cursor: pointer;
+            background: linear-gradient(135deg, #081418, #04090e);
+            box-shadow:
+                5px 5px 14px rgba(0,0,0,0.65),
+                -5px -5px 14px rgba(0,229,255,0.04),
+                0 0 20px rgba(0,229,255,0.1);
+            transition: all 0.2s;
+        }
+
+        .btn-login:hover {
+            border-color: rgba(0,229,255,0.6);
+            box-shadow:
+                5px 5px 14px rgba(0,0,0,0.65),
+                -5px -5px 14px rgba(0,229,255,0.06),
+                0 0 30px rgba(0,229,255,0.22);
+            color: #fff;
+            text-shadow: var(--glow-c);
+        }
+
+        .btn-login:active {
+            transform: translateY(1px);
+            box-shadow:
+                inset 3px 3px 8px rgba(0,0,0,0.6),
+                inset -3px -3px 8px rgba(0,229,255,0.03),
+                0 0 10px rgba(0,229,255,0.1);
+        }
+
+        .btn-google {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 3px;
+            border: 1px solid rgba(191,95,255,0.22);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.64rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--v);
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            background: linear-gradient(135deg, #0d0b14, #060510);
+            box-shadow:
+                4px 4px 12px rgba(0,0,0,0.6),
+                -4px -4px 12px rgba(191,95,255,0.03),
+                0 0 14px rgba(191,95,255,0.07);
+            transition: all 0.2s;
+        }
+
+        .btn-google:hover {
+            border-color: rgba(191,95,255,0.55);
+            box-shadow:
+                4px 4px 12px rgba(0,0,0,0.6),
+                -4px -4px 12px rgba(191,95,255,0.05),
+                0 0 22px rgba(191,95,255,0.18);
+            color: #fff;
+            text-shadow: var(--glow-v);
+        }
+
+        .btn-google:active {
+            transform: translateY(1px);
+            box-shadow:
+                inset 3px 3px 8px rgba(0,0,0,0.55),
+                inset -3px -3px 8px rgba(191,95,255,0.025);
+        }
+
+        .card-footer { text-align: center; margin-top: 1.25rem; }
+
+        .card-footer a {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.18s, text-shadow 0.18s;
+        }
+        .card-footer a::before { content: '> '; }
+        .card-footer a:hover {
+            color: var(--g);
+            text-shadow: var(--glow-g);
+        }
+    </style>
+</head>
+<body>
+    <div class="vignette"></div>
+    <canvas id="rain-canvas" aria-hidden="true"></canvas>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <div class="login-wrap">
+        <div class="login-card">
+            <div class="card-header">
+                <span class="card-logo">ARCHIFICATION</span>
+                <div class="card-subtitle">
+                    <div class="status-dot"></div>
+                    AUTH MODULE v1.0
+                </div>
             </div>
-            <br>
-            <p><a href="{}/register">No account? Register</a></p>
-        </body>
-        </html>
-    "#, base, base, base))
+
+            <form action="BASE_PATH/login" method="post">
+                <div class="field">
+                    <label class="field-label" for="username">// Username</label>
+                    <input class="field-input" type="text" id="username" name="username" placeholder="user_id" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="password">// Password</label>
+                    <input class="field-input" type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-login">[ Authenticate ]</button>
+            </form>
+
+            <div class="card-divider"></div>
+
+            <a href="BASE_PATH/auth/google" class="btn-google">[ Login with Google ]</a>
+
+            <div class="card-footer">
+                <a href="BASE_PATH/register">No account? Register</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var canvas = document.getElementById('rain-canvas');
+        var ctx    = canvas.getContext('2d');
+        var W, H;
+
+        function resize() {
+            W = canvas.width  = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        var PALETTE = [
+            '0,229,255','0,229,255','0,229,255','0,229,255',
+            '0,229,255','0,229,255','0,229,255',
+            '0,255,65','0,255,65',
+            '191,95,255',
+        ];
+
+        var ANG = 0.21;
+        var AX  = Math.sin(ANG);
+        var AY  = Math.cos(ANG);
+        var COUNT = 150;
+        var drops = [];
+
+        function makeDrop(scatter) {
+            var len = 8 + Math.random() * 20;
+            return {
+                x:     Math.random() * (W + H * AX) - H * AX,
+                y:     scatter ? Math.random() * H : -len - Math.random() * 40,
+                len:   len,
+                speed: 3 + Math.random() * 5,
+                col:   PALETTE[Math.floor(Math.random() * PALETTE.length)],
+                op:    0.06 + Math.random() * 0.22,
+                lw:    0.4  + Math.random() * 0.8,
+            };
+        }
+
+        for (var i = 0; i < COUNT; i++) drops.push(makeDrop(true));
+
+        function frame() {
+            ctx.clearRect(0, 0, W, H);
+            for (var i = 0; i < COUNT; i++) {
+                var d = drops[i];
+                ctx.beginPath();
+                ctx.moveTo(d.x, d.y);
+                ctx.lineTo(d.x - d.len * AX, d.y - d.len * AY);
+                ctx.strokeStyle = 'rgba(' + d.col + ',' + d.op + ')';
+                ctx.lineWidth   = d.lw;
+                ctx.lineCap     = 'round';
+                ctx.stroke();
+                d.x += d.speed * AX;
+                d.y += d.speed * AY;
+                if (d.y - d.len > H || d.x > W + 20) {
+                    drops[i] = makeDrop(false);
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        requestAnimationFrame(frame);
+    }());
+    </script>
+</body>
+</html>"#.replace("BASE_PATH", base);
+    Html(html)
 }
 
 pub async fn login(
