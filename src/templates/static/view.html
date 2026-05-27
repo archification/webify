@@ -82,14 +82,13 @@
 
     /* Video container */
     .video-wrap {
-      border-radius: 24px;
       position: relative;
       margin-bottom: 20px;
+      overflow: hidden;
     }
 
     #stream-video:fullscreen,
     #stream-video:-webkit-full-screen {
-      border-radius: 0;
       width: 100vw;
       height: 100vh;
     }
@@ -105,7 +104,7 @@
       height: 100%;
       display: block;
       background: #000;
-      border-radius: 20px;
+      object-fit: contain;
     }
 
     /* Offline Overlay */
@@ -117,7 +116,6 @@
       align-items: center;
       justify-content: center;
       background: linear-gradient(145deg, #1a1f2e, #0f131c);
-      border-radius: 20px;
       gap: 16px;
     }
 
@@ -174,7 +172,6 @@
       align-items: center;
       justify-content: center;
       background: rgba(17, 24, 39, 0.85);
-      border-radius: 20px;
       gap: 12px;
       backdrop-filter: blur(4px);
     }
@@ -398,6 +395,13 @@
           connected = true;
         }
       };
+
+      video.addEventListener('loadedmetadata', () => {
+        if (video.videoWidth && video.videoHeight) {
+          document.querySelector('.video-aspect').style.aspectRatio =
+            `${video.videoWidth} / ${video.videoHeight}`;
+        }
+      }, { once: false });
 
       pc.onicecandidate = (e) => {
         if (e.candidate && whepLocation) {
