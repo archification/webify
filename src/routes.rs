@@ -2,7 +2,7 @@ use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use std::io::SeekFrom;
 use axum::{
-    extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo},
+    extract::{Path, DefaultBodyLimit, Query, Request, ConnectInfo, Form},
     response::{Html, IntoResponse, Redirect},
     routing::{
         get, post, get_service
@@ -24,8 +24,11 @@ use crate::slideshow::SlideQuery;
 use crate::php::handle_php;
 use crate::interaction;
 use crate::stream;
+use sqlx;
 use crate::AppState;
 use crate::forum::*;
+use crate::auth_guard;
+use crate::admin;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -33,6 +36,7 @@ use solarized::{
     PrintMode::NewLine,
 };
 use std::collections::HashMap;
+use axum_extra::extract::CookieJar;
 use std::sync::Arc;
 use std::net::SocketAddr;
 use tower::Service;
@@ -71,6 +75,15 @@ pub async fn app(state: Arc<AppState>) -> Router {
     for (domain, routes) in &state.config.sites {
         let mut router = Router::new()
             .route("/thumbnail/{*path}", get(generate_thumbnail))
+            .route("/blog", get(crate::blog::blog_index))
+            .route("/blog/new", get(crate::blog::new_post_form))
+            .route("/blog/edit/{slug}", get(crate::blog::edit_post_form))
+            .route("/blog/create", post(crate::blog::create_post)
+                .layer(DefaultBodyLimit::max(64 * 1024 * 1024)))
+            .route("/blog/update", post(crate::blog::update_post)
+                .layer(DefaultBodyLimit::max(64 * 1024 * 1024)))
+            .route("/blog/upload-image", post(crate::blog::upload_image)
+                .layer(DefaultBodyLimit::max(64 * 1024 * 1024)))
             .route("/blog/{post_name}", get(render_post))
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/templates", ServeDir::new("templates"))
@@ -81,6 +94,10 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .nest_service("/js", ServeDir::new("js"))
             .nest_service("/scripts", ServeDir::new("scripts"))
             .nest_service("/images", ServeDir::new("images"))
+            .route("/auth/login", get(auth_guard::guard_login))
+            .route("/auth/google", get(auth_guard::guard_google))
+            .route("/auth/callback", get(auth_guard::guard_callback))
+            .route("/auth/logout", get(auth_guard::guard_logout))
             .route("/interaction", get(render_interaction_page))
             .route("/interaction/create", post(interaction::create_room))
             .route("/interaction/join", post(interaction::join_room))
@@ -215,6 +232,77 @@ pub async fn app(state: Arc<AppState>) -> Router {
                 _ => {}
             }
         }
+        // Add admin dashboard routes for any configured dashboard whose domain matches this site
+        for dashboard in &state.config.admin_dashboards {
+            let site_match = dashboard.domain.is_empty()
+                || domain.eq_ignore_ascii_case(&dashboard.domain);
+            if !site_match {
+                continue;
+            }
+            let dp = dashboard.path.trim_end_matches('/').to_string();
+            if !config_paths.contains(&dp) {
+                // GET main page
+                let dp_get = dp.clone();
+                router = router.route(&dp, get(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    q: Query<HashMap<String, String>>,
+                | {
+                    let path = dp_get.clone();
+                    async move { admin::dashboard_page(s, j, h, q, path).await }
+                }));
+
+                // POST add rule
+                let dp_add_rule = dp.clone();
+                router = router.route(&format!("{}/rules", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::AddRuleForm>,
+                | {
+                    let path = dp_add_rule.clone();
+                    async move { admin::add_rule(s, j, h, f, path).await }
+                }));
+
+                // POST delete rule
+                let dp_del_rule = dp.clone();
+                router = router.route(&format!("{}/rules/delete", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::DeleteRuleForm>,
+                | {
+                    let path = dp_del_rule.clone();
+                    async move { admin::delete_rule(s, j, h, f, path).await }
+                }));
+
+                // POST add editor
+                let dp_add_ed = dp.clone();
+                router = router.route(&format!("{}/editors", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::AddEditorForm>,
+                | {
+                    let path = dp_add_ed.clone();
+                    async move { admin::add_editor(s, j, h, f, path).await }
+                }));
+
+                // POST revoke editor
+                let dp_rev_ed = dp.clone();
+                router = router.route(&format!("{}/editors/revoke", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::RevokeEditorForm>,
+                | {
+                    let path = dp_rev_ed.clone();
+                    async move { admin::revoke_editor(s, j, h, f, path).await }
+                }));
+            }
+        }
+
         // Add streaming routes after config routes to avoid conflicts with any config-defined paths
         if !config_paths.contains("/live") {
             router = router.route("/live", get(stream::live_handler));
@@ -276,9 +364,11 @@ pub async fn app(state: Arc<AppState>) -> Router {
         site_routers.insert(domain.clone(), final_site_router);
     }
     let site_routers_arc = Arc::new(site_routers);
+    let guard_state = state.clone();
 Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
         let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
+        let gs = guard_state.clone();
         async move {
             let hostname = headers
                 .get(header::HOST)
@@ -292,6 +382,82 @@ Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<
                     return (StatusCode::FORBIDDEN, "Access Denied").into_response();
                 }
             }
+            // Auth guard: check email-based access control before routing
+            let path = req.uri().path().to_string();
+            if !path.starts_with("/auth/") {
+                let cookie_header = req.headers()
+                    .get(header::COOKIE)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Check if this path belongs to a configured admin dashboard
+                let matching_dashboard = gs.config.admin_dashboards.iter().find(|d| {
+                    let site_match = d.domain.is_empty() || d.domain.eq_ignore_ascii_case(&hostname);
+                    let prefix = d.path.trim_end_matches('/');
+                    let pm = path == prefix || path.starts_with(&format!("{}/", prefix));
+                    site_match && pm
+                });
+
+                if let Some(dashboard) = matching_dashboard {
+                    let token = auth_guard::extract_cookie_value(&cookie_header, auth_guard::GUARD_COOKIE);
+                    let email = match token {
+                        Some(ref t) => auth_guard::validate_session(&gs.forum_db, t).await,
+                        None => None,
+                    };
+                    let allowed = if let Some(ref e) = email {
+                        let elc = e.to_ascii_lowercase();
+                        let owner = dashboard.owners.iter().any(|o| o.to_ascii_lowercase() == elc);
+                        if owner {
+                            true
+                        } else {
+                            sqlx::query_scalar::<_, bool>(
+                                "SELECT COUNT(*) > 0 FROM dashboard_editors WHERE email = ?",
+                            )
+                            .bind(&elc)
+                            .fetch_one(&*gs.forum_db)
+                            .await
+                            .unwrap_or(false)
+                        }
+                    } else {
+                        false
+                    };
+                    if !allowed {
+                        let login_url = format!(
+                            "/auth/login?next={}&host={}",
+                            urlencoding::encode(&path),
+                            urlencoding::encode(&hostname),
+                        );
+                        return Redirect::to(&login_url).into_response();
+                    }
+                } else {
+                    // Regular path: check config auth_guards + DB access_rules
+                    let config_guard = auth_guard::find_guard(&gs.config.auth_guards, &hostname, &path);
+                    let has_db = auth_guard::has_db_rule(&gs.forum_db, &hostname, &path).await;
+                    if config_guard.is_some() || has_db {
+                        let token = auth_guard::extract_cookie_value(&cookie_header, auth_guard::GUARD_COOKIE);
+                        let email = match token {
+                            Some(ref t) => auth_guard::validate_session(&gs.forum_db, t).await,
+                            None => None,
+                        };
+                        let allowed = match &email {
+                            Some(e) => {
+                                config_guard.map(|g| auth_guard::email_allowed(g, e)).unwrap_or(false)
+                                    || auth_guard::db_rule_allows(&gs.forum_db, &hostname, &path, e).await
+                            }
+                            None => false,
+                        };
+                        if !allowed {
+                            let login_url = format!(
+                                "/auth/login?next={}&host={}",
+                                urlencoding::encode(&path),
+                                urlencoding::encode(&hostname),
+                            );
+                            return Redirect::to(&login_url).into_response();
+                        }
+                    }
+                }
+            }
             if let Some(router) = routers.get(&hostname) {
                 router.clone().call(req).await.unwrap().into_response()
             } else if let Some(default) = routers.get("default") {
@@ -303,18 +469,44 @@ Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<
     })
 }
 
-async fn render_post(Path(post_name): Path<String>) -> Html<String> {
+async fn render_post(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(post_name): Path<String>,
+) -> impl IntoResponse {
     let file_path = format!("static/posts/{}.md", post_name);
     let markdown_content = match fs::read_to_string(&file_path).await {
         Ok(content) => content,
-        Err(_) => return Html("Post not found".to_string()),
+        Err(_) => return Html("Post not found".to_string()).into_response(),
     };
+    let (front_matter, body) = crate::blog::parse_front_matter(&markdown_content);
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TABLES);
-    let parser = Parser::new_ext(&markdown_content, options);
+    let parser = Parser::new_ext(&body, options);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
+
+    let display_title = front_matter.title.unwrap_or_else(|| post_name.clone());
+    let can_edit = crate::blog::viewer_can_edit(&state, &headers).await;
+    let post_date_display = front_matter.date.as_deref().and_then(crate::blog::humanize_date);
+
+    let mut context = tera::Context::new();
+    context.insert("port", &state.config.port);
+    context.insert("domain", &state.config.domain);
+    context.insert("post_title", &display_title);
+    context.insert("post_slug", &post_name);
+    context.insert("post_image", &front_matter.image);
+    context.insert("post_date", &front_matter.date);
+    context.insert("post_date_display", &post_date_display);
+    context.insert("can_edit", &can_edit);
+    context.insert("post_content", &html_output);
+
+    if let Ok(rendered) = state.tera.render("post.html", &context) {
+        return Html(rendered).into_response();
+    }
+
+    // Fallback: plain solarized template if post.html is missing
     let template = format!(r#"
 <!doctype html>
 <html>
@@ -334,7 +526,7 @@ async fn render_post(Path(post_name): Path<String>) -> Html<String> {
 </body>
 </html>
     "#, post_name, html_output);
-    Html(template)
+    Html(template).into_response()
 }
 
 async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {

@@ -15,6 +15,9 @@ mod php;
 mod forum;
 mod interaction;
 mod commands;
+mod auth_guard;
+mod admin;
+mod blog;
 
 use crate::config::read_config;
 use crate::generate::*;

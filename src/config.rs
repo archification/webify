@@ -9,6 +9,31 @@ use solarized::{
     PrintMode::NewLine,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct AdminDashboard {
+    /// Hostname this dashboard applies to. Empty means all domains.
+    #[serde(default)]
+    pub domain: String,
+    /// URL path prefix for this dashboard (e.g. "/admin/dashboard").
+    pub path: String,
+    /// Email addresses of owners. Only modifiable via config, not the dashboard UI.
+    #[serde(default)]
+    pub owners: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct AuthGuard {
+    /// Hostnames this guard applies to. Empty means all domains.
+    #[serde(default)]
+    pub sites: Vec<String>,
+    #[serde(default)]
+    pub paths: Vec<String>,
+    #[serde(default)]
+    pub allowed_domains: Vec<String>,
+    #[serde(default)]
+    pub allowed_emails: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PermanentRoom {
     pub name: String,
@@ -44,6 +69,9 @@ pub struct Config {
     pub google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
     pub public_ip: Option<String>,
+    pub auth_guards: Vec<AuthGuard>,
+    pub guard_redirect_url: Option<String>,
+    pub admin_dashboards: Vec<AdminDashboard>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +99,11 @@ struct RawConfig {
     google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
     pub public_ip: Option<String>,
+    pub guard_redirect_url: Option<String>,
+    #[serde(default)]
+    pub auth_guard: Vec<AuthGuard>,
+    #[serde(default, rename = "admin_dashboard")]
+    pub admin_dashboard: Vec<AdminDashboard>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -153,5 +186,8 @@ pub fn read_config() -> Option<Config> {
         google_redirect_url: raw.google_redirect_url,
         permanent_rooms: raw.permanent_rooms,
         public_ip: raw.public_ip,
+        auth_guards: raw.auth_guard,
+        guard_redirect_url: raw.guard_redirect_url,
+        admin_dashboards: raw.admin_dashboard,
     })
 }

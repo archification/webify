@@ -118,6 +118,7 @@ pub fn generate_files() {
             ("static/forum_admin.html", EXAMPLE_FORUM_ADMIN, "forum_admin.html"),
             ("static/stream.html", STREAM_DASHBOARD, "stream.html"),
             ("static/view.html", STREAM_VIEWER, "view.html"),
+            ("static/admin_dashboard.html", ADMIN_DASHBOARD, "admin_dashboard.html"),
             ("static/documents/example.md", EXAMPLE_MARKDOWN, "example.md"),
             ("static/slides/0.md", EXAMPLE_FIRST_SLIDE, "0.md"),
             ("static/slides/1.md", EXAMPLE_SECOND_SLIDE, "1.md"),

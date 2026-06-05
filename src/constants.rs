@@ -20,6 +20,7 @@ pub static PLAYLISTS: &str = include_str!("templates/static/playlists.html");
 pub static UPLOAD: &str = include_str!("templates/static/upload.html");
 pub static FILES: &str = include_str!("templates/static/uploads.html");
 pub static STREAM_DASHBOARD: &str = include_str!("templates/static/stream.html");
+pub static ADMIN_DASHBOARD: &str = include_str!("templates/static/admin_dashboard.html");
 pub static STREAM_VIEWER: &str = include_str!("templates/static/view.html");
 pub static EXAMPLE_MARKDOWN: &str = include_str!("templates/static/documents/example.md");
 pub static EXAMPLE_FIRST_SLIDE: &str = include_str!("templates/static/slides/0.md");

@@ -330,6 +330,32 @@ pub async fn init_db() -> ForumDb {
             stream_key TEXT UNIQUE NOT NULL
         )"
     ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS guard_sessions (
+            token TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS access_rules (
+            id TEXT PRIMARY KEY,
+            domain TEXT NOT NULL DEFAULT '',
+            path TEXT NOT NULL,
+            email TEXT,
+            email_domain TEXT,
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS dashboard_editors (
+            email TEXT PRIMARY KEY,
+            granted_by TEXT NOT NULL,
+            granted_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
     Arc::new(pool)
 }
 
