@@ -9,6 +9,14 @@ use solarized::{
     PrintMode::NewLine,
 };
 
+fn default_renewal_days() -> u32 {
+    30
+}
+
+fn default_http_mode() -> String {
+    "serve".to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AdminDashboard {
     /// Hostname this dashboard applies to. Empty means all domains.
@@ -51,6 +59,24 @@ pub struct Config {
     pub ssl_port: u16,
     pub ssl_cert_path: Option<String>,
     pub ssl_key_path: Option<String>,
+    /// Obtain/renew the SSL cert automatically via ACME (Let's Encrypt) using the
+    /// HTTP-01 challenge served on the plain-HTTP listener. Writes the issued cert
+    /// chain and key to `ssl_cert_path` / `ssl_key_path`. Requires `ssl_enabled`.
+    pub acme_enabled: bool,
+    /// Domains to request the certificate for (the first is the primary).
+    pub acme_domains: Vec<String>,
+    /// Contact email registered with the ACME account (optional but recommended).
+    pub acme_contact_email: Option<String>,
+    /// Use the Let's Encrypt production directory when true, staging when false.
+    pub acme_production: bool,
+    /// Where the persisted ACME account credentials are stored (JSON). Reused
+    /// across restarts so we don't register a new account every time.
+    pub acme_account_path: Option<String>,
+    /// Renew when fewer than this many days remain before the cert expires.
+    pub acme_renewal_days: u32,
+    /// Behaviour of the plain-HTTP listener: "serve" (full app over HTTP),
+    /// "redirect" (308 to HTTPS), or "https_only" (only answer ACME challenges).
+    pub http_mode: String,
     pub upload_size_limit: Option<Value>,
     pub upload_storage_limit: Option<u64>,
     pub browser: bool,
@@ -83,6 +109,20 @@ struct RawConfig {
     ssl_port: u16,
     ssl_cert_path: Option<String>,
     ssl_key_path: Option<String>,
+    #[serde(default)]
+    acme_enabled: bool,
+    #[serde(default)]
+    acme_domains: Vec<String>,
+    #[serde(default)]
+    acme_contact_email: Option<String>,
+    #[serde(default)]
+    acme_production: bool,
+    #[serde(default)]
+    acme_account_path: Option<String>,
+    #[serde(default = "default_renewal_days")]
+    acme_renewal_days: u32,
+    #[serde(default = "default_http_mode")]
+    http_mode: String,
     upload_size_limit: Option<Value>,
     upload_storage_limit: Option<u64>,
     browser: bool,
@@ -168,6 +208,13 @@ pub fn read_config() -> Option<Config> {
         ssl_port: raw.ssl_port,
         ssl_cert_path: raw.ssl_cert_path,
         ssl_key_path: raw.ssl_key_path,
+        acme_enabled: raw.acme_enabled,
+        acme_domains: raw.acme_domains,
+        acme_contact_email: raw.acme_contact_email,
+        acme_production: raw.acme_production,
+        acme_account_path: raw.acme_account_path,
+        acme_renewal_days: raw.acme_renewal_days,
+        http_mode: raw.http_mode.trim().to_lowercase(),
         upload_size_limit: raw.upload_size_limit,
         upload_storage_limit: raw.upload_storage_limit,
         browser: raw.browser,

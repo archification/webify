@@ -365,7 +365,21 @@ pub async fn app(state: Arc<AppState>) -> Router {
     }
     let site_routers_arc = Arc::new(site_routers);
     let guard_state = state.clone();
-Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
+    // ACME HTTP-01 challenge responder. Registered on the outermost router so it
+    // takes precedence over the fallback and bypasses the whitelist / auth-guard
+    // checks below — it must be reachable over plain HTTP for cert issuance/renewal.
+    let challenge_store = state.acme_challenges.clone();
+Router::new()
+    .route("/.well-known/acme-challenge/{token}", get(move |Path(token): Path<String>| {
+        let store = challenge_store.clone();
+        async move {
+            match store.read().await.get(&token) {
+                Some(key_auth) => (StatusCode::OK, key_auth.clone()).into_response(),
+                None => (StatusCode::NOT_FOUND, "not found").into_response(),
+            }
+        }
+    }))
+    .fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
         let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
         let gs = guard_state.clone();
@@ -433,7 +447,10 @@ Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<
                 } else {
                     // Regular path: check config auth_guards + DB access_rules
                     let config_guard = auth_guard::find_guard(&gs.config.auth_guards, &hostname, &path);
-                    let has_db = auth_guard::has_db_rule(&gs.forum_db, &hostname, &path).await;
+                    let has_db = {
+                        let rules = gs.access_rules.read().await;
+                        auth_guard::has_db_rule(&rules, &hostname, &path)
+                    };
                     if config_guard.is_some() || has_db {
                         let token = auth_guard::extract_cookie_value(&cookie_header, auth_guard::GUARD_COOKIE);
                         let email = match token {
@@ -442,8 +459,9 @@ Router::new().fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<
                         };
                         let allowed = match &email {
                             Some(e) => {
+                                let rules = gs.access_rules.read().await;
                                 config_guard.map(|g| auth_guard::email_allowed(g, e)).unwrap_or(false)
-                                    || auth_guard::db_rule_allows(&gs.forum_db, &hostname, &path, e).await
+                                    || auth_guard::db_rule_allows(&rules, &hostname, &path, e)
                             }
                             None => false,
                         };

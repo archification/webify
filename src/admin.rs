@@ -211,6 +211,8 @@ pub async fn add_rule(
     .execute(&*state.forum_db)
     .await;
 
+    *state.access_rules.write().await = crate::auth_guard::load_access_rules(&state.forum_db).await;
+
     Redirect::to(&format!("{}?flash=Rule+added", dash_path)).into_response()
 }
 
@@ -228,6 +230,7 @@ pub async fn delete_rule(
         .bind(&form.id)
         .execute(&*state.forum_db)
         .await;
+    *state.access_rules.write().await = crate::auth_guard::load_access_rules(&state.forum_db).await;
     Redirect::to(&format!("{}?flash=Rule+removed", dash_path)).into_response()
 }
 

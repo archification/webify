@@ -11,8 +11,7 @@ name = "webify"
 anyhow = "1.0.98"
 axum = { version = "0.8.8", features = ["multipart", "ws"] }
 axum-extra = { version = "0.12.2", features = ["cookie"] }
-axum-server = { version = "0.7.1", features = ["tls-rustls"] }
-axum-server-dual-protocol = "0.7.0"
+axum-server = { version = "0.8", features = ["tls-rustls-no-provider"], default-features = false }
 base64 = "0.22.1"
 bcrypt = "0.17.1"
 bytes = "1.10.0"
@@ -44,6 +43,9 @@ uuid = { version = "1.13.1", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 webbrowser = "1.0.6"
 webrtc = "0.11"
+console-subscriber = "0.5.0"
+instant-acme = { version = "0.8", default-features = false, features = ["ring", "hyper-rustls"] }
+x509-parser = "0.18"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10.75", features = ["vendored"] }

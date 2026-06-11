@@ -61,43 +61,50 @@ pub fn email_allowed(guard: &AuthGuard, email: &str) -> bool {
     false
 }
 
-/// Returns true if any DB access_rules row matches this hostname+path.
-pub async fn has_db_rule(db: &ForumDb, host: &str, path: &str) -> bool {
-    let rows: Vec<(String, String)> =
-        sqlx::query_as("SELECT domain, path FROM access_rules")
-            .fetch_all(&**db)
-            .await
-            .unwrap_or_default();
-    rows.iter().any(|(domain, rule_path)| {
-        let site_match = domain.is_empty() || domain.eq_ignore_ascii_case(host);
-        let prefix = rule_path.trim_end_matches('/');
-        let path_match = path == prefix || path.starts_with(&format!("{}/", prefix));
-        site_match && path_match
-    })
+#[derive(Clone)]
+pub struct AccessRule {
+    pub domain: String,
+    pub path: String,
+    pub email: Option<String>,
+    pub email_domain: Option<String>,
 }
 
-/// Returns true if any DB access_rules row matching this hostname+path permits `email`.
-pub async fn db_rule_allows(db: &ForumDb, host: &str, path: &str, email: &str) -> bool {
+pub async fn load_access_rules(db: &ForumDb) -> Vec<AccessRule> {
     let rows: Vec<(String, String, Option<String>, Option<String>)> =
         sqlx::query_as("SELECT domain, path, email, email_domain FROM access_rules")
             .fetch_all(&**db)
             .await
             .unwrap_or_default();
+    rows.into_iter()
+        .map(|(domain, path, email, email_domain)| AccessRule { domain, path, email, email_domain })
+        .collect()
+}
+
+pub fn has_db_rule(rules: &[AccessRule], host: &str, path: &str) -> bool {
+    rules.iter().any(|rule| {
+        let site_match = rule.domain.is_empty() || rule.domain.eq_ignore_ascii_case(host);
+        let prefix = rule.path.trim_end_matches('/');
+        let path_match = path == prefix || path.starts_with(&format!("{}/", prefix));
+        site_match && path_match
+    })
+}
+
+pub fn db_rule_allows(rules: &[AccessRule], host: &str, path: &str, email: &str) -> bool {
     let email_lc = email.to_ascii_lowercase();
     let user_domain = email_lc.split('@').nth(1).unwrap_or("");
-    rows.iter().any(|(domain, rule_path, rule_email, rule_email_domain)| {
-        let site_match = domain.is_empty() || domain.eq_ignore_ascii_case(host);
-        let prefix = rule_path.trim_end_matches('/');
+    rules.iter().any(|rule| {
+        let site_match = rule.domain.is_empty() || rule.domain.eq_ignore_ascii_case(host);
+        let prefix = rule.path.trim_end_matches('/');
         let path_match = path == prefix || path.starts_with(&format!("{}/", prefix));
         if !site_match || !path_match {
             return false;
         }
-        if let Some(re) = rule_email {
+        if let Some(ref re) = rule.email {
             if re.to_ascii_lowercase() == email_lc {
                 return true;
             }
         }
-        if let Some(red) = rule_email_domain {
+        if let Some(ref red) = rule.email_domain {
             if red.to_ascii_lowercase() == user_domain {
                 return true;
             }
@@ -199,7 +206,15 @@ pub async fn guard_login(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Capital Pulse</title>
-  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    :root {{
+      --deep:#0d1719; --surface-dark:#15282b; --white:#f5f7f7;
+      --text-muted:#8fa6a9; --teal:#5db6bf; --radius:16px; --radius-sm:8px;
+      --font-display:'DM Serif Display',Georgia,serif;
+      --font-body:'Poppins',system-ui,sans-serif;
+    }}
+    body {{ font-family:var(--font-body); color:var(--white); margin:0; }}
+  </style>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     body {{ background: var(--deep); }}
@@ -231,7 +246,13 @@ pub async fn guard_login(
 <body>
   <div class="auth-wrap">
     <div class="auth-card">
-      <img src="/images/capital-pulse-white.png" alt="Capital Pulse" class="auth-logo">
+      <div class="auth-logo" style="display:flex;align-items:center;justify-content:center;gap:12px;max-width:none;">
+        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="21" stroke="#5db6bf" stroke-width="2.5"/>
+          <path d="M8 24h7l4-11 6 22 4-13 3 2h8" stroke="#5db6bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-family:'DM Serif Display',Georgia,serif;font-size:1.5rem;color:#f5f7f7;">Capital Pulse</span>
+      </div>
       <h1 class="auth-title">Sign In</h1>
       <p class="auth-sub">This page is restricted. Sign in with your authorized Google account to continue.</p>
       <a href="/auth/google?next={next}&host={host}" class="btn-google">
@@ -357,12 +378,20 @@ pub async fn guard_callback(
     if let Some(guard) = find_guard(&config.auth_guards, &cb_host, &next) {
         if !email_allowed(guard, &user_info.email) {
             return Html(format!(
-                r#"<!DOCTYPE html>
+                r##"<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Access Denied — Capital Pulse</title>
-  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    :root {{
+      --deep:#0d1719; --surface-dark:#15282b; --white:#f5f7f7;
+      --text-muted:#8fa6a9; --teal:#5db6bf; --radius:16px; --radius-sm:8px;
+      --font-display:'DM Serif Display',Georgia,serif;
+      --font-body:'Poppins',system-ui,sans-serif;
+    }}
+    body {{ font-family:var(--font-body); color:var(--white); margin:0; }}
+  </style>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     body {{ background: var(--deep); }}
@@ -379,7 +408,13 @@ pub async fn guard_callback(
 <body>
   <div class="auth-wrap">
     <div class="auth-card">
-      <img src="/images/capital-pulse-white.png" alt="Capital Pulse" class="auth-logo">
+      <div class="auth-logo" style="display:flex;align-items:center;justify-content:center;gap:12px;max-width:none;">
+        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="21" stroke="#5db6bf" stroke-width="2.5"/>
+          <path d="M8 24h7l4-11 6 22 4-13 3 2h8" stroke="#5db6bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-family:'DM Serif Display',Georgia,serif;font-size:1.5rem;color:#f5f7f7;">Capital Pulse</span>
+      </div>
       <h1 class="auth-title">Access Denied</h1>
       <p class="auth-email">{email}</p>
       <p class="auth-sub">This account is not authorized to access this page. Please contact your administrator or try a different account.</p>
@@ -387,7 +422,7 @@ pub async fn guard_callback(
     </div>
   </div>
 </body>
-</html>"#,
+</html>"##,
                 email = user_info.email,
                 next_enc = urlencode(&next),
             ))

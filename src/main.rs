@@ -18,6 +18,7 @@ mod commands;
 mod auth_guard;
 mod admin;
 mod blog;
+mod acme;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -28,7 +29,13 @@ use crate::forum::{init_db, ForumDb};
 use crate::interaction::Room;
 
 use axum_server::tls_rustls::RustlsConfig;
-use axum_server_dual_protocol::ServerExt;
+use axum::{
+    Router,
+    extract::Request,
+    middleware::Next,
+    response::{IntoResponse, Redirect, Response},
+    http::{header::HOST, StatusCode},
+};
 use tera::Tera;
 use solarized::{
     BLUE, CYAN, GREEN, MAGENTA, ORANGE, RED, VIOLET, YELLOW,
@@ -55,17 +62,54 @@ fn format_address(scope: &str, ip: &str, port: u16) -> String {
     }
 }
 
+const ACME_CHALLENGE_PREFIX: &str = "/.well-known/acme-challenge/";
+
+/// Wrap the app for the plain-HTTP listener according to `http_mode`. The ACME
+/// challenge path is always passed through so cert issuance/renewal never breaks.
+fn make_http_app(mode: &str, app: Router) -> Router {
+    match mode {
+        "redirect" => app.layer(axum::middleware::from_fn(redirect_to_https)),
+        "https_only" => app.layer(axum::middleware::from_fn(refuse_non_challenge)),
+        _ => app, // "serve" (default): serve the full app over HTTP
+    }
+}
+
+async fn redirect_to_https(req: Request, next: Next) -> Response {
+    if req.uri().path().starts_with(ACME_CHALLENGE_PREFIX) {
+        return next.run(req).await;
+    }
+    let host = req
+        .headers()
+        .get(HOST)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.split(':').next())
+        .unwrap_or("")
+        .to_string();
+    let path_and_query = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+    Redirect::permanent(&format!("https://{host}{path_and_query}")).into_response()
+}
+
+async fn refuse_non_challenge(req: Request, next: Next) -> Response {
+    if req.uri().path().starts_with(ACME_CHALLENGE_PREFIX) {
+        return next.run(req).await;
+    }
+    (StatusCode::NOT_FOUND, "HTTPS only").into_response()
+}
+
 pub struct AppState {
     pub config: Arc<crate::config::Config>,
     pub forum_config: Arc<crate::forum::ForumConfig>,
     pub forum_db: crate::forum::ForumDb,
+    pub access_rules: Arc<tokio::sync::RwLock<Vec<crate::auth_guard::AccessRule>>>,
     pub tera: Tera,
     pub interaction: crate::interaction::InteractionState,
     pub stream: crate::stream::StreamState,
+    pub acme_challenges: crate::acme::ChallengeStore,
 }
 
 #[tokio::main]
 async fn main() {
+    // console_subscriber::init();
     let _ = ring::default_provider().install_default();
     clear();
     let args: Vec<String> = env::args().collect();
@@ -112,6 +156,9 @@ async fn main() {
         tera.autoescape_on(vec![]);
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
+        let access_rules = Arc::new(tokio::sync::RwLock::new(
+            crate::auth_guard::load_access_rules(&forum_db).await,
+        ));
         let mut interaction = crate::interaction::InteractionState::new();
         crate::commands::register_all(&mut interaction);
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
@@ -143,49 +190,98 @@ async fn main() {
             config: config_arc.clone(),
             forum_config,
             forum_db,
+            access_rules,
             tera,
             interaction,
             stream,
+            acme_challenges: crate::acme::new_store(),
         });
         let app = app(state.clone()).await;
         if state.config.ssl_enabled {
-            let ssladdr = format_address(
-                state.config.scope.as_str(), 
-                state.config.ip.as_str(), 
-                state.config.ssl_port
-            );
-            let ssl_config = RustlsConfig::from_pem_file(
-                state.config.ssl_cert_path.clone().expect("SSL cert path is required"),
-                state.config.ssl_key_path.clone().expect("SSL key path is required"),
-            )
-            .await
-            .expect("Failed to configure SSL");
-            let dual_server = axum_server_dual_protocol::bind_dual_protocol(
-                ssladdr.parse().unwrap(), 
-                ssl_config
-            )
-            .set_upgrade(true)
-            .serve(app.clone().into_make_service_with_connect_info::<SocketAddr>());
+            // Two-listener model: plain HTTP on `port`, HTTPS on `ssl_port`. They
+            // can't share a socket without the old dual-protocol sniffing, so the
+            // ports must differ (route external :80 -> port and :443 -> ssl_port).
             if state.config.port == state.config.ssl_port {
-                dual_server.await.expect("Dual protocol server failed");
-            } else {
-                tokio::spawn(async move {
-                    dual_server.await.expect("SSL server failed");
-                });
-                let addr = format_address(
-                    state.config.scope.as_str(), 
-                    state.config.ip.as_str(), 
-                    state.config.port
+                print_colored(
+                    &["ssl_enabled requires port and ssl_port to differ (map :80->port, :443->ssl_port)"],
+                    &[RED],
+                    NewLine,
                 );
-                let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
-                axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+                std::process::exit(1);
+            }
+            let http_addr = format_address(
+                state.config.scope.as_str(),
+                state.config.ip.as_str(),
+                state.config.port,
+            );
+            let ssladdr = format_address(
+                state.config.scope.as_str(),
+                state.config.ip.as_str(),
+                state.config.ssl_port,
+            );
+
+            // Start the HTTP listener first so it can answer the ACME HTTP-01
+            // challenge during first issuance below.
+            let http_app = make_http_app(&state.config.http_mode, app.clone());
+            tokio::spawn(async move {
+                let listener = tokio::net::TcpListener::bind(&http_addr)
+                    .await
+                    .expect("Failed to bind HTTP port");
+                axum::serve(listener, http_app.into_make_service_with_connect_info::<SocketAddr>())
                     .await
                     .expect("HTTP server failed");
+            });
+
+            // Obtain/renew the certificate via ACME before binding HTTPS.
+            if state.config.acme_enabled {
+                if let Err(e) = crate::acme::ensure_certificate(&state.config, &state.acme_challenges).await {
+                    print_colored(
+                        &["ACME certificate request failed: ", &e.to_string()],
+                        &[ORANGE, RED],
+                        NewLine,
+                    );
+                }
             }
+
+            let cert = state.config.ssl_cert_path.clone().expect("SSL cert path is required");
+            let key = state.config.ssl_key_path.clone().expect("SSL key path is required");
+            let rustls_config = match RustlsConfig::from_pem_file(&cert, &key).await {
+                Ok(c) => c,
+                Err(e) => {
+                    print_colored(
+                        &[
+                            "Failed to load TLS certificate from ",
+                            &cert,
+                            " / ",
+                            &key,
+                            ": ",
+                            &e.to_string(),
+                        ],
+                        &[ORANGE, VIOLET, ORANGE, VIOLET, ORANGE, RED],
+                        NewLine,
+                    );
+                    std::process::exit(1);
+                }
+            };
+
+            if state.config.acme_enabled {
+                let cfg = state.config.clone();
+                let store = state.acme_challenges.clone();
+                let rc = rustls_config.clone();
+                tokio::spawn(async move {
+                    crate::acme::renewal_loop(cfg, store, rc).await;
+                });
+            }
+
+            let ssl_socket: SocketAddr = ssladdr.parse().expect("invalid SSL bind address");
+            axum_server::bind_rustls(ssl_socket, rustls_config)
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+                .await
+                .expect("HTTPS server failed");
         } else {
             let addr = format_address(
-                state.config.scope.as_str(), 
-                state.config.ip.as_str(), 
+                state.config.scope.as_str(),
+                state.config.ip.as_str(),
                 state.config.port
             );
             let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");

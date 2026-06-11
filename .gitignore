@@ -5,6 +5,8 @@ config.toml
 /uploads
 /pems
 /forum.db
+/forum.db-shm
+/forum.db-wal
 testing.sh
 note
 todo

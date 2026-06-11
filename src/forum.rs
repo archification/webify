@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use serde::{Deserialize, Serialize};
 use axum::{
     extract::{State, Form, Query, Path},
@@ -281,7 +281,8 @@ pub type ForumDb = Arc<SqlitePool>;
 pub async fn init_db() -> ForumDb {
     let opts = SqliteConnectOptions::new()
         .filename("forum.db")
-        .create_if_missing(true);
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal);
     let pool = SqlitePool::connect_with(opts).await.unwrap();
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS categories (
