@@ -198,6 +198,18 @@ pub async fn guard_login(
         && state.config.google_client_secret.is_some()
         && state.config.guard_redirect_url.is_some();
 
+    // Use a custom login page from the filesystem if configured.
+    if configured {
+        if let Some(ref path) = state.config.guard_login_page {
+            if let Ok(template) = std::fs::read_to_string(path) {
+                let body = template
+                    .replace("{next}", &urlencode(&next))
+                    .replace("{host}", &urlencode(&host));
+                return Html(body);
+            }
+        }
+    }
+
     let body = if configured {
         format!(
             r##"<!DOCTYPE html>

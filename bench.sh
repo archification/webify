@@ -1,4 +1,4 @@
 #!/bin/bash
 
-oha -c 100 -z 20s http://localhost:12345/
-#oha -c 100 -z 20s https://archification.net/
+#oha -c 100 -z 20s http://localhost:12345/
+oha -c 1000 -z 20s https://archification.net/

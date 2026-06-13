@@ -237,8 +237,11 @@ pub async fn renewal_loop(config: Arc<Config>, store: ChallengeStore, rustls_con
         tokio::time::sleep(Duration::from_secs(12 * 3600)).await;
         match ensure_certificate(&config, &store).await {
             Ok(true) => match (cert_path.as_deref(), key_path.as_deref()) {
-                (Some(c), Some(k)) => match rustls_config.reload_from_pem_file(c, k).await {
-                    Ok(()) => log_ok("reloaded renewed certificate into the live server"),
+                (Some(c), Some(k)) => match crate::utils::build_tls_config(c, k).await {
+                    Ok(tls) => {
+                        rustls_config.reload_from_config(tls);
+                        log_ok("reloaded renewed certificate into the live server");
+                    }
                     Err(e) => log_err(&format!("failed to reload renewed certificate: {e}")),
                 },
                 _ => {}

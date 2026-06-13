@@ -52,6 +52,19 @@ use tokio::sync::broadcast;
 use chrono::Utc;
 use std::collections::HashMap;
 
+async fn bind_with_backlog(addr: &str) -> std::io::Result<tokio::net::TcpListener> {
+    let addr: std::net::SocketAddr = addr
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let socket = match addr {
+        std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+        std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+    };
+    socket.set_reuseaddr(true)?;
+    socket.bind(addr)?;
+    socket.listen(1024)
+}
+
 fn format_address(scope: &str, ip: &str, port: u16) -> String {
     let scope = scope.trim().to_lowercase();
     match scope.as_str() {
@@ -224,7 +237,7 @@ async fn main() {
             // challenge during first issuance below.
             let http_app = make_http_app(&state.config.http_mode, app.clone());
             tokio::spawn(async move {
-                let listener = tokio::net::TcpListener::bind(&http_addr)
+                let listener = bind_with_backlog(&http_addr)
                     .await
                     .expect("Failed to bind HTTP port");
                 axum::serve(listener, http_app.into_make_service_with_connect_info::<SocketAddr>())
@@ -245,8 +258,8 @@ async fn main() {
 
             let cert = state.config.ssl_cert_path.clone().expect("SSL cert path is required");
             let key = state.config.ssl_key_path.clone().expect("SSL key path is required");
-            let rustls_config = match RustlsConfig::from_pem_file(&cert, &key).await {
-                Ok(c) => c,
+            let rustls_config = match crate::utils::build_tls_config(&cert, &key).await {
+                Ok(c) => RustlsConfig::from_config(c),
                 Err(e) => {
                     print_colored(
                         &[
@@ -273,8 +286,13 @@ async fn main() {
                 });
             }
 
-            let ssl_socket: SocketAddr = ssladdr.parse().expect("invalid SSL bind address");
-            axum_server::bind_rustls(ssl_socket, rustls_config)
+            let ssl_listener = bind_with_backlog(&ssladdr)
+                .await
+                .expect("Failed to bind HTTPS port")
+                .into_std()
+                .expect("Failed to convert HTTPS listener");
+            axum_server::tls_rustls::from_tcp_rustls(ssl_listener, rustls_config)
+                .expect("Failed to create HTTPS server")
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("HTTPS server failed");
@@ -284,7 +302,7 @@ async fn main() {
                 state.config.ip.as_str(),
                 state.config.port
             );
-            let listener = tokio::net::TcpListener::bind(&addr).await.expect("Failed to bind HTTP port");
+            let listener = bind_with_backlog(&addr).await.expect("Failed to bind HTTP port");
             axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("HTTP server failed");

@@ -97,6 +97,7 @@ pub struct Config {
     pub public_ip: Option<String>,
     pub auth_guards: Vec<AuthGuard>,
     pub guard_redirect_url: Option<String>,
+    pub guard_login_page: Option<String>,
     pub admin_dashboards: Vec<AdminDashboard>,
 }
 
@@ -140,6 +141,8 @@ struct RawConfig {
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
     pub public_ip: Option<String>,
     pub guard_redirect_url: Option<String>,
+    #[serde(default)]
+    pub guard_login_page: Option<String>,
     #[serde(default)]
     pub auth_guard: Vec<AuthGuard>,
     #[serde(default, rename = "admin_dashboard")]
@@ -235,6 +238,7 @@ pub fn read_config() -> Option<Config> {
         public_ip: raw.public_ip,
         auth_guards: raw.auth_guard,
         guard_redirect_url: raw.guard_redirect_url,
+        guard_login_page: raw.guard_login_page,
         admin_dashboards: raw.admin_dashboard,
     })
 }
