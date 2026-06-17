@@ -1,6 +1,6 @@
 /target
 Cargo.lock
-config.toml
+/config.toml
 /static
 /uploads
 /pems

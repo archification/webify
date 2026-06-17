@@ -1,0 +1,114 @@
+scope = "localhost"
+ip = "192.168.1.142"
+# webify binds plain HTTP on `port` and HTTPS on `ssl_port` (they must differ when
+# ssl_enabled). In production, route external traffic with iptables:
+#   :80  -> port       (also carries the ACME HTTP-01 challenge)
+#   :443 -> ssl_port
+port = 12345
+domain = "127.0.0.1:12345"
+smtp_server = "localhost"
+smtp_port = 25
+smtp_username = "user@example.com"
+smtp_password = "password"
+email_from = "no-reply@webify.local"
+ssl_enabled = false
+ssl_port = 12346
+ssl_cert_path = "pems/cert.pem"
+ssl_key_path = "pems/key.pem"
+# Plain-HTTP listener behaviour: "serve" (full app over HTTP),
+# "redirect" (308 -> HTTPS), or "https_only" (only answer ACME challenges).
+# The /.well-known/acme-challenge/ path is always served over HTTP.
+http_mode = "serve"
+# Automatic Let's Encrypt certs via the ACME HTTP-01 challenge. When enabled,
+# webify obtains/renews the cert and writes it to ssl_cert_path/ssl_key_path,
+# only contacting the ACME API when the cert is missing or near expiry.
+acme_enabled = false
+acme_domains = ["example.com", "www.example.com"]
+acme_contact_email = "admin@example.com"
+acme_production = false            # false = Let's Encrypt staging (use while testing)
+acme_account_path = "pems/acme_account.json"
+acme_renewal_days = 30             # renew when fewer than this many days remain
+upload_size_limit = 2147483648 # 2 GB (2 * 1024 * 1024 * 1024)
+#upload_size_limit = "disabled" # allows any size
+upload_storage_limit = 2147483648
+browser = false
+slideshow_autoplay = false
+slideshow_timer = 20
+google_client_id = "ExampleID"
+google_client_secret = "ExampleSecret"
+google_redirect_url = "http://localhost:12345/forum/auth/google/callback"
+# Public IP for WebRTC NAT traversal (set this to your server's public IP for streaming)
+#public_ip = "203.0.113.1"
+
+# Auth guard: Google OAuth gate for specific paths. Restricts access by email
+# address or email domain. Users are redirected to Google login automatically.
+# guard_redirect_url: where Google redirects after OAuth (must match Google Console)
+# guard_login_page: optional custom login page template
+guard_redirect_url = "http://localhost:12345/auth/callback"
+#guard_login_page = "static/custom-login.html"
+
+# Auth guard rules — protect URL paths with Google OAuth email verification.
+# sites: hostnames this guard applies to (empty = all domains)
+# paths: URL prefixes to protect
+# allowed_domains: any email @domain is allowed
+# allowed_emails: specific email addresses allowed
+[[auth_guard]]
+sites = []
+paths = ["/private"]
+allowed_domains = ["example.com"]
+allowed_emails = ["admin@gmail.com"]
+
+# File guard — protect URL paths with a SHA-256 key file upload.
+# Users must upload a file whose SHA-256 hash matches the configured hash.
+# paths: URL prefixes to protect
+# hash: lowercase hex SHA-256 digest of the accepted key file
+# label: human-readable name shown in the admin dashboard
+[[file_guard]]
+paths = ["/secret"]
+hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+label = "Secret Area Key"
+
+# Admin dashboard — configure who can manage access rules via the web UI.
+# path: URL path for the dashboard (e.g. "/admin/dashboard")
+# owners: email addresses of owners (read from config only, NOT editable in the UI)
+# domain: leave empty to match all domains, or set to a specific hostname
+[[admin_dashboard]]
+path = "/admin/dashboard"
+owners = ["admin@example.com"]
+
+[[permanent_rooms]]
+name = "General Lounge"
+max_controllers = 10
+max_doers = 50
+
+[[permanent_rooms]]
+name = "Staff"
+password = "password"
+max_controllers = 5
+max_doers = 5
+
+[whitelist]
+"default" = ["127.0.0.1", "5.6.7.8"]
+
+[whitelist."example.local"]
+"allowed_ips" = ["192.168.1.50", "192.168.1.51"]
+
+[routes]
+"/" = ["static/home.html"]
+"/stuff" = ["static/stuff.html", "static/media", "random"]
+"/thumb" = ["static/thumb.html", "static/media/"]
+"/pdf" = ["static/pdf.html", "static/documents"]
+"/downloads" = ["static/downloads.html", "static/files"]
+"/logview" = ["static/watch.html", "static/watch.html", "live"]
+"/playlists" = ["static/playlists.html", "static/audio/"]
+"/upload" = ["static/upload.html"]
+"/files" = ["static/uploads.html", "uploads"]
+"/slideshow" = ["slideshow", "static/slides"]
+"/blog" = ["static/blog.html", "static/posts"]
+"/forum" = ["static/forum.html", "forum"]
+"/wiki" = ["static/wiki", "static"]
+# PHP-FPM proxy route: [document_root, fpm_address, "php"]
+#"/phpapp" = ["/var/www/phpapp", "127.0.0.1:9000", "php"]
+
+[routes."example.com"]
+"/" = ["static/examplesite/guacamole.html"]
