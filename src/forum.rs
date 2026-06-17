@@ -357,6 +357,24 @@ pub async fn init_db() -> ForumDb {
             granted_at TEXT NOT NULL
         )"
     ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS file_gate_sessions (
+            token TEXT PRIMARY KEY,
+            gate_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS db_file_guards (
+            id TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            paths TEXT NOT NULL,
+            hash TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
     Arc::new(pool)
 }
 

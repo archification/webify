@@ -29,6 +29,7 @@ use crate::AppState;
 use crate::forum::*;
 use crate::auth_guard;
 use crate::admin;
+use crate::file_gate;
 use solarized::{
     print_fancy,
     VIOLET, CYAN, RED, ORANGE,
@@ -98,6 +99,11 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .route("/auth/google", get(auth_guard::guard_google))
             .route("/auth/callback", get(auth_guard::guard_callback))
             .route("/auth/logout", get(auth_guard::guard_logout))
+            .route("/auth/file-gate",
+                get(file_gate::file_gate_page)
+                .post(file_gate::file_gate_submit)
+                .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
+            )
             .route("/interaction", get(render_interaction_page))
             .route("/interaction/create", post(interaction::create_room))
             .route("/interaction/join", post(interaction::join_room))
@@ -300,6 +306,30 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     let path = dp_rev_ed.clone();
                     async move { admin::revoke_editor(s, j, h, f, path).await }
                 }));
+
+                // POST add file guard
+                let dp_add_fg = dp.clone();
+                router = router.route(&format!("{}/file-guards", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::AddFileGuardForm>,
+                | {
+                    let path = dp_add_fg.clone();
+                    async move { admin::add_file_guard(s, j, h, f, path).await }
+                }));
+
+                // POST delete file guard
+                let dp_del_fg = dp.clone();
+                router = router.route(&format!("{}/file-guards/delete", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::DeleteFileGuardForm>,
+                | {
+                    let path = dp_del_fg.clone();
+                    async move { admin::delete_file_guard(s, j, h, f, path).await }
+                }));
             }
         }
 
@@ -473,6 +503,26 @@ Router::new()
                             );
                             return Redirect::to(&login_url).into_response();
                         }
+                    }
+                }
+
+                // File gate: check SHA-256 key-file sessions for protected paths
+                let file_gate_hash = {
+                    let db_guards = gs.db_file_guards.read().await;
+                    file_gate::find_required_hash_config(&gs.config.file_guards, &path)
+                        .or_else(|| file_gate::find_required_hash_db(&db_guards, &path))
+                };
+                if let Some(ref required_hash) = file_gate_hash {
+                    let token = auth_guard::extract_cookie_value(&cookie_header, file_gate::FILE_GATE_COOKIE);
+                    let valid = match token {
+                        Some(ref t) => file_gate::validate_session(&gs.forum_db, t, required_hash).await,
+                        None => false,
+                    };
+                    if !valid {
+                        return Redirect::to(&format!(
+                            "/auth/file-gate?next={}",
+                            urlencoding::encode(&path)
+                        )).into_response();
                     }
                 }
             }

@@ -30,6 +30,18 @@ pub struct AdminDashboard {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct FileGuard {
+    /// URL path prefixes this guard protects.
+    #[serde(default)]
+    pub paths: Vec<String>,
+    /// Lowercase hex SHA-256 digest of the accepted key file.
+    pub hash: String,
+    /// Human-readable label shown in the admin dashboard.
+    #[serde(default)]
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AuthGuard {
     /// Hostnames this guard applies to. Empty means all domains.
     #[serde(default)]
@@ -99,6 +111,7 @@ pub struct Config {
     pub guard_redirect_url: Option<String>,
     pub guard_login_page: Option<String>,
     pub admin_dashboards: Vec<AdminDashboard>,
+    pub file_guards: Vec<FileGuard>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,6 +160,8 @@ struct RawConfig {
     pub auth_guard: Vec<AuthGuard>,
     #[serde(default, rename = "admin_dashboard")]
     pub admin_dashboard: Vec<AdminDashboard>,
+    #[serde(default, rename = "file_guard")]
+    pub file_guard: Vec<FileGuard>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -240,5 +255,6 @@ pub fn read_config() -> Option<Config> {
         guard_redirect_url: raw.guard_redirect_url,
         guard_login_page: raw.guard_login_page,
         admin_dashboards: raw.admin_dashboard,
+        file_guards: raw.file_guard,
     })
 }

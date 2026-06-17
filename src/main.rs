@@ -19,6 +19,7 @@ mod auth_guard;
 mod admin;
 mod blog;
 mod acme;
+mod file_gate;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -114,6 +115,7 @@ pub struct AppState {
     pub forum_config: Arc<crate::forum::ForumConfig>,
     pub forum_db: crate::forum::ForumDb,
     pub access_rules: Arc<tokio::sync::RwLock<Vec<crate::auth_guard::AccessRule>>>,
+    pub db_file_guards: Arc<tokio::sync::RwLock<Vec<crate::file_gate::DbFileGuard>>>,
     pub tera: Tera,
     pub interaction: crate::interaction::InteractionState,
     pub stream: crate::stream::StreamState,
@@ -172,6 +174,9 @@ async fn main() {
         let access_rules = Arc::new(tokio::sync::RwLock::new(
             crate::auth_guard::load_access_rules(&forum_db).await,
         ));
+        let db_file_guards = Arc::new(tokio::sync::RwLock::new(
+            crate::file_gate::load_db_file_guards(&forum_db).await,
+        ));
         let mut interaction = crate::interaction::InteractionState::new();
         crate::commands::register_all(&mut interaction);
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
@@ -204,6 +209,7 @@ async fn main() {
             forum_config,
             forum_db,
             access_rules,
+            db_file_guards,
             tera,
             interaction,
             stream,

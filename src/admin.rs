@@ -13,6 +13,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
 use urlencoding::encode as urlencode;
+use serde_json;
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct AccessRuleRow {
@@ -53,6 +54,18 @@ pub struct DeleteRuleForm {
 #[derive(Deserialize)]
 pub struct RevokeEditorForm {
     pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct AddFileGuardForm {
+    pub label: String,
+    pub paths: String,
+    pub hash: String,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteFileGuardForm {
+    pub id: String,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -153,6 +166,8 @@ pub async fn dashboard_page(
     let flash = params.get("flash").cloned().unwrap_or_default();
     let flash_error = params.get("flash_error").cloned().unwrap_or_default();
 
+    let db_file_guards = crate::file_gate::load_db_file_guards(&state.forum_db).await;
+
     let mut ctx = tera::Context::new();
     ctx.insert("email", &email);
     ctx.insert("is_owner", &owner);
@@ -161,6 +176,8 @@ pub async fn dashboard_page(
     ctx.insert("dashboard_path", &dash_path);
     ctx.insert("flash", &flash);
     ctx.insert("flash_error", &flash_error);
+    ctx.insert("config_file_guards", &state.config.file_guards);
+    ctx.insert("db_file_guards", &db_file_guards);
 
     match state.tera.render("admin_dashboard.html", &ctx) {
         Ok(html) => Html(html).into_response(),
@@ -288,4 +305,77 @@ pub async fn revoke_editor(
         .execute(&*state.forum_db)
         .await;
     Redirect::to(&format!("{}?flash=Editor+access+revoked&tab=editors", dash_path)).into_response()
+}
+
+pub async fn add_file_guard(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<AddFileGuardForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (email, _) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+
+    let label = form.label.trim().to_string();
+    let hash = form.hash.trim().to_lowercase();
+    let paths: Vec<String> = form.paths
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s.starts_with('/'))
+        .collect();
+
+    if label.is_empty()
+        || hash.len() != 64
+        || !hash.chars().all(|c| c.is_ascii_hexdigit())
+        || paths.is_empty()
+    {
+        let url = format!("{}?flash_error=Invalid+parameters+check+hash+and+paths&tab=file-gates", dash_path);
+        return Redirect::to(&url).into_response();
+    }
+
+    let id = Uuid::new_v4().to_string();
+    let paths_json = serde_json::to_string(&paths).unwrap_or_default();
+    let now = Utc::now().to_rfc3339();
+
+    let _ = sqlx::query(
+        "INSERT INTO db_file_guards (id, label, paths, hash, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(&label)
+    .bind(&paths_json)
+    .bind(&hash)
+    .bind(&email)
+    .bind(&now)
+    .execute(&*state.forum_db)
+    .await;
+
+    *state.db_file_guards.write().await =
+        crate::file_gate::load_db_file_guards(&state.forum_db).await;
+
+    Redirect::to(&format!("{}?flash=File+gate+added&tab=file-gates", dash_path)).into_response()
+}
+
+pub async fn delete_file_guard(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<DeleteFileGuardForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    if let Err(r) = require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        return r;
+    }
+
+    let _ = sqlx::query("DELETE FROM db_file_guards WHERE id = ?")
+        .bind(&form.id)
+        .execute(&*state.forum_db)
+        .await;
+
+    *state.db_file_guards.write().await =
+        crate::file_gate::load_db_file_guards(&state.forum_db).await;
+
+    Redirect::to(&format!("{}?flash=File+gate+removed&tab=file-gates", dash_path)).into_response()
 }
