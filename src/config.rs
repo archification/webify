@@ -110,6 +110,11 @@ pub struct Config {
     pub auth_guards: Vec<AuthGuard>,
     pub guard_redirect_url: Option<String>,
     pub guard_login_page: Option<String>,
+    /// Domain attribute for the guard session cookie (e.g. ".capitalpulse.com").
+    /// Set this to a registrable parent domain to share the sign-in session across
+    /// sibling subdomains (so one OAuth callback covers every host in the same
+    /// service). Leave unset for a host-only cookie.
+    pub guard_cookie_domain: Option<String>,
     pub admin_dashboards: Vec<AdminDashboard>,
     pub file_guards: Vec<FileGuard>,
 }
@@ -156,6 +161,8 @@ struct RawConfig {
     pub guard_redirect_url: Option<String>,
     #[serde(default)]
     pub guard_login_page: Option<String>,
+    #[serde(default)]
+    pub guard_cookie_domain: Option<String>,
     #[serde(default)]
     pub auth_guard: Vec<AuthGuard>,
     #[serde(default, rename = "admin_dashboard")]
@@ -254,6 +261,7 @@ pub fn read_config() -> Option<Config> {
         auth_guards: raw.auth_guard,
         guard_redirect_url: raw.guard_redirect_url,
         guard_login_page: raw.guard_login_page,
+        guard_cookie_domain: raw.guard_cookie_domain,
         admin_dashboards: raw.admin_dashboard,
         file_guards: raw.file_guard,
     })

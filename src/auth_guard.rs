@@ -443,15 +443,36 @@ pub async fn guard_callback(
     }
 
     let session_token = create_session(&state.forum_db, &user_info.email).await;
-    let cookie = Cookie::build((GUARD_COOKIE, session_token))
+    let mut builder = Cookie::build((GUARD_COOKIE, session_token))
         .path("/")
-        .http_only(true)
-        .build();
-    (jar.add(cookie), Redirect::to(&next)).into_response()
+        .http_only(true);
+    // Scope the cookie to a shared parent domain when configured, so the session
+    // is valid across sibling subdomains served by this same instance.
+    if let Some(ref cd) = config.guard_cookie_domain {
+        builder = builder.domain(cd.clone());
+    }
+    let cookie = builder.build();
+    // Return the user to the host they started on (encoded in the OAuth state),
+    // not the fixed callback host. `next` is a validated absolute path.
+    let dest = if cb_host.is_empty() {
+        next.clone()
+    } else {
+        format!("https://{}{}", cb_host, next)
+    };
+    (jar.add(cookie), Redirect::to(&dest)).into_response()
 }
 
 /// GET /auth/logout — clear the guard session cookie
-pub async fn guard_logout(jar: CookieJar) -> impl IntoResponse {
-    let cookie = Cookie::build(GUARD_COOKIE).path("/").build();
+pub async fn guard_logout(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> impl IntoResponse {
+    // Must match the path AND domain the cookie was set with, or the browser
+    // won't treat this as the same cookie and the session won't clear.
+    let mut builder = Cookie::build(GUARD_COOKIE).path("/");
+    if let Some(ref cd) = state.config.guard_cookie_domain {
+        builder = builder.domain(cd.clone());
+    }
+    let cookie = builder.build();
     (jar.remove(cookie), Redirect::to("/"))
 }

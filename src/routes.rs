@@ -542,6 +542,7 @@ async fn render_post(
     headers: HeaderMap,
     Path(post_name): Path<String>,
 ) -> impl IntoResponse {
+    let post_name = sanitize_filename::sanitize(&post_name);
     let file_path = format!("static/posts/{}.md", post_name);
     let markdown_content = match fs::read_to_string(&file_path).await {
         Ok(content) => content,
