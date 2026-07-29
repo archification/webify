@@ -67,16 +67,32 @@ pub struct AccessRule {
     pub path: String,
     pub email: Option<String>,
     pub email_domain: Option<String>,
+    /// One of "writer" / "internal" / "external" / "tier", or None for a
+    /// plain email/email_domain rule. Grants access to every account that
+    /// currently carries the given Accounts-tab tag, rather than one email.
+    pub tag_type: Option<String>,
+    /// Only meaningful when `tag_type == Some("tier")`: the subscription
+    /// tier name (e.g. "premium") the rule grants access to.
+    pub tag_value: Option<String>,
 }
 
 pub async fn load_access_rules(db: &ForumDb) -> Vec<AccessRule> {
-    let rows: Vec<(String, String, Option<String>, Option<String>)> =
-        sqlx::query_as("SELECT domain, path, email, email_domain FROM access_rules")
-            .fetch_all(&**db)
-            .await
-            .unwrap_or_default();
+    let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<String>)> =
+        sqlx::query_as(
+            "SELECT domain, path, email, email_domain, tag_type, tag_value FROM access_rules",
+        )
+        .fetch_all(&**db)
+        .await
+        .unwrap_or_default();
     rows.into_iter()
-        .map(|(domain, path, email, email_domain)| AccessRule { domain, path, email, email_domain })
+        .map(|(domain, path, email, email_domain, tag_type, tag_value)| AccessRule {
+            domain,
+            path,
+            email,
+            email_domain,
+            tag_type,
+            tag_value,
+        })
         .collect()
 }
 
@@ -89,15 +105,80 @@ pub fn has_db_rule(rules: &[AccessRule], host: &str, path: &str) -> bool {
     })
 }
 
-pub fn db_rule_allows(rules: &[AccessRule], host: &str, path: &str, email: &str) -> bool {
+pub fn path_matches_write_route(p: &str) -> bool {
+    const WRITE_PATH: &str = "/blog/new";
+    let prefix = p.trim_end_matches('/');
+    WRITE_PATH == prefix || WRITE_PATH.starts_with(&format!("{}/", prefix))
+}
+
+/// Whether `email` currently qualifies as a blog "Writer": either a config
+/// auth_guard covering `/blog/new` allows it, or a DB access_rules row
+/// (email/email_domain match, any site) covers that path. Shared by the
+/// Accounts-tab "Writer" badge and by "writer" tag-based access rules.
+pub fn email_is_writer(config_guards: &[AuthGuard], access_rules: &[AccessRule], email: &str) -> bool {
+    let config_hit = config_guards.iter().any(|g| {
+        g.paths.iter().any(|p| path_matches_write_route(p)) && email_allowed(g, email)
+    });
+    if config_hit {
+        return true;
+    }
     let email_lc = email.to_ascii_lowercase();
     let user_domain = email_lc.split('@').nth(1).unwrap_or("");
-    rules.iter().any(|rule| {
+    access_rules.iter().any(|rule| {
+        path_matches_write_route(&rule.path)
+            && (rule.email.as_deref().map(|e| e.eq_ignore_ascii_case(&email_lc)).unwrap_or(false)
+                || rule.email_domain.as_deref().map(|d| d.eq_ignore_ascii_case(user_domain)).unwrap_or(false))
+    })
+}
+
+/// Whether `email`'s domain matches the site's own domain — the same check
+/// that drives the Accounts-tab "Internal"/"External" badges.
+pub fn is_internal_email(site_domain: &str, email: &str) -> bool {
+    email.split('@').nth(1)
+        .map(|d| d.eq_ignore_ascii_case(site_domain))
+        .unwrap_or(false)
+}
+
+/// Whether `email` currently has an active, unexpired subscription at `tier`.
+async fn email_matches_tier(db: &ForumDb, email: &str, tier: &str) -> bool {
+    let row: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT tier, status, expires_at FROM account_subscriptions WHERE email = ?",
+    )
+    .bind(email)
+    .fetch_optional(&**db)
+    .await
+    .unwrap_or(None);
+    let Some((row_tier, status, expires_at)) = row else {
+        return false;
+    };
+    if !row_tier.eq_ignore_ascii_case(tier) || status != "active" {
+        return false;
+    }
+    let today = Utc::now().date_naive();
+    let expired = expires_at.as_deref()
+        .and_then(|e| chrono::NaiveDate::parse_from_str(e, "%Y-%m-%d").ok())
+        .map(|e| e < today)
+        .unwrap_or(false);
+    !expired
+}
+
+pub async fn db_rule_allows(
+    rules: &[AccessRule],
+    host: &str,
+    path: &str,
+    email: &str,
+    site_domain: &str,
+    config_guards: &[AuthGuard],
+    db: &ForumDb,
+) -> bool {
+    let email_lc = email.to_ascii_lowercase();
+    let user_domain = email_lc.split('@').nth(1).unwrap_or("");
+    for rule in rules {
         let site_match = rule.domain.is_empty() || rule.domain.eq_ignore_ascii_case(host);
         let prefix = rule.path.trim_end_matches('/');
         let path_match = path == prefix || path.starts_with(&format!("{}/", prefix));
         if !site_match || !path_match {
-            return false;
+            continue;
         }
         if let Some(ref re) = rule.email {
             if re.to_ascii_lowercase() == email_lc {
@@ -109,8 +190,33 @@ pub fn db_rule_allows(rules: &[AccessRule], host: &str, path: &str, email: &str)
                 return true;
             }
         }
-        false
-    })
+        match rule.tag_type.as_deref() {
+            Some("internal") => {
+                if is_internal_email(site_domain, &email_lc) {
+                    return true;
+                }
+            }
+            Some("external") => {
+                if !is_internal_email(site_domain, &email_lc) {
+                    return true;
+                }
+            }
+            Some("writer") => {
+                if email_is_writer(config_guards, rules, &email_lc) {
+                    return true;
+                }
+            }
+            Some("tier") => {
+                if let Some(ref tv) = rule.tag_value {
+                    if email_matches_tier(db, &email_lc, tv).await {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Extract a named cookie value from a raw `Cookie:` header string.

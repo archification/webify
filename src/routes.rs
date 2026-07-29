@@ -74,6 +74,11 @@ pub async fn app(state: Arc<AppState>) -> Router {
     let mut site_routers = HashMap::new();
     let whitelists = Arc::new(state.config.whitelists.clone());
     for (domain, routes) in &state.config.sites {
+        let interaction_upload_limit = match parse_upload_limit(&state.config.upload_size_limit).await {
+            Ok(num) => num,
+            Err("disabled") => usize::MAX,
+            _ => 2 * 1000 * 1000 * 1000,
+        };
         let mut router = Router::new()
             .route("/thumbnail/{*path}", get(generate_thumbnail))
             .route("/blog", get(crate::blog::blog_index))
@@ -110,7 +115,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
             .route("/interaction/list/{role}", get(interaction::list_rooms))
             .route("/interaction/upload/{room_id}",
                 post(interaction::upload_file)
-                    .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
+                    .layer(DefaultBodyLimit::max(interaction_upload_limit))
             )
             .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
             .fallback(get(not_found));
@@ -144,6 +149,26 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/admin/add-category", post(admin_add_category))
                         .route("/admin/delete-category/{id}", post(admin_delete_category));
                     router = router.nest(path, forum_routes);
+                }
+                [_template_path, mode] if mode == "portal" => {
+                    let portal_upload_limit = match parse_upload_limit(&state.config.upload_size_limit).await {
+                        Ok(num) => num,
+                        Err("disabled") => usize::MAX,
+                        _ => 2 * 1000 * 1000 * 1000,
+                    };
+                    let portal_routes = Router::new()
+                        .route("/", get(crate::portal::dashboard))
+                        .route("/register", get(crate::portal::register_form).post(crate::portal::register))
+                        .route("/login", get(crate::portal::login_form).post(crate::portal::login))
+                        .route("/logout", get(crate::portal::logout))
+                        .route("/verify", get(crate::portal::verify_email))
+                        .route("/forgot-password", get(crate::portal::forgot_password_form).post(crate::portal::forgot_password))
+                        .route("/reset-password", get(crate::portal::reset_password_form).post(crate::portal::reset_password))
+                        .route("/dashboard", get(crate::portal::dashboard))
+                        .route("/upload", post(crate::portal::upload_document)
+                            .layer(DefaultBodyLimit::max(portal_upload_limit)))
+                        .route("/documents/{id}", get(crate::portal::download_document));
+                    router = router.nest(path, portal_routes);
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
                     let slides_dir_clone = slides_dir.clone();
@@ -330,6 +355,90 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     let path = dp_del_fg.clone();
                     async move { admin::delete_file_guard(s, j, h, f, path).await }
                 }));
+
+                // POST set account subscription
+                let dp_sub = dp.clone();
+                router = router.route(&format!("{}/accounts/subscription", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::SetSubscriptionForm>,
+                | {
+                    let path = dp_sub.clone();
+                    async move { admin::set_subscription(s, j, h, f, path).await }
+                }));
+
+                // POST grant writer tag
+                let dp_grant_writer = dp.clone();
+                router = router.route(&format!("{}/accounts/grant-writer", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::GrantWriterForm>,
+                | {
+                    let path = dp_grant_writer.clone();
+                    async move { admin::grant_writer(s, j, h, f, path).await }
+                }));
+
+                // POST revoke writer tag
+                let dp_revoke_writer = dp.clone();
+                router = router.route(&format!("{}/accounts/revoke-writer", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::RevokeWriterForm>,
+                | {
+                    let path = dp_revoke_writer.clone();
+                    async move { admin::revoke_writer(s, j, h, f, path).await }
+                }));
+
+                // POST create portal account
+                let dp_create_acct = dp.clone();
+                router = router.route(&format!("{}/accounts/create", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::CreateAccountForm>,
+                | {
+                    let path = dp_create_acct.clone();
+                    async move { admin::create_account(s, j, h, f, path).await }
+                }));
+
+                // POST remove portal account
+                let dp_remove_acct = dp.clone();
+                router = router.route(&format!("{}/accounts/remove", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::RemoveAccountForm>,
+                | {
+                    let path = dp_remove_acct.clone();
+                    async move { admin::remove_account(s, j, h, f, path).await }
+                }));
+
+                // POST suspend portal account
+                let dp_suspend_acct = dp.clone();
+                router = router.route(&format!("{}/accounts/suspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::SuspendAccountForm>,
+                | {
+                    let path = dp_suspend_acct.clone();
+                    async move { admin::suspend_account(s, j, h, f, path).await }
+                }));
+
+                // POST unsuspend portal account
+                let dp_unsuspend_acct = dp.clone();
+                router = router.route(&format!("{}/accounts/unsuspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::UnsuspendAccountForm>,
+                | {
+                    let path = dp_unsuspend_acct.clone();
+                    async move { admin::unsuspend_account(s, j, h, f, path).await }
+                }));
             }
         }
 
@@ -491,7 +600,15 @@ Router::new()
                             Some(e) => {
                                 let rules = gs.access_rules.read().await;
                                 config_guard.map(|g| auth_guard::email_allowed(g, e)).unwrap_or(false)
-                                    || auth_guard::db_rule_allows(&rules, &hostname, &path, e)
+                                    || auth_guard::db_rule_allows(
+                                        &rules,
+                                        &hostname,
+                                        &path,
+                                        e,
+                                        &gs.config.domain,
+                                        &gs.config.auth_guards,
+                                        &gs.forum_db,
+                                    ).await
                             }
                             None => false,
                         };

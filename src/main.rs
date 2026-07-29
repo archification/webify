@@ -20,6 +20,8 @@ mod admin;
 mod blog;
 mod acme;
 mod file_gate;
+mod portal;
+mod npi;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -177,6 +179,7 @@ async fn main() {
         let db_file_guards = Arc::new(tokio::sync::RwLock::new(
             crate::file_gate::load_db_file_guards(&forum_db).await,
         ));
+        crate::portal::init_portal_tables(&forum_db).await;
         let mut interaction = crate::interaction::InteractionState::new();
         crate::commands::register_all(&mut interaction);
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
@@ -196,6 +199,7 @@ async fn main() {
                     max_doers: room_config.max_doers,
                     current_color: "#808080".to_string(),
                     password: room_config.password.clone(),
+                    uploaded_files: Vec::new(),
                 };
                 
                 rooms.insert(room_id, room);

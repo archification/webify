@@ -29,7 +29,7 @@ impl IntoResponse for UploadResponse {
     }
 }
 
-async fn get_directory_size<P: AsRef<Path>>(path: P) -> u64 {
+pub async fn get_directory_size<P: AsRef<Path>>(path: P) -> u64 {
     let path = path.as_ref().to_path_buf();
     tokio::task::spawn_blocking(move || {
         let entries = WalkDir::new(path)

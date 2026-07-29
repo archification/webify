@@ -7,7 +7,6 @@ use axum::{
     response::{Html, IntoResponse},
 };
 
-use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
@@ -91,6 +90,9 @@ pub struct Room {
     pub max_doers: usize,
     pub current_color: String,
     pub password: Option<String>,
+    /// Filenames (relative to ./uploads) shared in this room's chat. Deleted from
+    /// disk when the room is torn down — see the cleanup in `handle_socket`.
+    pub uploaded_files: Vec<String>,
 }
 
 pub struct InteractionState {
@@ -454,6 +456,7 @@ pub async fn create_room(
         max_doers: form.max_doers,
         current_color: default_color.clone(),
         password,
+        uploaded_files: Vec::new(),
     };
     state.interaction.rooms.write().await.insert(room_id.clone(), room);
     Html(render_room_view(&room_id, user_role, &form.username, &default_color)).into_response()
@@ -559,38 +562,93 @@ pub async fn upload_file(
     mut multipart: Multipart,
     ) -> impl IntoResponse {
     let mut username = String::from("Anonymous");
-    let mut file_name = String::new();
-    let mut file_content = Vec::new();
-    let mut content_type = String::from("application/octet-stream");
+    let mut saved: Option<(String, String)> = None; // (stored filename, content type)
+
     loop {
         match multipart.next_field().await {
-            Ok(Some(field)) => {
+            Ok(Some(mut field)) => {
                 let name = field.name().unwrap_or_default().to_string();
                 if name == "username" {
                     if let Ok(text) = field.text().await { username = text; }
                 } else if name == "file" {
-                    file_name = field.file_name().unwrap_or_default().to_string();
-                    file_name = sanitize_filename::sanitize(&file_name); 
-                    if let Some(ct) = field.content_type() { content_type = ct.to_string(); }
-                    if let Ok(bytes) = field.bytes().await { file_content = bytes.to_vec(); }
+                    let orig_name = field.file_name().unwrap_or_default().to_string();
+                    if orig_name.is_empty() { continue; }
+                    let content_type = field.content_type().unwrap_or("application/octet-stream").to_string();
+
+                    // Prefix with a UUID so concurrent uploads from different users never collide.
+                    let ext = std::path::Path::new(&orig_name).extension().and_then(|e| e.to_str());
+                    let unique_name = match ext {
+                        Some(ext) => format!("chat-{}.{}", Uuid::new_v4(), ext),
+                        None => format!("chat-{}", Uuid::new_v4()),
+                    };
+                    let stored_name = sanitize_filename::sanitize(&unique_name);
+                    let filepath = std::path::Path::new("./uploads").join(&stored_name);
+
+                    if tokio::fs::create_dir_all("./uploads").await.is_err() {
+                        return Html("<span style='color: var(--p);'>Upload Error</span>".to_string());
+                    }
+                    let mut file = match tokio::fs::File::create(&filepath).await {
+                        Ok(f) => f,
+                        Err(_) => return Html("<span style='color: var(--p);'>Upload Error</span>".to_string()),
+                    };
+
+                    // Snapshot storage usage once, then track this file's own size as we stream
+                    // it to disk — avoids re-walking the whole uploads dir on every chunk.
+                    let limit = state.config.upload_storage_limit;
+                    let base_size = if limit.is_some() {
+                        crate::upload::get_directory_size("./uploads").await
+                    } else {
+                        0
+                    };
+                    let mut written: u64 = 0;
+                    let mut failed = false;
+                    loop {
+                        match field.chunk().await {
+                            Ok(Some(chunk)) => {
+                                written += chunk.len() as u64;
+                                if let Some(max) = limit {
+                                    if base_size + written > max {
+                                        failed = true;
+                                        break;
+                                    }
+                                }
+                                if tokio::io::AsyncWriteExt::write_all(&mut file, &chunk).await.is_err() {
+                                    failed = true;
+                                    break;
+                                }
+                            },
+                            Ok(None) => break,
+                            Err(_) => { failed = true; break; },
+                        }
+                    }
+                    drop(file);
+                    if failed || written == 0 {
+                        let _ = tokio::fs::remove_file(&filepath).await;
+                        if failed && written > 0 {
+                            return Html("<span style='color: var(--p);'>Upload limit exceeded.</span>".to_string());
+                        }
+                        return Html("<span style='color: var(--p);'>No file received.</span>".to_string());
+                    }
+                    saved = Some((stored_name, content_type));
                 }
             },
             Ok(None) => break,
             Err(_) => return Html("<span style='color: var(--p);'>Upload Error</span>".to_string()),
         }
     }
-    if file_content.is_empty() || file_name.is_empty() {
-        return Html("<span style='color: var(--p);'>No file received.</span>".to_string());
-    }
-    let b64 = general_purpose::STANDARD.encode(&file_content);
-    let data_uri = format!("data:{};base64,{}", content_type, b64);
-    let content_html = if content_type.starts_with("image/") {
-        format!(r###"<br><img src="{}" alt="{}">"###, data_uri, file_name)
-    } else {
-        format!(r###"Shared file: <a href="{}" download="{}">{}</a>"###, data_uri, file_name, file_name)
+    let (stored_name, content_type) = match saved {
+        Some(v) => v,
+        None => return Html("<span style='color: var(--p);'>No file received.</span>".to_string()),
     };
-    let rooms = state.interaction.rooms.read().await;
-    if let Some(room) = rooms.get(&room_id) {
+    let url = format!("/uploads/{}", stored_name);
+    let content_html = if content_type.starts_with("image/") {
+        format!(r###"<br><img src="{}" alt="{}">"###, url, stored_name)
+    } else {
+        format!(r###"Shared file: <a href="{}" download="{}">{}</a>"###, url, stored_name, stored_name)
+    };
+    let mut rooms = state.interaction.rooms.write().await;
+    if let Some(room) = rooms.get_mut(&room_id) {
+         room.uploaded_files.push(stored_name.clone());
          let msg = format!(r###"<div hx-swap-oob="beforeend:#chat-container">
                 <div class="chat-msg">
                     <span class="sender">{}: </span>
@@ -598,6 +656,11 @@ pub async fn upload_file(
                 </div>
                </div>"###, username, content_html);
          let _ = room.tx.send(msg);
+    } else {
+        // Room vanished while this upload was in flight — nothing will ever own
+        // this file's cleanup, so delete it now instead of leaking it on disk.
+        drop(rooms);
+        let _ = tokio::fs::remove_file(std::path::Path::new("./uploads").join(&stored_name)).await;
     }
     Html("<span style='color: var(--g);'>Uploaded!</span>".to_string())
 }
@@ -767,8 +830,13 @@ async fn handle_socket(socket: WebSocket, room_id: String, role: Role, username:
         );
         let _ = room.tx.send(leave_msg);
         if room.users.is_empty() {
-             if room.id.len() == 36 { 
-                rooms.remove(&room_id);
+             if room.id.len() == 36 {
+                if let Some(removed) = rooms.remove(&room_id) {
+                    drop(rooms);
+                    for filename in removed.uploaded_files {
+                        let _ = tokio::fs::remove_file(std::path::Path::new("./uploads").join(&filename)).await;
+                    }
+                }
              }
         }
     }

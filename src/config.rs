@@ -13,6 +13,10 @@ fn default_renewal_days() -> u32 {
     30
 }
 
+fn default_site_name() -> String {
+    "Webify".to_string()
+}
+
 fn default_http_mode() -> String {
     "serve".to_string()
 }
@@ -97,6 +101,10 @@ pub struct Config {
     pub slideshow_autoplay: bool,
     pub slideshow_timer: u64,
     pub domain: String,
+    /// Human-readable product/site name used in outgoing email copy (e.g.
+    /// "Verify your {site_name} account"). Defaults to "Webify" for a bare
+    /// install — set this in config.toml to your own brand.
+    pub site_name: String,
     pub smtp_server: Option<String>,
     pub smtp_port: Option<u16>,
     pub smtp_username: Option<String>,
@@ -110,13 +118,17 @@ pub struct Config {
     pub auth_guards: Vec<AuthGuard>,
     pub guard_redirect_url: Option<String>,
     pub guard_login_page: Option<String>,
-    /// Domain attribute for the guard session cookie (e.g. ".capitalpulse.com").
+    /// Domain attribute for the guard session cookie (e.g. ".example.com").
     /// Set this to a registrable parent domain to share the sign-in session across
     /// sibling subdomains (so one OAuth callback covers every host in the same
     /// service). Leave unset for a host-only cookie.
     pub guard_cookie_domain: Option<String>,
     pub admin_dashboards: Vec<AdminDashboard>,
     pub file_guards: Vec<FileGuard>,
+    /// Per-account storage quota (bytes) for the client portal's document
+    /// uploads. Defaults to 500MB (see `portal::DEFAULT_PORTAL_ACCOUNT_QUOTA`)
+    /// when unset.
+    pub portal_storage_limit_per_account: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,6 +160,8 @@ struct RawConfig {
     slideshow_autoplay: bool,
     slideshow_timer: u64,
     domain: String,
+    #[serde(default = "default_site_name")]
+    site_name: String,
     smtp_server: Option<String>,
     smtp_port: Option<u16>,
     smtp_username: Option<String>,
@@ -169,6 +183,8 @@ struct RawConfig {
     pub admin_dashboard: Vec<AdminDashboard>,
     #[serde(default, rename = "file_guard")]
     pub file_guard: Vec<FileGuard>,
+    #[serde(default)]
+    pub portal_storage_limit_per_account: Option<u64>,
     #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
@@ -248,6 +264,7 @@ pub fn read_config() -> Option<Config> {
         slideshow_autoplay: raw.slideshow_autoplay,
         slideshow_timer: raw.slideshow_timer,
         domain: raw.domain.trim().to_string(),
+        site_name: raw.site_name.trim().to_string(),
         smtp_server: raw.smtp_server,
         smtp_port: raw.smtp_port,
         smtp_username: raw.smtp_username,
@@ -264,5 +281,6 @@ pub fn read_config() -> Option<Config> {
         guard_cookie_domain: raw.guard_cookie_domain,
         admin_dashboards: raw.admin_dashboard,
         file_guards: raw.file_guard,
+        portal_storage_limit_per_account: raw.portal_storage_limit_per_account,
     })
 }

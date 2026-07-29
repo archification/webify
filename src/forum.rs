@@ -346,10 +346,19 @@ pub async fn init_db() -> ForumDb {
             path TEXT NOT NULL,
             email TEXT,
             email_domain TEXT,
+            tag_type TEXT,
+            tag_value TEXT,
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL
         )"
     ).execute(&pool).await.unwrap();
+
+    // Migration for pre-existing databases created before the `tag_type`/`tag_value`
+    // columns existed. SQLite has no `ADD COLUMN IF NOT EXISTS`, so just ignore the
+    // "duplicate column" error on a DB that already has them.
+    let _ = sqlx::query("ALTER TABLE access_rules ADD COLUMN tag_type TEXT").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE access_rules ADD COLUMN tag_value TEXT").execute(&pool).await;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS dashboard_editors (
             email TEXT PRIMARY KEY,
@@ -373,6 +382,16 @@ pub async fn init_db() -> ForumDb {
             hash TEXT NOT NULL,
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL
+        )"
+    ).execute(&pool).await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS account_subscriptions (
+            email TEXT PRIMARY KEY,
+            tier TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'none',
+            expires_at TEXT,
+            updated_by TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         )"
     ).execute(&pool).await.unwrap();
     Arc::new(pool)
