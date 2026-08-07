@@ -118,6 +118,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     .layer(DefaultBodyLimit::max(interaction_upload_limit))
             )
             .route("/ws/interaction/{room_id}", get(interaction::ws_handler))
+            .route("/stripe/webhook", post(crate::payments::webhook))
             .fallback(get(not_found));
         let mut config_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
         for (path, settings) in routes {
@@ -165,9 +166,17 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/forgot-password", get(crate::portal::forgot_password_form).post(crate::portal::forgot_password))
                         .route("/reset-password", get(crate::portal::reset_password_form).post(crate::portal::reset_password))
                         .route("/dashboard", get(crate::portal::dashboard))
+                        .route("/profile", get(crate::portal::profile_form).post(crate::portal::update_profile))
+                        .route("/profile/password", post(crate::portal::change_password))
+                        .route("/profile/email", post(crate::portal::request_email_change))
+                        .route("/profile/email/confirm", get(crate::portal::confirm_email_change))
                         .route("/upload", post(crate::portal::upload_document)
                             .layer(DefaultBodyLimit::max(portal_upload_limit)))
-                        .route("/documents/{id}", get(crate::portal::download_document));
+                        .route("/documents/{id}", get(crate::portal::download_document))
+                        .route("/billing", get(crate::payments::billing_page))
+                        .route("/billing/manage", get(crate::payments::billing_portal))
+                        .route("/subscribe/return", get(crate::payments::subscribe_return))
+                        .route("/subscribe/{tier}", get(crate::payments::subscribe));
                     router = router.nest(path, portal_routes);
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {

@@ -22,6 +22,7 @@ mod acme;
 mod file_gate;
 mod portal;
 mod npi;
+mod payments;
 
 use crate::config::read_config;
 use crate::generate::*;

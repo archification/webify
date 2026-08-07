@@ -79,6 +79,17 @@ pub async fn init_portal_tables(db: &ForumDb) {
             used INTEGER NOT NULL DEFAULT 0
         )"
     ).execute(&**db).await.unwrap();
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS portal_email_changes (
+            token TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL,
+            new_email TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0
+        )"
+    ).execute(&**db).await.unwrap();
 }
 
 #[derive(sqlx::FromRow, Clone)]
@@ -139,6 +150,7 @@ pub struct VerifyQuery {
 pub struct LoginQuery {
     pub verified: Option<String>,
     pub reset: Option<String>,
+    pub email_updated: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -156,6 +168,39 @@ pub struct ResetPasswordForm {
     pub token: String,
     pub password: String,
     pub confirm_password: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateProfileForm {
+    pub organization: String,
+    #[serde(default)]
+    pub npi: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ChangePasswordForm {
+    pub current_password: String,
+    pub new_password: String,
+    pub confirm_new_password: String,
+}
+
+#[derive(Deserialize)]
+pub struct ChangeEmailForm {
+    pub new_email: String,
+    pub current_password: String,
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmEmailQuery {
+    pub token: String,
+}
+
+#[derive(Deserialize, Default)]
+pub struct ProfileQuery {
+    pub updated: Option<String>,
+    pub password_changed: Option<String>,
+    pub email_requested: Option<String>,
+    pub email_updated: Option<String>,
 }
 
 fn render(state: &AppState, template: &str, ctx: &tera::Context) -> Response {
@@ -295,6 +340,61 @@ pub async fn send_password_reset_email(
     Ok(())
 }
 
+/// Send the confirmation email for an in-progress email-address change on an
+/// existing portal account. The account's email on file is not updated until
+/// this link is clicked, so a typo'd address just leaves the change pending
+/// rather than locking the account out.
+pub async fn send_email_change_email(
+    config: &crate::config::Config,
+    to_email: &str,
+    token: &str,
+) -> Result<(), String> {
+    let smtp_server = config.smtp_server.as_deref().unwrap_or("localhost");
+    let smtp_port = config.smtp_port.unwrap_or(25);
+    let domain = if config.domain.is_empty() {
+        "localhost"
+    } else {
+        config.domain.as_str()
+    };
+    let scheme = if config.ssl_enabled { "https" } else { "http" };
+    let site_name = config.site_name.as_str();
+
+    let email = Message::builder()
+        .from(
+            config
+                .email_from
+                .as_deref()
+                .unwrap_or("no-reply@webify.local")
+                .parse()
+                .map_err(|e| format!("{}", e))?,
+        )
+        .to(to_email.parse().map_err(|e| format!("{}", e))?)
+        .subject(format!("Confirm your new {site_name} client portal email"))
+        .body(format!(
+            "We received a request to change the email address on your {site_name}\n\
+             client portal account to this address.\n\n\
+             Click the link below to confirm the change. This link expires in 1 hour:\n\n\
+             {scheme}://{domain}/portal/profile/email/confirm?token={token}\n\n\
+             If you didn't request this, you can safely ignore this email — your\n\
+             account email will not change.",
+            site_name = site_name,
+            scheme = scheme,
+            domain = domain,
+            token = token,
+        ))
+        .map_err(|e| e.to_string())?;
+
+    let mut builder = SmtpTransport::starttls_relay(smtp_server)
+        .map_err(|e| e.to_string())?
+        .port(smtp_port);
+    if let (Some(user), Some(pass)) = (&config.smtp_username, &config.smtp_password) {
+        builder = builder.credentials(Credentials::new(user.clone(), pass.clone()));
+    }
+    let mailer = builder.build();
+    mailer.send(&email).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 async fn create_session(db: &ForumDb, account_id: &str) -> String {
     let token = Uuid::new_v4().to_string();
     let now = Utc::now();
@@ -311,7 +411,7 @@ async fn create_session(db: &ForumDb, account_id: &str) -> String {
     token
 }
 
-async fn get_current_account(state: &AppState, jar: &CookieJar) -> Option<PortalAccount> {
+pub(crate) async fn get_current_account(state: &AppState, jar: &CookieJar) -> Option<PortalAccount> {
     let token = jar.get(PORTAL_SESSION_COOKIE)?.value().to_string();
     let row: Option<(String, String)> = sqlx::query_as(
         "SELECT account_id, expires_at FROM portal_sessions WHERE token = ?"
@@ -462,6 +562,9 @@ pub async fn login_form(
     }
     if q.reset.as_deref() == Some("1") {
         ctx.insert("reset", &true);
+    }
+    if q.email_updated.as_deref() == Some("1") {
+        ctx.insert("email_updated", &true);
     }
     render(&state, "portal-login.html", &ctx)
 }
@@ -815,4 +918,244 @@ pub async fn download_document(
     }
 
     (headers, bytes).into_response()
+}
+
+fn profile_context(account: &PortalAccount) -> tera::Context {
+    let mut ctx = tera::Context::new();
+    ctx.insert("organization", &account.organization);
+    ctx.insert("email", &account.email);
+    ctx.insert("npi", &account.npi);
+    ctx
+}
+
+pub async fn profile_form(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Query(q): Query<ProfileQuery>,
+) -> impl IntoResponse {
+    let account = match get_current_account(&state, &jar).await {
+        Some(a) => a,
+        None => return Redirect::to("/portal/login").into_response(),
+    };
+
+    let mut ctx = profile_context(&account);
+    if q.updated.as_deref() == Some("1") {
+        ctx.insert("updated", &true);
+    }
+    if q.password_changed.as_deref() == Some("1") {
+        ctx.insert("password_changed", &true);
+    }
+    if q.email_requested.as_deref() == Some("1") {
+        ctx.insert("email_requested", &true);
+    }
+    if q.email_updated.as_deref() == Some("1") {
+        ctx.insert("email_updated", &true);
+    }
+    render(&state, "portal-profile.html", &ctx).into_response()
+}
+
+pub async fn update_profile(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Form(form): Form<UpdateProfileForm>,
+) -> impl IntoResponse {
+    let account = match get_current_account(&state, &jar).await {
+        Some(a) => a,
+        None => return Redirect::to("/portal/login").into_response(),
+    };
+
+    let npi_input = form.npi.as_deref().unwrap_or("").trim().to_string();
+    let organization = form.organization.trim().to_string();
+
+    let mut ctx = profile_context(&account);
+    ctx.insert("organization", &organization);
+    ctx.insert("npi", &npi_input);
+
+    if organization.is_empty() {
+        ctx.insert("error", "Organization / hospital name is required.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+    if !npi_input.is_empty() && !crate::npi::is_valid_format(&npi_input) {
+        ctx.insert("error", "NPI number must be exactly 10 digits.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+
+    let npi_to_store = if npi_input.is_empty() { None } else { Some(npi_input.clone()) };
+    let _ = sqlx::query("UPDATE portal_accounts SET organization = ?, npi = ? WHERE id = ?")
+        .bind(&organization)
+        .bind(&npi_to_store)
+        .bind(&account.id)
+        .execute(&*state.forum_db)
+        .await;
+
+    Redirect::to("/portal/profile?updated=1").into_response()
+}
+
+pub async fn change_password(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Form(form): Form<ChangePasswordForm>,
+) -> impl IntoResponse {
+    let account = match get_current_account(&state, &jar).await {
+        Some(a) => a,
+        None => return Redirect::to("/portal/login").into_response(),
+    };
+
+    let mut ctx = profile_context(&account);
+
+    if !verify(&form.current_password, &account.password_hash).unwrap_or(false) {
+        ctx.insert("error", "Current password is incorrect.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+    if form.new_password != form.confirm_new_password {
+        ctx.insert("error", "New passwords do not match.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+    if form.new_password.len() < 8 {
+        ctx.insert("error", "New password must be at least 8 characters.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+
+    let hashed = match hash(&form.new_password, DEFAULT_COST) {
+        Ok(h) => h,
+        Err(_) => {
+            ctx.insert("error", "Failed to process password. Please try again.");
+            return render(&state, "portal-profile.html", &ctx).into_response();
+        }
+    };
+
+    let _ = sqlx::query("UPDATE portal_accounts SET password_hash = ? WHERE id = ?")
+        .bind(&hashed)
+        .bind(&account.id)
+        .execute(&*state.forum_db)
+        .await;
+
+    // Changing the password invalidates every existing session, including this
+    // one, in case the change was prompted by a compromised credential — then
+    // immediately issues a fresh session so the user isn't logged out here.
+    let _ = sqlx::query("DELETE FROM portal_sessions WHERE account_id = ?")
+        .bind(&account.id)
+        .execute(&*state.forum_db)
+        .await;
+    let token = create_session(&state.forum_db, &account.id).await;
+    let cookie = session_cookie_builder((PORTAL_SESSION_COOKIE, token), &state);
+
+    (jar.add(cookie), Redirect::to("/portal/profile?password_changed=1")).into_response()
+}
+
+pub async fn request_email_change(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Form(form): Form<ChangeEmailForm>,
+) -> impl IntoResponse {
+    let account = match get_current_account(&state, &jar).await {
+        Some(a) => a,
+        None => return Redirect::to("/portal/login").into_response(),
+    };
+
+    let new_email = form.new_email.trim().to_string();
+    let mut ctx = profile_context(&account);
+
+    if !verify(&form.current_password, &account.password_hash).unwrap_or(false) {
+        ctx.insert("error", "Current password is incorrect.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+    if new_email.is_empty() || !new_email.contains('@') {
+        ctx.insert("error", "Enter a valid email address.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+    if new_email.eq_ignore_ascii_case(&account.email) {
+        ctx.insert("error", "That's already the email on file.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+
+    let existing: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM portal_accounts WHERE email = ?")
+        .bind(&new_email)
+        .fetch_one(&*state.forum_db)
+        .await
+        .unwrap_or(0);
+    if existing > 0 {
+        ctx.insert("error", "An account with this email already exists.");
+        return render(&state, "portal-profile.html", &ctx).into_response();
+    }
+
+    let token = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    let expires = now + Duration::hours(1);
+    let _ = sqlx::query(
+        "INSERT INTO portal_email_changes (token, account_id, new_email, created_at, expires_at, used)
+         VALUES (?, ?, ?, ?, ?, 0)"
+    )
+    .bind(&token)
+    .bind(&account.id)
+    .bind(&new_email)
+    .bind(now.to_rfc3339())
+    .bind(expires.to_rfc3339())
+    .execute(&*state.forum_db)
+    .await;
+
+    if let Err(e) = send_email_change_email(&state.config, &new_email, &token).await {
+        eprintln!("Failed to send portal email-change email to {}: {}", new_email, e);
+    }
+
+    Redirect::to("/portal/profile?email_requested=1").into_response()
+}
+
+pub async fn confirm_email_change(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Query(query): Query<ConfirmEmailQuery>,
+) -> impl IntoResponse {
+    let row: Option<(String, String, String, i64)> = sqlx::query_as(
+        "SELECT account_id, new_email, expires_at, used FROM portal_email_changes WHERE token = ?"
+    )
+    .bind(&query.token)
+    .fetch_optional(&*state.forum_db)
+    .await
+    .unwrap_or(None);
+
+    let (account_id, new_email) = match row {
+        Some((account_id, new_email, expires_str, used)) => {
+            let expired = used != 0
+                || chrono::DateTime::parse_from_rfc3339(&expires_str)
+                    .map(|e| e < Utc::now())
+                    .unwrap_or(true);
+            if expired {
+                return (StatusCode::BAD_REQUEST, "This email confirmation link is invalid or has expired.").into_response();
+            }
+            (account_id, new_email)
+        }
+        None => {
+            return (StatusCode::BAD_REQUEST, "This email confirmation link is invalid or has expired.").into_response();
+        }
+    };
+
+    // Re-check uniqueness at confirmation time too, in case the address was
+    // claimed by another account in the window between request and click.
+    let existing: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM portal_accounts WHERE email = ? AND id != ?")
+        .bind(&new_email)
+        .bind(&account_id)
+        .fetch_one(&*state.forum_db)
+        .await
+        .unwrap_or(0);
+    if existing > 0 {
+        return (StatusCode::CONFLICT, "That email address is now in use by another account.").into_response();
+    }
+
+    let _ = sqlx::query("UPDATE portal_accounts SET email = ? WHERE id = ?")
+        .bind(&new_email)
+        .bind(&account_id)
+        .execute(&*state.forum_db)
+        .await;
+    let _ = sqlx::query("UPDATE portal_email_changes SET used = 1 WHERE token = ?")
+        .bind(&query.token)
+        .execute(&*state.forum_db)
+        .await;
+
+    match get_current_account(&state, &jar).await {
+        Some(current) if current.id == account_id => {
+            Redirect::to("/portal/profile?email_updated=1").into_response()
+        }
+        _ => Redirect::to("/portal/login?email_updated=1").into_response(),
+    }
 }

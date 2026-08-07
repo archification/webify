@@ -394,6 +394,15 @@ pub async fn init_db() -> ForumDb {
             updated_at TEXT NOT NULL
         )"
     ).execute(&pool).await.unwrap();
+    // Migration for pre-existing databases created before Stripe wiring —
+    // SQLite has no `ADD COLUMN IF NOT EXISTS`, so ignore the "duplicate
+    // column" error on a DB that already has them.
+    let _ = sqlx::query("ALTER TABLE account_subscriptions ADD COLUMN stripe_customer_id TEXT")
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE account_subscriptions ADD COLUMN stripe_subscription_id TEXT")
+        .execute(&pool)
+        .await;
     Arc::new(pool)
 }
 

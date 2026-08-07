@@ -129,6 +129,19 @@ pub struct Config {
     /// uploads. Defaults to 500MB (see `portal::DEFAULT_PORTAL_ACCOUNT_QUOTA`)
     /// when unset.
     pub portal_storage_limit_per_account: Option<u64>,
+    /// Stripe publishable key (safe to expose client-side).
+    pub stripe_publishable_key: Option<String>,
+    /// Stripe secret key. Never commit a real value to a tracked config file —
+    /// set this only in the gitignored `config.toml` on each machine/server.
+    pub stripe_secret_key: Option<String>,
+    /// Signing secret for the `/stripe/webhook` endpoint (from the Stripe
+    /// webhook_endpoint object), used to verify the `Stripe-Signature` header.
+    /// Same secrecy rules as `stripe_secret_key`.
+    pub stripe_webhook_secret: Option<String>,
+    /// Price ID for the $99/mo "Standard" subscription + pay-as-you-go tier.
+    pub stripe_price_standard: Option<String>,
+    /// Price ID for the $499/mo "Pro" subscription tier.
+    pub stripe_price_pro: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,9 +199,32 @@ struct RawConfig {
     #[serde(default)]
     pub portal_storage_limit_per_account: Option<u64>,
     #[serde(default)]
+    pub stripe_publishable_key: Option<String>,
+    #[serde(default)]
+    pub stripe_secret_key: Option<String>,
+    #[serde(default)]
+    pub stripe_webhook_secret: Option<String>,
+    #[serde(default)]
+    pub stripe_price_standard: Option<String>,
+    #[serde(default)]
+    pub stripe_price_pro: Option<String>,
+    #[serde(default)]
     routes: HashMap<String, RouteValue>,
     #[serde(default)]
     whitelist: HashMap<String, WhitelistValue>,
+}
+
+/// Overlay for secrets that must never live in a tracked config file (e.g.
+/// `prod-config.toml`, which a GitHub Actions deploy copies verbatim onto the
+/// droplet). Read from a gitignored `config.secrets.toml` sitting next to
+/// `config.toml` and merged in after the main config parses, so the tracked
+/// file only ever holds non-sensitive settings (routes, price IDs, etc.).
+#[derive(Debug, Deserialize, Default)]
+struct RawSecrets {
+    #[serde(default)]
+    stripe_secret_key: Option<String>,
+    #[serde(default)]
+    stripe_webhook_secret: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -207,12 +243,33 @@ enum WhitelistValue {
 
 pub fn read_config() -> Option<Config> {
     let contents = fs::read_to_string("config.toml").ok()?;
-    let raw: RawConfig = toml::from_str(&contents).map_err(|e| {
+    let mut raw: RawConfig = toml::from_str(&contents).map_err(|e| {
         print_fancy(&[
             ("Error parsing config file: ", ORANGE, vec![]),
             (&format!("{}", e), RED, vec![BOLD])
         ], NewLine);
     }).ok()?;
+
+    // Merge in the gitignored secrets overlay, if present. Never required —
+    // an install with no secrets file just leaves these fields None.
+    if let Ok(secrets_contents) = fs::read_to_string("config.secrets.toml") {
+        match toml::from_str::<RawSecrets>(&secrets_contents) {
+            Ok(secrets) => {
+                if secrets.stripe_secret_key.is_some() {
+                    raw.stripe_secret_key = secrets.stripe_secret_key;
+                }
+                if secrets.stripe_webhook_secret.is_some() {
+                    raw.stripe_webhook_secret = secrets.stripe_webhook_secret;
+                }
+            }
+            Err(e) => {
+                print_fancy(&[
+                    ("Error parsing config.secrets.toml: ", ORANGE, vec![]),
+                    (&format!("{}", e), RED, vec![BOLD])
+                ], NewLine);
+            }
+        }
+    }
     let mut sites = HashMap::new();
     for (key, value) in raw.routes {
         match value {
@@ -282,5 +339,10 @@ pub fn read_config() -> Option<Config> {
         admin_dashboards: raw.admin_dashboard,
         file_guards: raw.file_guard,
         portal_storage_limit_per_account: raw.portal_storage_limit_per_account,
+        stripe_publishable_key: raw.stripe_publishable_key,
+        stripe_secret_key: raw.stripe_secret_key,
+        stripe_webhook_secret: raw.stripe_webhook_secret,
+        stripe_price_standard: raw.stripe_price_standard,
+        stripe_price_pro: raw.stripe_price_pro,
     })
 }
