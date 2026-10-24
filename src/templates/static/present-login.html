@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Sign in // Presentations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/present.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .card { width: 100%; max-width: 400px; padding: 2.5rem 2.25rem; z-index: 1; animation: cardIn 0.4s ease both; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .head { text-align: center; margin-bottom: 1.8rem; }
+    .head .logo { font-size: 1rem; margin-bottom: 0.4rem; }
+    form { display: flex; flex-direction: column; gap: 1rem; }
+    .btn { width: 100%; padding: 0.75rem; margin-top: 0.4rem; }
+    .foot { margin-top: 1.4rem; text-align: center; }
+  </style>
+</head>
+<body class="grid-bg">
+  <main class="card panel corners">
+    <div class="head">
+      <div class="logo"><span class="br">[ </span>ARCHIFICATION<span class="br"> ]</span></div>
+      <div class="eyebrow">// interactive presentations</div>
+    </div>
+
+    {% if error %}
+    <div class="banner err" role="alert" style="margin-bottom:1rem">{{ error | escape }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ base | escape }}/login">
+      <input type="hidden" name="next" value="{{ next | escape }}">
+      <div class="field">
+        <label for="username">Username</label>
+        <input class="input" id="username" name="username" autocomplete="username" required autofocus value="{{ username | default(value='') | escape }}">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+
+    <p class="foot hint">Access is by invitation. Ask the site admin for an account.</p>
+  </main>
+</body>
+</html>

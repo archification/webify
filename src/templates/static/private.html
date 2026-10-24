@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>PRIVATE // ARCHIFICATION</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #02030a; --card: #0c0f1e; --line: rgba(0,229,255,0.12);
+      --cyan: #00e5ff; --green: #00ff41; --text: #7a9cc0; --dim: #3b5070;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Rajdhani', sans-serif; min-height: 100vh;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.022) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+    .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem 16px 4rem; }
+    header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 1.5rem; }
+    .logo {
+      font-family: 'Orbitron', monospace; font-weight: 900; font-size: 1.1rem;
+      letter-spacing: 0.22em; color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan), 0 0 22px rgba(0,229,255,0.28);
+    }
+    .logo span { color: var(--green); text-shadow: 0 0 8px var(--green); }
+    .who { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; color: var(--dim); }
+    .who a { color: var(--green); text-decoration: none; margin-left: 0.75rem; }
+    nav.sections { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    nav.sections button {
+      background: var(--card); color: var(--text); border: 1px solid var(--line);
+      font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 0.15em;
+      text-transform: uppercase; padding: 0.55rem 1rem; cursor: pointer;
+    }
+    nav.sections button[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.2); }
+    section[hidden] { display: none; }
+    h2 {
+      font-family: 'Orbitron', monospace; font-size: 0.85rem; letter-spacing: 0.25em;
+      color: var(--cyan); margin-bottom: 1rem; text-transform: uppercase;
+    }
+    .empty { font-family: 'Share Tech Mono', monospace; color: var(--dim); padding: 2rem 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+    .grid.video { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+    .tile { background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+    .tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; cursor: zoom-in; }
+    .tile video { display: block; width: 100%; background: #000; }
+    .tile .name {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; padding: 0.45rem 0.6rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tracks { display: flex; flex-direction: column; gap: 0.6rem; }
+    .track { background: var(--card); border: 1px solid var(--line); padding: 0.7rem 0.9rem; }
+    .track[hidden] { display: none; }
+    .track .head { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.45rem; }
+    .track .name { flex: 1; font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
+    .loop-btn {
+      flex: none; background: transparent; color: var(--dim); border: 1px solid var(--line);
+      font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; letter-spacing: 0.15em;
+      text-transform: uppercase; padding: 0.2rem 0.6rem; cursor: pointer;
+    }
+    .loop-btn:hover { color: var(--text); }
+    .loop-btn[aria-pressed="true"] { color: var(--green); border-color: var(--green); box-shadow: 0 0 8px rgba(0,255,65,0.25); }
+    .search {
+      width: 100%; margin-bottom: 0.75rem; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; padding: 0.6rem 0.8rem;
+    }
+    .search:focus { outline: none; border-color: var(--cyan); }
+    .no-match { font-family: 'Share Tech Mono', monospace; color: var(--dim); padding: 1rem 0; }
+    .track audio { width: 100%; }
+    .lightbox {
+      position: fixed; inset: 0; z-index: 50; background: rgba(2,3,10,0.95);
+      display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out;
+    }
+    .lightbox[hidden] { display: none; }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .banner { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; padding: 0.6rem 0.9rem; margin-bottom: 1rem; border: 1px solid; }
+    .banner.ok { color: var(--green); border-color: rgba(0,255,65,0.35); }
+    .banner.err { color: #ff4d4d; border-color: rgba(255,77,77,0.35); }
+    .account { margin-bottom: 1.5rem; }
+    .account summary { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
+    .account form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .account .input { flex: 1 1 180px; background: var(--card); border: 1px solid var(--line); color: var(--text); font-family: 'Share Tech Mono', monospace; padding: 0.55rem 0.7rem; }
+    .account button { background: var(--card); border: 1px solid var(--cyan); color: var(--cyan); font-family: 'Share Tech Mono', monospace; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.55rem 1rem; cursor: pointer; }
+    @media (max-width: 420px) { .grid.video { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body oncontextmenu="return false">
+  <div class="wrap">
+    <header>
+      <div class="logo">PRIVATE <span>//</span> ARCHIFICATION</div>
+      <div class="who">{{ username | escape }}<a href="#account" onclick="document.getElementById('account').open = true">password</a><a href="{{ base | escape }}/logout">sign out</a></div>
+    </header>
+
+    {% if notice %}<p class="banner ok" role="status">{{ notice | escape }}</p>{% endif %}
+    {% if error %}<p class="banner err" role="alert">{{ error | escape }}</p>{% endif %}
+
+    <details id="account" class="account"{% if error %} open{% endif %}>
+      <summary>Change password</summary>
+      <form method="post" action="{{ base | escape }}/password">
+        <input class="input" type="password" name="current_password" placeholder="Current password" autocomplete="current-password" required aria-label="Current password">
+        <input class="input" type="password" name="new_password" placeholder="New password (8+ characters)" autocomplete="new-password" minlength="8" required aria-label="New password">
+        <input class="input" type="password" name="confirm_password" placeholder="Confirm new password" autocomplete="new-password" minlength="8" required aria-label="Confirm new password">
+        <button type="submit">Update</button>
+      </form>
+    </details>
+
+    <nav class="sections" aria-label="Media type">
+      {% for s in sections %}
+      <button type="button" data-section="{{ s.key }}" aria-pressed="{% if loop.first %}true{% else %}false{% endif %}">{{ s.title }} ({{ s.files | length }})</button>
+      {% endfor %}
+    </nav>
+
+    {% for s in sections %}
+    <section id="sec-{{ s.key }}" {% if not loop.first %}hidden{% endif %}>
+      <h2>{{ s.title }}</h2>
+      {% if s.files | length == 0 %}
+      <p class="empty">Nothing here yet.</p>
+      {% elif s.key == "image" %}
+      <div class="grid">
+        {% for f in s.files %}
+        <figure class="tile">
+          <img src="{{ f.url | escape }}" alt="{{ f.name | escape }}" loading="lazy" data-full="{{ f.url | escape }}">
+          <figcaption class="name" title="{{ f.name | escape }}">{{ f.name | escape }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      {% elif s.key == "video" %}
+      <div class="grid video">
+        {% for f in s.files %}
+        <figure class="tile">
+          <video src="{{ f.url | escape }}" controls preload="metadata" playsinline controlslist="nodownload"></video>
+          <figcaption class="name" title="{{ f.name | escape }}">{{ f.name | escape }} · {{ f.size | filesizeformat }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      {% else %}
+      <input class="search" type="search" id="track-search" placeholder="Search tracks…" autocomplete="off" aria-label="Search tracks">
+      <div class="tracks">
+        {% for f in s.files %}
+        <div class="track" data-name="{{ f.name | lower | escape }}">
+          <div class="head">
+            <div class="name">{{ f.name | escape }}</div>
+            <button type="button" class="loop-btn" aria-pressed="false" title="Repeat this track">Loop</button>
+          </div>
+          <audio src="{{ f.url | escape }}" controls preload="none" controlslist="nodownload"></audio>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="no-match" id="no-match" hidden>No tracks match.</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden><img alt=""></div>
+
+  <script>
+    document.querySelectorAll('nav.sections button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('nav.sections button').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        document.querySelectorAll('section').forEach(function (sec) {
+          sec.hidden = sec.id !== 'sec-' + btn.dataset.section;
+        });
+        // Stop anything playing in the section being hidden.
+        document.querySelectorAll('section[hidden] video, section[hidden] audio').forEach(function (m) { m.pause(); });
+      });
+    });
+    document.querySelectorAll('.track').forEach(function (track) {
+      var btn = track.querySelector('.loop-btn');
+      var audio = track.querySelector('audio');
+      btn.addEventListener('click', function () {
+        audio.loop = !audio.loop;
+        btn.setAttribute('aria-pressed', audio.loop ? 'true' : 'false');
+      });
+    });
+    var search = document.getElementById('track-search');
+    if (search) {
+      search.addEventListener('input', function () {
+        var terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+        var shown = 0;
+        document.querySelectorAll('.track').forEach(function (track) {
+          var match = terms.every(function (t) { return track.dataset.name.indexOf(t) !== -1; });
+          track.hidden = !match;
+          if (match) shown++;
+        });
+        document.getElementById('no-match').hidden = shown > 0;
+      });
+    }
+    var box = document.getElementById('lightbox');
+    document.querySelectorAll('img[data-full]').forEach(function (img) {
+      img.addEventListener('click', function () {
+        box.querySelector('img').src = img.dataset.full;
+        box.hidden = false;
+      });
+    });
+    box.addEventListener('click', function () { box.hidden = true; box.querySelector('img').src = ''; });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') box.click(); });
+  </script>
+</body>
+</html>

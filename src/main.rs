@@ -23,6 +23,8 @@ mod file_gate;
 mod portal;
 mod npi;
 mod payments;
+mod presentation;
+mod private_media;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -83,12 +85,24 @@ const ACME_CHALLENGE_PREFIX: &str = "/.well-known/acme-challenge/";
 
 /// Wrap the app for the plain-HTTP listener according to `http_mode`. The ACME
 /// challenge path is always passed through so cert issuance/renewal never breaks.
-fn make_http_app(mode: &str, app: Router) -> Router {
-    match mode {
+/// Unknown hosts are refused outermost, before any redirect to HTTPS.
+fn make_http_app(mode: &str, allowed_hosts: Vec<String>, app: Router) -> Router {
+    let app = match mode {
         "redirect" => app.layer(axum::middleware::from_fn(redirect_to_https)),
         "https_only" => app.layer(axum::middleware::from_fn(refuse_non_challenge)),
         _ => app, // "serve" (default): serve the full app over HTTP
-    }
+    };
+    let allowed_hosts = Arc::new(allowed_hosts);
+    app.layer(axum::middleware::from_fn(move |req: Request, next: Next| {
+        let allowed_hosts = allowed_hosts.clone();
+        async move {
+            let hostname = crate::routes::request_hostname(&req);
+            if !crate::routes::host_allowed(&allowed_hosts, &hostname) {
+                return (StatusCode::MISDIRECTED_REQUEST, "Unknown host").into_response();
+            }
+            next.run(req).await
+        }
+    }))
 }
 
 async fn redirect_to_https(req: Request, next: Next) -> Response {
@@ -181,6 +195,8 @@ async fn main() {
             crate::file_gate::load_db_file_guards(&forum_db).await,
         ));
         crate::portal::init_portal_tables(&forum_db).await;
+        crate::presentation::init_tables(&forum_db).await;
+        crate::private_media::init_tables(&forum_db).await;
         let mut interaction = crate::interaction::InteractionState::new();
         crate::commands::register_all(&mut interaction);
         if let Some(permanent_rooms) = &config_arc.permanent_rooms {
@@ -246,7 +262,7 @@ async fn main() {
 
             // Start the HTTP listener first so it can answer the ACME HTTP-01
             // challenge during first issuance below.
-            let http_app = make_http_app(&state.config.http_mode, app.clone());
+            let http_app = make_http_app(&state.config.http_mode, state.config.allowed_hosts.clone(), app.clone());
             tokio::spawn(async move {
                 let listener = bind_with_backlog(&http_addr)
                     .await

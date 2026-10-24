@@ -70,6 +70,24 @@ pub struct LiveQuery {
     pub offset: Option<u64>,
 }
 
+/// Lowercased request hostname without port. HTTP/2 requests carry the host in
+/// the :authority pseudo-header (the request URI) rather than a Host header, so
+/// fall back to it.
+pub fn request_hostname(req: &Request) -> String {
+    req.headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .or_else(|| req.uri().host())
+        .and_then(|h| h.split(':').next())
+        .unwrap_or("")
+        .to_ascii_lowercase()
+}
+
+/// Whether `hostname` is one we serve. An empty `allowed_hosts` accepts any host.
+pub fn host_allowed(allowed_hosts: &[String], hostname: &str) -> bool {
+    allowed_hosts.is_empty() || allowed_hosts.iter().any(|h| h == hostname)
+}
+
 pub async fn app(state: Arc<AppState>) -> Router {
     let mut site_routers = HashMap::new();
     let whitelists = Arc::new(state.config.whitelists.clone());
@@ -178,6 +196,23 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/subscribe/return", get(crate::payments::subscribe_return))
                         .route("/subscribe/{tier}", get(crate::payments::subscribe));
                     router = router.nest(path, portal_routes);
+                }
+                [_template_path, mode] if mode == "presentation" => {
+                    let media_upload_limit = match parse_upload_limit(&state.config.upload_size_limit).await {
+                        Ok(num) => num,
+                        Err("disabled") => usize::MAX,
+                        _ => 2 * 1000 * 1000 * 1000,
+                    };
+                    router = router.nest(path, crate::presentation::router(path, media_upload_limit));
+                }
+                [template_path, media_dir, mode] if mode == "private" => {
+                    // Fail closed: if the directory is unsafe the path is simply not
+                    // mounted (404), never served through the public media arm below.
+                    if let Some(private_routes) = crate::private_media::router(
+                        path, template_path, media_dir, &state.config.sites,
+                    ) {
+                        router = router.nest(path, private_routes);
+                    }
                 }
                 [settings_type, slides_dir] if settings_type == "slideshow" => {
                     let slides_dir_clone = slides_dir.clone();
@@ -448,6 +483,110 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     let path = dp_unsuspend_acct.clone();
                     async move { admin::unsuspend_account(s, j, h, f, path).await }
                 }));
+
+                // Interactive presentation accounts
+                let dp_create_present_account = dp.clone();
+                router = router.route(&format!("{}/present-accounts/create", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountForm>,
+                | {
+                    let path = dp_create_present_account.clone();
+                    async move { admin::create_present_account(s, j, h, f, path).await }
+                }));
+                let dp_reset_present_password = dp.clone();
+                router = router.route(&format!("{}/present-accounts/password", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentPasswordForm>,
+                | {
+                    let path = dp_reset_present_password.clone();
+                    async move { admin::reset_present_password(s, j, h, f, path).await }
+                }));
+                let dp_suspend_present_account = dp.clone();
+                router = router.route(&format!("{}/present-accounts/suspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_suspend_present_account.clone();
+                    async move { admin::suspend_present_account(s, j, h, f, path).await }
+                }));
+                let dp_unsuspend_present_account = dp.clone();
+                router = router.route(&format!("{}/present-accounts/unsuspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_unsuspend_present_account.clone();
+                    async move { admin::unsuspend_present_account(s, j, h, f, path).await }
+                }));
+                let dp_delete_present_account = dp.clone();
+                router = router.route(&format!("{}/present-accounts/delete", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_delete_present_account.clone();
+                    async move { admin::delete_present_account(s, j, h, f, path).await }
+                }));
+
+                // Private media accounts
+                let dp_create_private_account = dp.clone();
+                router = router.route(&format!("{}/private-accounts/create", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PrivateAccountForm>,
+                | {
+                    let path = dp_create_private_account.clone();
+                    async move { admin::create_private_account(s, j, h, f, path).await }
+                }));
+                let dp_reset_private_password = dp.clone();
+                router = router.route(&format!("{}/private-accounts/password", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentPasswordForm>,
+                | {
+                    let path = dp_reset_private_password.clone();
+                    async move { admin::reset_private_password(s, j, h, f, path).await }
+                }));
+                let dp_suspend_private_account = dp.clone();
+                router = router.route(&format!("{}/private-accounts/suspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_suspend_private_account.clone();
+                    async move { admin::suspend_private_account(s, j, h, f, path).await }
+                }));
+                let dp_unsuspend_private_account = dp.clone();
+                router = router.route(&format!("{}/private-accounts/unsuspend", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_unsuspend_private_account.clone();
+                    async move { admin::unsuspend_private_account(s, j, h, f, path).await }
+                }));
+                let dp_delete_private_account = dp.clone();
+                router = router.route(&format!("{}/private-accounts/delete", dp), post(move |
+                    s: State<Arc<AppState>>,
+                    j: CookieJar,
+                    h: HeaderMap,
+                    f: Form<admin::PresentAccountIdForm>,
+                | {
+                    let path = dp_delete_private_account.clone();
+                    async move { admin::delete_private_account(s, j, h, f, path).await }
+                }));
             }
         }
 
@@ -527,17 +666,15 @@ Router::new()
             }
         }
     }))
-    .fallback(move |headers: HeaderMap, ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
+    .fallback(move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req: Request| {
         let routers = Arc::clone(&site_routers_arc);
         let whitelist_map = Arc::clone(&whitelists);
         let gs = guard_state.clone();
         async move {
-            let hostname = headers
-                .get(header::HOST)
-                .and_then(|h| h.to_str().ok())
-                .and_then(|h| h.split(':').next())
-                .unwrap_or("")
-                .to_string();
+            let hostname = request_hostname(&req);
+            if !host_allowed(&gs.config.allowed_hosts, &hostname) {
+                return (StatusCode::MISDIRECTED_REQUEST, "Unknown host").into_response();
+            }
             let client_ip = addr.ip().to_string();
             if let Some(ips) = whitelist_map.get(&hostname).or_else(|| whitelist_map.get("default")) {
                 if !ips.is_empty() && !ips.contains(&client_ip) {

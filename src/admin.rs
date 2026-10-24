@@ -91,6 +91,12 @@ pub struct RevokeWriterForm {
 }
 
 #[derive(Deserialize)]
+pub struct PrivateAccountForm {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Deserialize)]
 pub struct CreateAccountForm {
     pub organization: String,
     pub email: String,
@@ -111,6 +117,25 @@ pub struct SuspendAccountForm {
 #[derive(Deserialize)]
 pub struct UnsuspendAccountForm {
     pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct PresentAccountForm {
+    pub username: String,
+    #[serde(default)]
+    pub display_name: String,
+    pub password: String,
+}
+
+#[derive(Deserialize)]
+pub struct PresentPasswordForm {
+    pub id: String,
+    pub password: String,
+}
+
+#[derive(Deserialize)]
+pub struct PresentAccountIdForm {
+    pub id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -362,6 +387,10 @@ pub async fn dashboard_page(
     ctx.insert("config_file_guards", &state.config.file_guards);
     ctx.insert("db_file_guards", &db_file_guards);
     ctx.insert("accounts", &accounts);
+    ctx.insert("present_accounts", &crate::presentation::admin_account_rows(&state.forum_db).await);
+    ctx.insert("present_path", &crate::presentation::configured_path(&state.config));
+    ctx.insert("private_accounts", &crate::private_media::admin_account_rows(&state.forum_db).await);
+    ctx.insert("private_path", &crate::private_media::configured_path(&state.config));
 
     match state.tera.render("admin_dashboard.html", &ctx) {
         Ok(html) => Html(html).into_response(),
@@ -706,6 +735,102 @@ pub async fn revoke_writer(
     Redirect::to(&format!("{}?flash=Writer+access+removed&tab=accounts", dash_path)).into_response()
 }
 
+fn private_redirect(dash_path: &str, result: Result<&str, String>) -> axum::response::Response {
+    let query = match result {
+        Ok(msg) => format!("flash={}", urlencode(msg)),
+        Err(e) => format!("flash_error={}", urlencode(&e)),
+    };
+    Redirect::to(&format!("{}?{}&tab=private", dash_path, query)).into_response()
+}
+
+/// Owner check shared by the private media account handlers. Returns the
+/// owner's email or the response to send instead.
+async fn require_private_owner(
+    state: &Arc<AppState>,
+    jar: &CookieJar,
+    headers: &HeaderMap,
+    dash_path: &str,
+) -> Result<String, axum::response::Response> {
+    let (email, owner) = require_dashboard_access(state, jar, headers, dash_path).await?;
+    if !owner {
+        return Err((StatusCode::FORBIDDEN, "Only owners can manage private media accounts").into_response());
+    }
+    Ok(email)
+}
+
+pub async fn create_private_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PrivateAccountForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let email = match require_private_owner(&state, &jar, &headers, &dash_path).await {
+        Ok(e) => e,
+        Err(r) => return r,
+    };
+    let result = crate::private_media::admin_create_account(
+        &state.forum_db, &form.username, &form.password, &email,
+    ).await;
+    private_redirect(&dash_path, result.map(|_| "Private media account created"))
+}
+
+pub async fn reset_private_password(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentPasswordForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    if let Err(r) = require_private_owner(&state, &jar, &headers, &dash_path).await {
+        return r;
+    }
+    let result = crate::private_media::admin_reset_password(&state.forum_db, &form.id, &form.password).await;
+    private_redirect(&dash_path, result.map(|_| "Password reset - existing sessions signed out"))
+}
+
+pub async fn suspend_private_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    if let Err(r) = require_private_owner(&state, &jar, &headers, &dash_path).await {
+        return r;
+    }
+    crate::private_media::admin_set_status(&state.forum_db, &form.id, false).await;
+    private_redirect(&dash_path, Ok("Account suspended"))
+}
+
+pub async fn unsuspend_private_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    if let Err(r) = require_private_owner(&state, &jar, &headers, &dash_path).await {
+        return r;
+    }
+    crate::private_media::admin_set_status(&state.forum_db, &form.id, true).await;
+    private_redirect(&dash_path, Ok("Account reactivated"))
+}
+
+pub async fn delete_private_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    if let Err(r) = require_private_owner(&state, &jar, &headers, &dash_path).await {
+        return r;
+    }
+    crate::private_media::admin_delete_account(&state.forum_db, &form.id).await;
+    private_redirect(&dash_path, Ok("Account deleted"))
+}
+
 pub async fn create_account(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
@@ -895,4 +1020,107 @@ pub async fn unsuspend_account(
         .await;
 
     Redirect::to(&format!("{}?flash=Account+reactivated&tab=accounts", dash_path)).into_response()
+}
+
+// ── Interactive presentation accounts ────────────────────────────────────────
+// Invite-only: this tab is the only place these accounts are created.
+
+fn present_redirect(dash_path: &str, result: Result<&str, String>) -> axum::response::Response {
+    let query = match result {
+        Ok(msg) => format!("flash={}", urlencode(msg)),
+        Err(e) => format!("flash_error={}", urlencode(&e)),
+    };
+    Redirect::to(&format!("{}?{}&tab=presentations", dash_path, query)).into_response()
+}
+
+pub async fn create_present_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (email, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !owner {
+        return (StatusCode::FORBIDDEN, "Only owners can manage presentation accounts").into_response();
+    }
+    let result = crate::presentation::admin_create_account(
+        &state.forum_db, &form.username, &form.display_name, &form.password, &email,
+    ).await;
+    present_redirect(&dash_path, result.map(|_| "Presentation account created"))
+}
+
+pub async fn reset_present_password(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentPasswordForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (_, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !owner {
+        return (StatusCode::FORBIDDEN, "Only owners can manage presentation accounts").into_response();
+    }
+    let result = crate::presentation::admin_reset_password(&state.forum_db, &form.id, &form.password).await;
+    present_redirect(&dash_path, result.map(|_| "Password reset - existing sessions signed out"))
+}
+
+pub async fn suspend_present_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (_, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !owner {
+        return (StatusCode::FORBIDDEN, "Only owners can manage presentation accounts").into_response();
+    }
+    crate::presentation::admin_set_status(&state.forum_db, &form.id, false).await;
+    present_redirect(&dash_path, Ok("Account suspended"))
+}
+
+pub async fn unsuspend_present_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (_, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !owner {
+        return (StatusCode::FORBIDDEN, "Only owners can manage presentation accounts").into_response();
+    }
+    crate::presentation::admin_set_status(&state.forum_db, &form.id, true).await;
+    present_redirect(&dash_path, Ok("Account reactivated"))
+}
+
+pub async fn delete_present_account(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Form(form): Form<PresentAccountIdForm>,
+    dash_path: String,
+) -> impl IntoResponse {
+    let (_, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !owner {
+        return (StatusCode::FORBIDDEN, "Only owners can manage presentation accounts").into_response();
+    }
+    crate::presentation::admin_delete_account(&state.forum_db, &form.id).await;
+    present_redirect(&dash_path, Ok("Account and its presentations deleted"))
 }

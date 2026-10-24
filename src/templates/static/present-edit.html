@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Builder // Presentations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/present.css">
+  <style>
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .topbar .title-input { flex: 1 1 260px; max-width: 520px; font-family: var(--font-body); font-size: 1.1rem; font-weight: 600; }
+    .topbar select { width: auto; }
+    .status { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); min-width: 9ch; }
+    .status.dirty { color: var(--amber); }
+    .status.err { color: var(--red); }
+
+    .modes { display: flex; gap: 0; padding: 0 1.25rem; border-bottom: 1px solid var(--line); background: var(--surface); }
+    .mode-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 0.7rem 1.1rem; color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer; }
+    .mode-tab[aria-selected="true"] { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .mode-tab:hover { color: var(--text-strong); }
+
+    .workspace { flex: 1; min-height: 0; position: relative; }
+    .view { position: absolute; inset: 0; overflow: auto; }
+
+    /* ── Visual ── */
+    .visual { display: grid; grid-template-columns: 310px 1fr; }
+    .sidebar { border-right: 1px solid var(--line); overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; background: rgba(12,15,30,0.5); }
+    .side-panel { padding: 0.9rem; }
+    .side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; }
+    .side-head h2 { margin: 0; }
+
+    .page-list { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; max-height: 40vh; overflow: auto; }
+    .page-item { padding: 0.5rem 0.6rem; border: 1px solid var(--line); cursor: pointer; background: #070914; }
+    .page-item:hover { border-color: var(--line-strong); }
+    .page-item.active { border-color: var(--cyan); box-shadow: inset 3px 0 0 var(--cyan); }
+    .page-item:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+    .pid { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-strong); }
+    .psnip { font-size: 0.85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pbadges { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.3rem; }
+    .pbadges .chip { font-size: 0.55rem; padding: 0.05rem 0.3rem; }
+
+    .drop { display: block; border: 1px dashed var(--line-strong); padding: 0.9rem; text-align: center; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+    .drop:hover, .drop.over { background: rgba(0,229,255,0.05); border-color: var(--cyan); }
+    .drop .t { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
+    .progress { height: 3px; background: rgba(0,229,255,0.1); margin-top: 0.6rem; }
+    .progress > div { height: 100%; width: 0; background: var(--cyan); transition: width 0.15s; }
+    .media-list { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.7rem; max-height: 36vh; overflow: auto; }
+    .media-item { display: grid; grid-template-columns: 40px 1fr auto; gap: 0.5rem; align-items: center; padding: 0.3rem; border: 1px solid var(--line); background: #070914; }
+    .thumb { width: 40px; height: 40px; background: #000 center / cover no-repeat; display: flex; align-items: center; justify-content: center; color: var(--cyan); font-size: 1rem; }
+    .mname { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-strong); overflow-wrap: anywhere; line-height: 1.3; }
+    .msize { font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); }
+    .mbtns { display: flex; gap: 0.25rem; }
+
+    .editor { overflow: auto; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 5rem; }
+    .editor-inner { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
+    .ed-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+    .ed-head .tools { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .block { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.8rem; }
+    .block > h3 { font-family: var(--font-display); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-strong); }
+    .block > h3 small { font-family: var(--font-body); font-size: 0.85rem; letter-spacing: 0; text-transform: none; color: var(--muted); font-weight: 400; margin-left: 0.4rem; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .row3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.8rem; }
+    .inline { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
+    .field-err { font-family: var(--font-mono); font-size: 0.7rem; color: var(--red); min-height: 0; }
+    .field-err:empty { display: none; }
+    .preview-media { max-height: 160px; max-width: 100%; align-self: flex-start; border: 1px solid var(--line); background: #000; }
+    textarea.text-input { min-height: 140px; font-family: var(--font-body); font-size: 1.02rem; }
+
+    .item { border: 1px solid var(--line); background: #070914; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .item-head .n { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); letter-spacing: 0.14em; }
+    .jump { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 0.5rem; align-items: center; }
+    .arrow { font-family: var(--font-mono); color: var(--cyan); }
+
+    /* ── Script ── */
+    .script { display: grid; grid-template-columns: 1fr 340px; }
+    .script-main { display: flex; flex-direction: column; min-height: 0; padding: 1rem; gap: 0.6rem; }
+    .script-main textarea { flex: 1; min-height: 60vh; font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.6; tab-size: 2; white-space: pre; }
+    .script-side { border-left: 1px solid var(--line); padding: 1rem; overflow: auto; display: flex; flex-direction: column; gap: 1rem; }
+    .script-errors { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+    .script-errors li { font-family: var(--font-mono); font-size: 0.72rem; color: var(--red); cursor: pointer; }
+    .script-errors li:hover { text-decoration: underline; }
+    .cheat { font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.7; white-space: pre-wrap; color: var(--text); background: #070914; border: 1px solid var(--line); padding: 0.75rem; }
+
+    /* ── Guide ── */
+    .guide { padding: 2rem clamp(1rem, 4vw, 3rem) 5rem; }
+    .guide-inner { max-width: 820px; margin: 0 auto; line-height: 1.6; font-size: 1.05rem; }
+    .guide h2 { font-family: var(--font-display); font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); margin: 2.2rem 0 0.7rem; }
+    .guide h2:first-child { margin-top: 0; }
+    .guide p, .guide ul { margin-bottom: 0.8rem; }
+    .guide ul { padding-left: 1.3rem; }
+    .guide li { margin-bottom: 0.3rem; }
+    .guide pre { font-family: var(--font-mono); font-size: 0.85rem; background: #070914; border: 1px solid var(--line); padding: 0.9rem 1rem; overflow: auto; margin-bottom: 1rem; color: var(--text-strong); line-height: 1.55; }
+    .guide table { border-collapse: collapse; margin-bottom: 1rem; width: 100%; font-size: 0.95rem; }
+    .guide td, .guide th { border: 1px solid var(--line); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+    .guide th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+    /* ── Issues ── */
+    .issues { border-top: 1px solid var(--line); background: var(--surface); max-height: 30vh; display: flex; flex-direction: column; }
+    .issues-bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1.25rem; font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer; border: none; background: none; color: var(--text); text-align: left; width: 100%; }
+    .issues-bar .ok { color: var(--green); }
+    .issues-bar .bad { color: var(--red); }
+    .issues-bar .warn { color: var(--amber); }
+    .issues-list { list-style: none; overflow: auto; padding: 0 1.25rem 0.75rem; }
+    .issues-list li { font-family: var(--font-mono); font-size: 0.72rem; padding: 0.2rem 0; cursor: pointer; }
+    .issues-list li.e { color: var(--red); }
+    .issues-list li.w { color: var(--amber); }
+
+    @media (max-width: 900px) {
+      body { height: auto; overflow: auto; }
+      .workspace { flex: none; }
+      .view { position: static; }
+      .visual, .script { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+      .script-side { border-left: none; border-top: 1px solid var(--line); }
+      .row2, .row3 { grid-template-columns: 1fr; }
+      .jump { grid-template-columns: 1fr; }
+      .jump .arrow { display: none; }
+    }
+  </style>
+</head>
+<body class="grid-bg">
+  <header class="topbar">
+    <a class="logo" href="{{ base | escape }}" title="Back to library"><span class="br">[ </span>PRESENT<span class="br"> ]</span></a>
+    <input class="input title-input" id="title" maxlength="200" aria-label="Presentation title">
+    <select class="input" id="visibility" aria-label="Who can see this">
+      <option value="private">Private — only me</option>
+      <option value="shared">Shared — all accounts</option>
+    </select>
+    <span class="spacer"></span>
+    <span class="status" id="status" role="status"></span>
+    <button class="btn small" id="preview-page" type="button" title="Save, then play starting from the selected page with variables shown">▶ This page</button>
+    <button class="btn small" id="preview-start" type="button" title="Save, then play from the start">▶ From start</button>
+    <button class="btn primary" id="save" type="button" title="Ctrl+S">Save</button>
+  </header>
+
+  <nav class="modes" role="tablist" aria-label="Editor mode">
+    <button class="mode-tab" role="tab" data-mode="visual" aria-selected="true">Visual</button>
+    <button class="mode-tab" role="tab" data-mode="script" aria-selected="false">Script</button>
+    <button class="mode-tab" role="tab" data-mode="guide" aria-selected="false">Guide</button>
+  </nav>
+
+  <div class="workspace">
+    <!-- ── Visual builder ── -->
+    <div class="view visual" id="view-visual">
+      <aside class="sidebar">
+        <div class="panel side-panel">
+          <div class="side-head">
+            <h2 class="section">Pages</h2>
+            <button class="btn small go" id="add-page" type="button">+ Page</button>
+          </div>
+          <ul class="page-list" id="page-list" role="listbox" aria-label="Pages"></ul>
+        </div>
+
+        <div class="panel side-panel">
+          <div class="side-head"><h2 class="section">Media</h2></div>
+          <label class="drop" id="drop">
+            <div class="t">Drop files or click to upload</div>
+            <div class="hint">Images, video and audio. Files keep their name (spaces become _).</div>
+            <input type="file" id="file-input" multiple hidden>
+          </label>
+          <div class="progress" id="progress" hidden><div></div></div>
+          <div class="field-err" id="upload-err"></div>
+          <ul class="media-list" id="media-list"></ul>
+        </div>
+
+        <div class="panel side-panel">
+          <h2 class="section">Settings</h2>
+          <div class="field" style="margin-bottom:0.8rem">
+            <label for="description">Description</label>
+            <textarea class="input" id="description" rows="3" maxlength="2000" placeholder="Shown on the start screen and in the library"></textarea>
+          </div>
+          <div class="field" style="margin-bottom:0.8rem">
+            <label for="start">Start page</label>
+            <select class="input" id="start"></select>
+          </div>
+          <div class="field">
+            <label for="vars">Variables</label>
+            <textarea class="input mono" id="vars" rows="3" placeholder="score = 0&#10;name = &quot;friend&quot;"></textarea>
+            <div class="field-err" id="vars-err"></div>
+            <div class="hint">Starting values, one per line. Use them in text as {score}.</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="editor" id="editor-scroll">
+        <div class="editor-inner" id="editor"></div>
+      </section>
+    </div>
+
+    <!-- ── Script editor ── -->
+    <div class="view script" id="view-script" hidden>
+      <div class="script-main">
+        <div class="inline">
+          <button class="btn go" id="apply-script" type="button">Apply script</button>
+          <span class="hint" id="script-msg">Edit the whole presentation as text. Apply to update the visual builder.</span>
+        </div>
+        <textarea class="input" id="script-input" spellcheck="false" aria-label="Presentation script"></textarea>
+      </div>
+      <aside class="script-side">
+        <div>
+          <h2 class="section">Problems</h2>
+          <ul class="script-errors" id="script-errors"></ul>
+          <p class="hint" id="script-ok">No syntax problems found yet. Press Apply to check.</p>
+        </div>
+        <div>
+          <h2 class="section">Cheat sheet</h2>
+{% raw %}
+<div class="cheat">var score = 0
+start: intro
+
+== intro
+media: photo.webp
+audio: music.mp3 loop
+set: score += 1
+if score > 3 -> bonus
+Hello {name}! **Bold** *italic*
+button: Next -> part2
+button: Random -> a, b, c
+button: Any ending -> ending*
+button: Hidden -> x [if score > 2]
+button: Buy -> y [set score -= 5]
+timer: 10 -> next
+timer: 5-15s -> next [hidden]
+timer: media -> next
+goto: somewhere
+end
+
+\text starting with a keyword</div>
+{% endraw %}
+          <p class="hint" style="margin-top:0.6rem">Full reference in the Guide tab.</p>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ── Guide ── -->
+    <div class="view guide" id="view-guide" hidden>
+{% raw %}
+      <article class="guide-inner">
+        <h2>How it works</h2>
+        <p>A presentation is a set of <strong>pages</strong>. Each page can show one image or video, play an audio track, show text, and offer <strong>buttons</strong> that lead to other pages. A page can also move on by itself with a <strong>timer</strong>, or jump somewhere straight away based on a <strong>condition</strong>.</p>
+        <p>You can build everything in the <em>Visual</em> tab, write it as text in the <em>Script</em> tab, or mix the two. Both edit the same presentation. Remember to <strong>Save</strong> (Ctrl+S). Use <strong>▶ This page</strong> to test from the page you're editing. Previews show your variables in the top-left corner.</p>
+
+        <h2>Quick start</h2>
+        <ul>
+          <li>Upload your media in the left sidebar. Uploading a single file while a page is selected puts it on that page.</li>
+          <li>Type the page text, then add buttons. A button with no destination goes to the <em>next</em> page in the list.</li>
+          <li>A page with no buttons and no timer gets an automatic <em>Continue</em> button, so a plain slideshow needs nothing extra.</li>
+          <li>Tick <em>End page</em> on your final page(s). Running past the last page also ends the presentation.</li>
+        </ul>
+
+        <h2>Destinations</h2>
+        <table>
+          <tr><th>Write</th><th>Meaning</th></tr>
+          <tr><td><code>part2</code></td><td>Go to the page named part2</td></tr>
+          <tr><td><code>a, b, c</code></td><td>Pick one of these at random</td></tr>
+          <tr><td><code>ending*</code></td><td>Pick a random page whose name starts with “ending” (the current page is skipped if there are others)</td></tr>
+          <tr><td><code>next</code></td><td>The next page in the list (same as leaving it blank)</td></tr>
+          <tr><td><code>end</code></td><td>Finish the presentation</td></tr>
+        </table>
+
+        <h2>Media and audio</h2>
+        <ul>
+          <li><strong>Media</strong> is one image (webp, png, jpg, gif, avif) or video (mp4, webm, mov). Videos loop unless you choose <em>play once</em>.</li>
+          <li><strong>Audio</strong> (mp3, ogg, wav, m4a, flac, opus) keeps playing across pages until another page picks a different track, or picks <em>Stop audio</em>. That makes background music easy: set it once on the first page. For a voice-over per page, give each page its own track.</li>
+          <li>A timer set to <code>media</code> moves on when the page's video finishes, or its audio if it has no video.</li>
+        </ul>
+
+        <h2>Timers</h2>
+        <p><code>30</code> waits 30 seconds, <code>10-20</code> waits a random time in that range, <code>2m</code> waits two minutes and <code>media</code> waits for the video/audio to end. A countdown bar is shown unless the timer is <em>hidden</em>. A timer can sit next to buttons, so the viewer can choose before time runs out.</p>
+
+        <h2>Variables</h2>
+        <p>Variables remember things while someone plays: a score, a name, a choice they made. Give starting values in <em>Settings → Variables</em>. Change them when a page opens, when a button is pressed or when a timer fires:</p>
+<pre>score = 0            set to a value
+score += 1           add (also -=, *=, /=)
+name = "Sam"         text goes in quotes
+lives = lives - 1; score = score * 2      several at once, separated by ;
+roll = random(1, 6)  a random whole number</pre>
+        <p>Show a value in page text or a button label with braces: <code>You have {score} points</code>. Anything inside braces is worked out, so <code>{score * 10}</code> works too.</p>
+
+        <h2>Conditions</h2>
+        <p>Conditions decide whether a button is shown, or whether a page jumps somewhere as soon as it opens (a <em>jump</em>). Jumps are checked top to bottom and the first one that matches wins. A jump with no condition always happens.</p>
+<pre>score > 5
+score >= 3 and lives > 0
+name == "Sam"          (a single = works too)
+not visited(secret)
+visits(intro) >= 3
+chance(25)             true 25% of the time</pre>
+        <table>
+          <tr><th>Function</th><th>Result</th></tr>
+          <tr><td><code>random(a, b)</code></td><td>Whole number from a to b. <code>random(6)</code> is 1 to 6</td></tr>
+          <tr><td><code>chance(p)</code></td><td>True p% of the time</td></tr>
+          <tr><td><code>pick("x", "y", …)</code></td><td>One of the values at random</td></tr>
+          <tr><td><code>visited(page)</code></td><td>Whether the page has been shown this playthrough</td></tr>
+          <tr><td><code>visits(page)</code></td><td>How many times it has been shown</td></tr>
+          <tr><td><code>min</code> <code>max</code> <code>abs</code> <code>round</code> <code>floor</code> <code>ceil</code></td><td>The usual maths</td></tr>
+        </table>
+        <p>A variable that was never set counts as 0.</p>
+
+        <h2>Script format</h2>
+        <p>Each page starts with <code>== name</code>. Lines starting with a keyword set things up; every other line is page text (a blank line starts a new paragraph, and <code>**bold**</code> and <code>*italic*</code> work). Start a text line with <code>\</code> if it would otherwise look like a keyword. Lines starting with <code>#</code> are comments.</p>
+<pre># Variables and start page come before the first page
+var score = 0
+var name = "friend"
+start: intro
+
+== intro
+media: intro.webp
+audio: theme.mp3 loop
+Welcome, {name}!
+
+Pick a door.
+button: Left door -> left
+button: Right door -> right [set score += 1]
+button: Surprise me -> left, right
+timer: 30 -> left
+
+== left
+video: hallway.mp4 once
+timer: media -> reveal
+
+== right
+set: score += 2
+if score > 5 -> reveal
+The door is locked. You have {score} points.
+button: Try again -> intro [if score < 10]
+button: Give up -> end
+
+== reveal
+audio: stop
+You made it with **{score}** points.
+end</pre>
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td><code>media: file</code> (or <code>image:</code> / <code>video:</code>)</td><td>The page's image or video. Add <code>once</code> to stop a video looping</td></tr>
+          <tr><td><code>audio: file</code></td><td>Start an audio track. Add <code>loop</code> to repeat it. <code>audio: stop</code> silences it</td></tr>
+          <tr><td><code>set: name = value</code></td><td>Change variables when the page opens</td></tr>
+          <tr><td><code>if condition -> destination</code></td><td>Jump straight away if the condition is true</td></tr>
+          <tr><td><code>goto: destination</code></td><td>Always jump straight away</td></tr>
+          <tr><td><code>button: Label -> destination</code></td><td>A button. Optional <code>[if …]</code> and <code>[set …]</code> at the end</td></tr>
+          <tr><td><code>timer: 10 -> destination</code></td><td>Move on automatically. Optional <code>[hidden]</code> and <code>[set …]</code></td></tr>
+          <tr><td><code>end</code></td><td>This page finishes the presentation</td></tr>
+        </table>
+
+        <h2>Playing</h2>
+        <p>Viewers press <strong>Begin</strong> to start, which lets the browser play sound. Number keys 1–9 press the matching button. The corner controls mute, restart or exit.</p>
+      </article>
+{% endraw %}
+    </div>
+  </div>
+
+  <div class="issues" id="issues">
+    <button class="issues-bar" id="issues-bar" type="button" aria-expanded="false"></button>
+    <ul class="issues-list" id="issues-list" hidden></ul>
+  </div>
+
+  <datalist id="page-ids"></datalist>
+
+  <script id="data" type="application/json">{{ data_json }}</script>
+  <script src="/static/present-engine.js"></script>
+  <script>
+  {% raw %}
+  (function () {
+    const E = window.PresentEngine;
+    const $ = (id) => document.getElementById(id);
+    const data = JSON.parse($('data').textContent);
+    const base = data.base;
+
+    const S = {
+      title: data.title,
+      description: data.description,
+      visibility: data.visibility,
+      doc: E.normalize(data.document),
+      media: data.media,
+      sel: 0,
+      mode: 'visual',
+      rev: 0,
+      savedRev: 0,
+      scriptDirty: false,
+    };
+    // Raw text of assignment/variable inputs, so half-typed values survive re-renders.
+    let rawText = new WeakMap();
+    let varsRaw = null;
+
+    // ── DOM helpers ──
+    function el(tag, attrs, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs || {})) {
+        if (v === undefined || v === null || v === false) continue;
+        if (k === 'class') node.className = v;
+        else if (k === 'text') node.textContent = v;
+        else if (k === 'value') node.value = v;
+        else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v === true ? '' : v);
+      }
+      for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) node.append(c);
+      return node;
+    }
+    const field = (label, control, hint) => el('div', { class: 'field' },
+      el('label', { text: label }), control, hint ? el('div', { class: 'hint', text: hint }) : null);
+    const fmtSize = (b) => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+    const mediaUrl = (f) => base + '/media/' + data.id + '/' + encodeURIComponent(f);
+    const page = () => S.doc.pages[S.sel];
+
+    // ── Change tracking ──
+    let refreshTimer = null;
+    function touch(now) {
+      S.rev++;
+      updateStatus();
+      clearTimeout(refreshTimer);
+      if (now) { renderPages(); renderIssues(); }
+      else refreshTimer = setTimeout(() => { renderPages(); renderIssues(); }, 250);
+    }
+    const dirty = () => S.rev !== S.savedRev || S.scriptDirty;
+    function updateStatus(text, cls) {
+      const s = $('status');
+      if (text) { s.textContent = text; s.className = 'status ' + (cls || ''); return; }
+      s.textContent = dirty() ? 'Unsaved' : 'Saved';
+      s.className = 'status' + (dirty() ? ' dirty' : '');
+    }
+    window.addEventListener('beforeunload', (e) => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+    // ── Header ──
+    $('title').value = S.title;
+    $('title').addEventListener('input', () => { S.title = $('title').value; touch(); });
+    $('visibility').value = S.visibility;
+    $('visibility').addEventListener('change', () => { S.visibility = $('visibility').value; touch(); });
+    $('description').value = S.description;
+    $('description').addEventListener('input', () => { S.description = $('description').value; touch(); });
+
+    // ── Pages list ──
+    function renderPages() {
+      const list = $('page-list');
+      list.replaceChildren();
+      S.doc.pages.forEach((p, i) => {
+        const badges = [];
+        if (p.id === S.doc.start) badges.push(['start', 'green']);
+        if (p.media) badges.push([E.mediaKind(p.media) === 'video' ? 'video' : 'image']);
+        if (p.audio) badges.push([p.audio === 'stop' ? 'stop audio' : 'audio']);
+        if (p.buttons.length) badges.push([p.buttons.length + ' btn', 'muted']);
+        if (p.timer) badges.push(['timer']);
+        if (p.branches.length) badges.push(['jump', 'amber']);
+        if (p.end) badges.push(['end', 'amber']);
+        const firstLine = p.text.split('\n').find((l) => l.trim()) || '';
+        const item = el('li', {
+          class: 'page-item' + (i === S.sel ? ' active' : ''), role: 'option', tabindex: '0',
+          'aria-selected': String(i === S.sel),
+          onclick: () => select(i),
+          onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(i); } },
+        },
+          el('div', { class: 'pid', text: (i + 1) + '. ' + (p.id || '(unnamed)') }),
+          el('div', { class: 'psnip', text: firstLine || '—' }),
+          el('div', { class: 'pbadges' }, badges.map(([t, c]) => el('span', { class: 'chip ' + (c || ''), text: t }))));
+        list.append(item);
+      });
+
+      const start = $('start');
+      start.replaceChildren(...S.doc.pages.map((p) => el('option', { value: p.id, text: p.id })));
+      start.value = S.doc.start;
+
+      $('page-ids').replaceChildren(
+        ...S.doc.pages.map((p) => el('option', { value: p.id })),
+        el('option', { value: 'next' }), el('option', { value: 'end' }));
+    }
+    $('start').addEventListener('change', () => { S.doc.start = $('start').value; touch(true); });
+
+    function select(i) {
+      S.sel = Math.max(0, Math.min(i, S.doc.pages.length - 1));
+      renderPages();
+      renderEditor();
+      $('editor-scroll').scrollTop = 0;
+    }
+
+    function uniqueId(stem) {
+      const ids = new Set(S.doc.pages.map((p) => p.id));
+      for (let n = S.doc.pages.length + 1; ; n++) if (!ids.has(stem + '-' + n)) return stem + '-' + n;
+    }
+
+    $('add-page').addEventListener('click', () => {
+      S.doc.pages.splice(S.sel + 1, 0, E.newPage(uniqueId('page')));
+      touch(true);
+      select(S.sel + 1);
+      const t = document.querySelector('.text-input');
+      if (t) t.focus();
+    });
+
+    function duplicatePage() {
+      const copy = JSON.parse(JSON.stringify(page()));
+      copy.id = uniqueId(page().id.replace(/-\d+$/, '') || 'page');
+      S.doc.pages.splice(S.sel + 1, 0, copy);
+      touch(true);
+      select(S.sel + 1);
+    }
+    function movePage(delta) {
+      const j = S.sel + delta;
+      if (j < 0 || j >= S.doc.pages.length) return;
+      const pages = S.doc.pages;
+      [pages[S.sel], pages[j]] = [pages[j], pages[S.sel]];
+      touch(true);
+      select(j);
+    }
+    function deletePage() {
+      if (S.doc.pages.length === 1) { alert('A presentation needs at least one page.'); return; }
+      const p = page();
+      if (!confirm('Delete page "' + p.id + '"? Buttons that lead to it will need a new destination.')) return;
+      S.doc.pages.splice(S.sel, 1);
+      if (S.doc.start === p.id) S.doc.start = S.doc.pages[0].id;
+      touch(true);
+      select(Math.min(S.sel, S.doc.pages.length - 1));
+    }
+
+    function renamePage(p, newId, input, err) {
+      const old = p.id;
+      if (newId === old) { err.textContent = ''; return; }
+      let problem = '';
+      if (!E.ID_RE.test(newId)) problem = 'Use letters, numbers, - and _ only (no spaces).';
+      else if (E.RESERVED_TARGETS.includes(newId)) problem = '"' + newId + '" is reserved.';
+      else if (S.doc.pages.some((q) => q !== p && q.id === newId)) problem = 'Another page already has that name.';
+      if (problem) { err.textContent = problem; input.value = old; return; }
+      err.textContent = '';
+      p.id = newId;
+      const fix = (list) => list.forEach((t, i) => { if (t === old) list[i] = newId; });
+      for (const q of S.doc.pages) {
+        q.branches.forEach((b) => fix(b.goto));
+        q.buttons.forEach((b) => fix(b.goto));
+        if (q.timer) fix(q.timer.goto);
+      }
+      if (S.doc.start === old) S.doc.start = newId;
+      touch(true);
+      renderEditor();
+    }
+
+    // ── Bound inputs ──
+    function textInput(owner, key, attrs) {
+      return el('input', Object.assign({ class: 'input', value: owner[key], oninput: (e) => { owner[key] = e.target.value; touch(); } }, attrs || {}));
+    }
+    function targetInput(owner, key, placeholder) {
+      return el('input', {
+        class: 'input mono', value: owner[key].join(', '), placeholder: placeholder || 'next', list: 'page-ids', spellcheck: 'false',
+        oninput: (e) => { owner[key] = E.parseTargets(e.target.value); touch(); },
+      });
+    }
+    function condInput(owner, key, placeholder) {
+      const err = el('div', { class: 'field-err' });
+      const check = () => { err.textContent = owner[key] ? (E.exprError(owner[key]) || '') : ''; };
+      const input = el('input', {
+        class: 'input mono', value: owner[key], placeholder: placeholder || 'always', spellcheck: 'false',
+        oninput: (e) => { owner[key] = e.target.value.trim(); check(); touch(); },
+      });
+      check();
+      return el('div', { class: 'field' }, input, err);
+    }
+    function assignInput(owner, key, placeholder) {
+      const raws = rawText.get(owner) || {};
+      const err = el('div', { class: 'field-err' });
+      const input = el('input', {
+        class: 'input mono', value: raws[key] !== undefined ? raws[key] : E.assignmentsToString(owner[key]),
+        placeholder: placeholder || 'score += 1', spellcheck: 'false',
+        oninput: (e) => {
+          const r = E.parseAssignments(e.target.value);
+          owner[key] = r.list;
+          rawText.set(owner, Object.assign(rawText.get(owner) || {}, { [key]: e.target.value }));
+          err.textContent = r.errors.join(' · ');
+          touch();
+        },
+      });
+      err.textContent = E.parseAssignments(input.value).errors.join(' · ');
+      return el('div', { class: 'field' }, input, err);
+    }
+    const labelled = (label, control) => el('div', { class: 'field' }, el('label', { text: label }), control);
+
+    // ── Page editor ──
+    function renderEditor() {
+      const p = page();
+      const ed = $('editor');
+      ed.replaceChildren();
+      const n = S.sel + 1;
+      const total = S.doc.pages.length;
+
+      ed.append(el('div', { class: 'ed-head' },
+        el('div', { class: 'eyebrow', text: '// page ' + n + ' of ' + total }),
+        el('div', { class: 'tools' },
+          el('button', { class: 'btn small', type: 'button', text: '↑ Up', disabled: S.sel === 0, onclick: () => movePage(-1) }),
+          el('button', { class: 'btn small', type: 'button', text: '↓ Down', disabled: S.sel === total - 1, onclick: () => movePage(1) }),
+          el('button', { class: 'btn small', type: 'button', text: 'Duplicate', onclick: duplicatePage }),
+          el('button', { class: 'btn small danger', type: 'button', text: 'Delete', onclick: deletePage }))));
+
+      // Name + content
+      const idErr = el('div', { class: 'field-err' });
+      const idInput = el('input', { class: 'input mono', value: p.id, spellcheck: 'false', 'aria-label': 'Page name' });
+      idInput.addEventListener('change', () => renamePage(p, idInput.value.trim(), idInput, idErr));
+      idInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') idInput.blur(); });
+
+      const visual = S.media.filter((m) => m.kind !== 'audio');
+      const sounds = S.media.filter((m) => m.kind === 'audio');
+      const mediaSelect = el('select', { class: 'input', 'aria-label': 'Image or video' },
+        el('option', { value: '', text: '— none —' }),
+        visual.map((m) => el('option', { value: m.filename, text: m.filename + ' (' + m.kind + ')' })));
+      if (p.media && !visual.some((m) => m.filename === p.media)) mediaSelect.append(el('option', { value: p.media, text: p.media + ' (not uploaded)' }));
+      mediaSelect.value = p.media;
+      mediaSelect.addEventListener('change', () => { p.media = mediaSelect.value; touch(true); renderEditor(); });
+
+      const audioSelect = el('select', { class: 'input', 'aria-label': 'Audio' },
+        el('option', { value: '', text: '— keep whatever is playing —' }),
+        el('option', { value: 'stop', text: '■ Stop audio' }),
+        sounds.map((m) => el('option', { value: m.filename, text: m.filename })));
+      if (p.audio && p.audio !== 'stop' && !sounds.some((m) => m.filename === p.audio)) audioSelect.append(el('option', { value: p.audio, text: p.audio + ' (not uploaded)' }));
+      audioSelect.value = p.audio;
+      audioSelect.addEventListener('change', () => { p.audio = audioSelect.value; touch(true); renderEditor(); });
+
+      const kind = E.mediaKind(p.media);
+      let preview = null;
+      if (kind === 'image') preview = el('img', { class: 'preview-media', src: mediaUrl(p.media), alt: '' });
+      else if (kind === 'video') preview = el('video', { class: 'preview-media', src: mediaUrl(p.media), muted: true, controls: true, preload: 'metadata' });
+
+      ed.append(el('div', { class: 'block panel' },
+        el('h3', { text: 'Content' }),
+        el('div', { class: 'field' }, el('label', { text: 'Page name' }), idInput, idErr,
+          el('div', { class: 'hint', text: 'Used by buttons and jumps to point here. Renaming updates them for you.' })),
+        el('div', { class: 'row2' },
+          el('div', { class: 'field' }, el('label', { text: 'Image / video' }), mediaSelect,
+            kind === 'video' ? el('label', { class: 'check' },
+              el('input', { type: 'checkbox', checked: p.media_once, onchange: (e) => { p.media_once = e.target.checked; touch(); } }),
+              'Play once (don\'t loop)') : null),
+          el('div', { class: 'field' }, el('label', { text: 'Audio' }), audioSelect,
+            p.audio && p.audio !== 'stop' ? el('label', { class: 'check' },
+              el('input', { type: 'checkbox', checked: p.audio_loop, onchange: (e) => { p.audio_loop = e.target.checked; touch(); } }),
+              'Loop') : null)),
+        preview,
+        field('Text',
+          el('textarea', { class: 'input text-input', value: p.text, placeholder: 'What this page says. Use {score} to show a variable, **bold**, *italic*.', oninput: (e) => { p.text = e.target.value; touch(); } }))));
+
+      // Buttons
+      const btnBlock = el('div', { class: 'block panel' },
+        el('h3', {}, 'Buttons', el('small', { text: 'Leave the destination blank to go to the next page.' })));
+      p.buttons.forEach((b, i) => {
+        btnBlock.append(el('div', { class: 'item' },
+          el('div', { class: 'item-head' },
+            el('span', { class: 'n', text: 'BUTTON ' + (i + 1) }),
+            el('div', { class: 'tools', style: 'display:flex;gap:0.25rem' },
+              el('button', { class: 'btn small ghost', type: 'button', text: '↑', title: 'Move up', 'aria-label': 'Move button up', disabled: i === 0, onclick: () => { swap(p.buttons, i, i - 1); } }),
+              el('button', { class: 'btn small ghost', type: 'button', text: '↓', title: 'Move down', 'aria-label': 'Move button down', disabled: i === p.buttons.length - 1, onclick: () => { swap(p.buttons, i, i + 1); } }),
+              el('button', { class: 'btn small ghost danger', type: 'button', text: '✕', title: 'Remove', 'aria-label': 'Remove button', onclick: () => { p.buttons.splice(i, 1); touch(true); renderEditor(); } }))),
+          el('div', { class: 'row2' },
+            labelled('Label', textInput(b, 'label', { placeholder: 'Continue' })),
+            labelled('Goes to', targetInput(b, 'goto'))),
+          el('div', { class: 'row2' },
+            labelled('Only show if', condInput(b, 'if')),
+            labelled('When pressed, set', assignInput(b, 'set', 'nothing')))));
+      });
+      btnBlock.append(el('div', {}, el('button', { class: 'btn small go', type: 'button', text: '+ Add button', onclick: () => { p.buttons.push(E.newButton()); touch(true); renderEditor(); } })));
+      if (!p.buttons.length && !p.timer && !p.end) btnBlock.append(el('div', { class: 'hint', text: 'No buttons yet. Viewers will get a Continue button to the next page.' }));
+      ed.append(btnBlock);
+
+      // Timer
+      const timerBlock = el('div', { class: 'block panel' },
+        el('h3', {}, 'Timer', el('small', { text: 'Move on automatically after a while.' })),
+        el('label', { class: 'check' },
+          el('input', { type: 'checkbox', checked: !!p.timer, onchange: (e) => { p.timer = e.target.checked ? E.newTimer() : null; touch(true); renderEditor(); } }),
+          'Advance automatically'));
+      if (p.timer) {
+        const t = p.timer;
+        const secErr = el('div', { class: 'field-err' });
+        const checkSec = () => { secErr.textContent = E.parseTimerSpec(t.seconds).error || ''; };
+        const sec = el('input', { class: 'input mono', value: t.seconds, placeholder: '10', oninput: (e) => { t.seconds = e.target.value.trim(); checkSec(); touch(); } });
+        checkSec();
+        timerBlock.append(
+          el('div', { class: 'row3' },
+            el('div', { class: 'field' }, el('label', { text: 'Seconds' }), sec, secErr,
+              el('div', { class: 'hint', text: '30 · 10-20 (random) · 2m · media' })),
+            labelled('Goes to', targetInput(t, 'goto')),
+            el('div', { class: 'field' }, el('label', { text: 'Countdown' }),
+              el('label', { class: 'check' },
+                el('input', { type: 'checkbox', checked: t.hidden, onchange: (e) => { t.hidden = e.target.checked; touch(); } }),
+                'Hide it'))),
+          labelled('When it fires, set', assignInput(t, 'set', 'nothing')));
+      }
+      ed.append(timerBlock);
+
+      // On enter: variables + jumps
+      const logic = el('div', { class: 'block panel' },
+        el('h3', {}, 'When this page opens', el('small', { text: 'Optional: change variables, or jump elsewhere if a condition is true.' })),
+        labelled('Set', assignInput(p, 'set', 'score += 1')));
+      p.branches.forEach((b, i) => {
+        logic.append(el('div', { class: 'jump' },
+          condInput(b, 'if', 'always'),
+          el('span', { class: 'arrow', text: '→' }),
+          targetInput(b, 'goto', 'page name'),
+          el('button', { class: 'btn small ghost danger', type: 'button', text: '✕', 'aria-label': 'Remove jump', onclick: () => { p.branches.splice(i, 1); touch(true); renderEditor(); } })));
+      });
+      logic.append(el('div', {}, el('button', { class: 'btn small', type: 'button', text: '+ Add jump', onclick: () => { p.branches.push({ if: '', goto: [] }); touch(true); renderEditor(); } })));
+      if (p.branches.length) logic.append(el('div', { class: 'hint', text: 'Jumps are checked top to bottom; the first true one happens before the page is shown. Leave the condition blank to always jump.' }));
+      ed.append(logic);
+
+      // End
+      ed.append(el('div', { class: 'block panel' },
+        el('label', { class: 'check' },
+          el('input', { type: 'checkbox', checked: p.end, onchange: (e) => { p.end = e.target.checked; touch(true); renderEditor(); } }),
+          'End page: this page finishes the presentation')));
+    }
+
+    function swap(list, i, j) {
+      [list[i], list[j]] = [list[j], list[i]];
+      touch(true);
+      renderEditor();
+    }
+
+    // ── Variables ──
+    function renderVars() {
+      $('vars').value = varsRaw !== null ? varsRaw : Object.entries(S.doc.vars)
+        .map(([k, v]) => k + ' = ' + (typeof v === 'string' ? JSON.stringify(v) : v)).join('\n');
+      $('vars-err').textContent = '';
+    }
+    $('vars').addEventListener('input', () => {
+      varsRaw = $('vars').value;
+      const vars = {};
+      const errs = [];
+      varsRaw.split('\n').forEach((line, i) => {
+        if (!line.trim()) return;
+        const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/.exec(line);
+        if (!m) { errs.push('Line ' + (i + 1) + ': use name = value'); return; }
+        try { vars[m[1]] = E.evaluate(m[2]); } catch (e) { errs.push('Line ' + (i + 1) + ': ' + e.message); }
+      });
+      S.doc.vars = vars;
+      $('vars-err').textContent = errs.join(' · ');
+      touch();
+    });
+
+    // ── Media library ──
+    function renderMedia() {
+      const list = $('media-list');
+      list.replaceChildren();
+      if (!S.media.length) { list.append(el('li', { class: 'hint', text: 'No files yet.' })); return; }
+      for (const m of S.media) {
+        const thumb = el('div', { class: 'thumb', text: m.kind === 'video' ? '▶' : m.kind === 'audio' ? '♪' : '' });
+        if (m.kind === 'image') thumb.style.backgroundImage = 'url("' + mediaUrl(m.filename) + '")';
+        list.append(el('li', { class: 'media-item' },
+          thumb,
+          el('div', {}, el('div', { class: 'mname', text: m.filename }), el('div', { class: 'msize', text: m.kind + ' · ' + fmtSize(m.size) })),
+          el('div', { class: 'mbtns' },
+            el('button', { class: 'btn small', type: 'button', text: 'Use', title: 'Put on the current page', onclick: () => useMedia(m) }),
+            el('button', { class: 'btn small danger', type: 'button', text: '✕', title: 'Delete file', 'aria-label': 'Delete ' + m.filename, onclick: () => deleteMedia(m) }))));
+      }
+    }
+
+    function useMedia(m) {
+      if (m.kind === 'audio') page().audio = m.filename; else page().media = m.filename;
+      touch(true);
+      renderEditor();
+    }
+
+    async function deleteMedia(m) {
+      const used = S.doc.pages.filter((p) => p.media === m.filename || p.audio === m.filename).map((p) => p.id);
+      const msg = 'Delete ' + m.filename + '?' + (used.length ? '\nIt is used on: ' + used.join(', ') : '');
+      if (!confirm(msg)) return;
+      try {
+        const res = await fetch(base + '/media/' + data.id + '/delete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: m.filename }),
+        });
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || 'Delete failed');
+        S.media = j.media;
+        renderMedia(); renderEditor(); renderIssues();
+      } catch (e) {
+        $('upload-err').textContent = e.message;
+      }
+    }
+
+    function upload(files) {
+      files = [...files];
+      if (!files.length) return;
+      const form = new FormData();
+      files.forEach((f) => form.append('file', f, f.name));
+      const bar = $('progress');
+      bar.hidden = false;
+      bar.firstElementChild.style.width = '0';
+      $('upload-err').textContent = '';
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', base + '/media/' + data.id);
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.firstElementChild.style.width = (100 * e.loaded / e.total) + '%'; };
+      xhr.onload = () => {
+        bar.hidden = true;
+        let j = null;
+        try { j = JSON.parse(xhr.responseText); } catch (e) { /* not JSON */ }
+        if (!j) {
+          $('upload-err').textContent = xhr.status === 413 ? 'That file is larger than the server allows.' : 'Upload failed (' + xhr.status + ').';
+          return;
+        }
+        if (j.errors && j.errors.length) $('upload-err').textContent = j.errors.join(' · ');
+        if (j.media) S.media = j.media;
+        // One file dropped while editing a page: put it straight on that page if the slot is free.
+        if (j.uploaded && j.uploaded.length === 1) {
+          const name = j.uploaded[0];
+          const kind = E.mediaKind(name);
+          const p = page();
+          if (kind === 'audio' && !p.audio) { p.audio = name; touch(true); }
+          else if (kind !== 'audio' && !p.media) { p.media = name; touch(true); }
+        }
+        renderMedia(); renderEditor(); renderIssues();
+      };
+      xhr.onerror = () => { bar.hidden = true; $('upload-err').textContent = 'Upload failed. Check your connection.'; };
+      xhr.send(form);
+    }
+
+    const drop = $('drop');
+    $('file-input').accept = [...E.EXTENSIONS.image, ...E.EXTENSIONS.video, ...E.EXTENSIONS.audio].map((x) => '.' + x).join(',');
+    $('file-input').addEventListener('change', (e) => { upload(e.target.files); e.target.value = ''; });
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files); });
+
+    // ── Issues ──
+    let issuesOpen = false;
+    function renderIssues() {
+      const { errors, warnings } = E.validate(S.doc, S.media.map((m) => m.filename));
+      const bar = $('issues-bar');
+      bar.replaceChildren();
+      if (!errors.length && !warnings.length) {
+        bar.append(el('span', { class: 'ok', text: '✓ No problems found' }));
+        $('issues-list').hidden = true;
+        bar.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      if (errors.length) bar.append(el('span', { class: 'bad', text: errors.length + (errors.length === 1 ? ' problem' : ' problems') }));
+      if (warnings.length) bar.append(el('span', { class: 'warn', text: warnings.length + (warnings.length === 1 ? ' warning' : ' warnings') }));
+      bar.append(el('span', { class: 'hint', text: issuesOpen ? '▾ hide' : '▸ show' }));
+      const list = $('issues-list');
+      list.replaceChildren(
+        ...errors.map((m) => issueItem(m, 'e')),
+        ...warnings.map((m) => issueItem(m, 'w')));
+      list.hidden = !issuesOpen;
+      bar.setAttribute('aria-expanded', String(issuesOpen));
+    }
+    function issueItem(msg, cls) {
+      return el('li', { class: cls, text: msg, onclick: () => {
+        const m = /^Page "([^"]*)"/.exec(msg);
+        const i = m ? S.doc.pages.findIndex((p) => p.id === m[1]) : -1;
+        if (i >= 0) { setMode('visual'); select(i); }
+      } });
+    }
+    $('issues-bar').addEventListener('click', () => { issuesOpen = !issuesOpen; renderIssues(); });
+
+    // ── Script mode ──
+    function loadScript() {
+      $('script-input').value = E.toScript(S.doc);
+      S.scriptDirty = false;
+      showScriptErrors([]);
+      $('script-msg').textContent = 'Edit the whole presentation as text. Apply to update the visual builder.';
+    }
+    function showScriptErrors(errors) {
+      const list = $('script-errors');
+      list.replaceChildren(...errors.map((e) => el('li', {
+        text: 'Line ' + e.line + ': ' + e.message,
+        onclick: () => goToLine(e.line),
+      })));
+      $('script-ok').hidden = errors.length > 0;
+    }
+    function goToLine(n) {
+      const ta = $('script-input');
+      const lines = ta.value.split('\n');
+      const start = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
+      ta.focus();
+      ta.setSelectionRange(start, start + (lines[n - 1] || '').length);
+      const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+      ta.scrollTop = Math.max(0, (n - 5) * lineHeight);
+    }
+    function applyScript() {
+      const { doc, errors } = E.parseScript($('script-input').value);
+      showScriptErrors(errors);
+      if (errors.length) {
+        $('script-msg').textContent = 'Fix the problems listed on the right, then apply again.';
+        return false;
+      }
+      const currentId = page() && page().id;
+      S.doc = E.normalize(doc);
+      S.sel = Math.max(0, S.doc.pages.findIndex((p) => p.id === currentId));
+      rawText = new WeakMap();
+      varsRaw = null;
+      S.scriptDirty = false;
+      touch(true);
+      renderVars(); renderEditor();
+      const { errors: problems } = E.validate(S.doc, S.media.map((m) => m.filename));
+      $('script-msg').textContent = 'Applied: ' + S.doc.pages.length + ' pages.' +
+        (problems.length ? ' See the problems bar below for things to fix.' : '');
+      return true;
+    }
+    $('apply-script').addEventListener('click', applyScript);
+    $('script-input').addEventListener('input', () => { S.scriptDirty = true; updateStatus(); });
+    $('script-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        const ta = e.target;
+        ta.setRangeText('  ', ta.selectionStart, ta.selectionEnd, 'end');
+        S.scriptDirty = true;
+      }
+    });
+
+    // ── Modes ──
+    function setMode(mode) {
+      if (mode === S.mode) return;
+      if (S.mode === 'script' && S.scriptDirty) {
+        if (confirm('Apply your script changes first?\n\nOK applies them. Cancel throws them away.')) {
+          if (!applyScript()) return;
+        } else {
+          S.scriptDirty = false;
+          updateStatus();
+        }
+      }
+      S.mode = mode;
+      if (mode === 'script') loadScript();
+      if (mode === 'visual') { renderPages(); renderEditor(); }
+      for (const m of ['visual', 'script', 'guide']) $('view-' + m).hidden = m !== mode;
+      document.querySelectorAll('.mode-tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.mode === mode)));
+    }
+    document.querySelectorAll('.mode-tab').forEach((t) => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+    // ── Save & preview ──
+    async function save() {
+      if (S.mode === 'script' && S.scriptDirty && !applyScript()) {
+        updateStatus('Fix script first', 'err');
+        return false;
+      }
+      const rev = S.rev;
+      $('save').disabled = true;
+      updateStatus('Saving…');
+      try {
+        const res = await fetch(base + '/api/' + data.id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: S.title, description: S.description, visibility: S.visibility, document: S.doc }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.ok) throw new Error(j.error || 'Save failed (' + res.status + ')');
+        S.savedRev = rev;
+        updateStatus(dirty() ? 'Unsaved' : 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), dirty() ? 'dirty' : '');
+        return true;
+      } catch (e) {
+        updateStatus(e.message, 'err');
+        return false;
+      } finally {
+        $('save').disabled = false;
+      }
+    }
+    async function preview(fromPage) {
+      // Open the window during the click so popup blockers allow it, then point it at the player once saved.
+      const win = window.open('about:blank', 'present-preview');
+      if (dirty() && !(await save())) { if (win) win.close(); return; }
+      let url = base + '/play/' + data.id + '?debug=1';
+      if (fromPage && page()) url += '&page=' + encodeURIComponent(page().id);
+      if (win) win.location = url; else location.href = url;
+    }
+    $('save').addEventListener('click', save);
+    $('preview-page').addEventListener('click', () => preview(true));
+    $('preview-start').addEventListener('click', () => preview(false));
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+    });
+
+    // ── Boot ──
+    renderPages();
+    renderEditor();
+    renderVars();
+    renderMedia();
+    renderIssues();
+    updateStatus();
+  })();
+  {% endraw %}
+  </script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Presentation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/present.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    body { background: #000; }
+
+    .stage { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    .media { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
+    .media img, .media video { max-width: 100%; max-height: 100%; object-fit: contain; animation: fadeIn 0.35s ease both; }
+    .media video { cursor: pointer; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .panel-bottom {
+      position: relative;
+      padding: 1rem clamp(1rem, 4vw, 2.5rem) calc(1.1rem + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(8,10,22,0.92), rgba(4,5,12,0.98));
+      border-top: 1px solid var(--line);
+    }
+    .stage.text-only .media { display: none; }
+    .stage.text-only .panel-bottom { flex: 1; display: flex; flex-direction: column; justify-content: center; border-top: none; background: var(--bg); }
+    .stage.text-only .text { font-size: clamp(1.25rem, 2.6vw, 1.75rem); text-align: center; margin-inline: auto; }
+    .stage.text-only .choices { justify-content: center; }
+
+    .text { max-width: 70ch; color: var(--text-strong); font-size: clamp(1.05rem, 1.9vw, 1.3rem); line-height: 1.5; }
+    .text p + p { margin-top: 0.6em; }
+    .text strong { color: var(--cyan); font-weight: 600; }
+    .text:empty { display: none; }
+
+    .choices { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.9rem; }
+    .choices:empty { display: none; }
+    .choice { font-size: 0.8rem; padding: 0.7rem 1.2rem; }
+    .choice kbd { font-family: var(--font-mono); color: var(--muted); font-size: 0.7rem; }
+
+    .timer { position: absolute; left: 0; right: 0; top: -1px; height: 3px; background: rgba(0,229,255,0.08); }
+    .timer .fill { height: 100%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); transform-origin: left; }
+    .timer-label { position: absolute; right: clamp(1rem, 4vw, 2.5rem); top: -1.7rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--cyan); text-shadow: 0 0 6px rgba(0,229,255,0.6); }
+
+    .hud { position: fixed; top: calc(0.6rem + env(safe-area-inset-top)); right: 0.6rem; z-index: 20; display: flex; gap: 0.35rem; opacity: 0.55; transition: opacity 0.2s; }
+    .hud:hover, .hud:focus-within { opacity: 1; }
+    .hud .btn { background: rgba(12,15,30,0.75); }
+
+    .debug { position: fixed; top: 0.6rem; left: 0.6rem; z-index: 20; max-width: min(320px, 60vw); max-height: 50vh; overflow: auto; padding: 0.6rem 0.75rem; font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; background: rgba(12,15,30,0.85); border: 1px solid var(--line); color: var(--text); white-space: pre-wrap; }
+
+    .overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(ellipse at center, rgba(12,15,30,0.96), rgba(2,3,10,0.99)); }
+    .overlay .box { max-width: 560px; width: 100%; text-align: center; padding: 2.4rem 2rem; }
+    .overlay h1 { font-family: var(--font-display); color: var(--text-strong); font-size: clamp(1.3rem, 4vw, 2rem); letter-spacing: 0.05em; margin: 0.5rem 0 0.6rem; overflow-wrap: anywhere; }
+    .overlay .by { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+    .overlay .desc { margin-top: 1rem; white-space: pre-wrap; }
+    .overlay .row { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-top: 1.8rem; }
+    .overlay .big { padding: 0.85rem 2rem; font-size: 0.85rem; }
+    .overlay .problems { text-align: left; margin-top: 1.2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--amber); max-height: 30vh; overflow: auto; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage" hidden>
+    <div class="media" id="media"></div>
+    <div class="panel-bottom">
+      <div class="timer" id="timer" hidden><div class="fill" id="timer-fill"></div><span class="timer-label" id="timer-label"></span></div>
+      <div class="text" id="text" aria-live="polite"></div>
+      <div class="choices" id="choices"></div>
+    </div>
+  </div>
+
+  <div class="hud" id="hud" hidden>
+    <button class="btn small" id="mute" type="button" aria-pressed="false">Sound on</button>
+    <button class="btn small" id="restart" type="button">Restart</button>
+    <a class="btn small" id="exit" href="{{ base | escape }}">Exit</a>
+  </div>
+  <div class="debug" id="debug" hidden></div>
+
+  <div class="overlay" id="intro">
+    <div class="box panel corners">
+      <div class="eyebrow">// interactive presentation</div>
+      <h1 id="intro-title"></h1>
+      <div class="by" id="intro-by"></div>
+      <p class="desc" id="intro-desc"></p>
+      <div class="problems" id="intro-problems" hidden></div>
+      <div class="row">
+        <button class="btn go big" id="begin" type="button" autofocus>Begin</button>
+        <a class="btn big" href="{{ base | escape }}">Library</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="finished" hidden>
+    <div class="box panel corners">
+      <div class="eyebrow">// complete</div>
+      <h1>The end</h1>
+      <div class="row">
+        <button class="btn go big" id="again" type="button">Play again</button>
+        <a class="btn big" href="{{ base | escape }}">Library</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="failure" hidden>
+    <div class="box panel corners">
+      <div class="eyebrow">// something went wrong</div>
+      <h1>Playback stopped</h1>
+      <p class="desc" id="failure-msg"></p>
+      <div class="row">
+        <button class="btn big" id="fail-again" type="button">Start over</button>
+        <a class="btn big" href="{{ base | escape }}">Library</a>
+      </div>
+    </div>
+  </div>
+
+  <script id="data" type="application/json">{{ data_json }}</script>
+  <script src="/static/present-engine.js"></script>
+  <script>
+  {% raw %}
+  (function () {
+    const E = window.PresentEngine;
+    const data = JSON.parse(document.getElementById('data').textContent);
+    const params = new URLSearchParams(location.search);
+    const startAt = params.get('page');
+    const debug = params.get('debug') === '1';
+    const $ = (id) => document.getElementById(id);
+
+    const rt = new E.Runtime(data.document);
+    const mediaUrl = (file) => data.base + '/media/' + data.id + '/' + encodeURIComponent(file);
+
+    document.title = data.title + ' // Presentation';
+    $('intro-title').textContent = data.title;
+    $('intro-by').textContent = data.author ? 'by ' + data.author : '';
+    $('intro-desc').textContent = data.description || '';
+    if (data.is_owner) {
+      const problems = E.validate(rt.doc, data.media.map((m) => m.filename)).errors;
+      if (problems.length) {
+        $('intro-problems').hidden = false;
+        $('intro-problems').textContent = 'Only you can see this. Problems found:\n• ' + problems.join('\n• ');
+        $('intro-problems').style.whiteSpace = 'pre-wrap';
+      }
+      const edit = document.createElement('a');
+      edit.className = 'btn small';
+      edit.href = data.base + '/edit/' + data.id;
+      edit.textContent = 'Edit';
+      $('hud').insertBefore(edit, $('exit'));
+    }
+
+    // ── Audio: one track that keeps playing across pages until replaced ──
+    const audio = new Audio();
+    let muted = false;
+    let audioFile = '';
+
+    function setAudio(page) {
+      if (page.audio === 'stop') { audio.pause(); audioFile = ''; return; }
+      if (!page.audio) return;
+      audio.loop = page.audio_loop;
+      if (page.audio === audioFile && !audio.paused && !audio.ended) return;
+      audioFile = page.audio;
+      audio.src = mediaUrl(page.audio);
+      audio.muted = muted;
+      audio.play().catch(() => {});
+    }
+
+    $('mute').addEventListener('click', () => {
+      muted = !muted;
+      audio.muted = muted;
+      const v = $('media').querySelector('video');
+      if (v) v.muted = muted;
+      $('mute').textContent = muted ? 'Sound off' : 'Sound on';
+      $('mute').setAttribute('aria-pressed', String(muted));
+    });
+
+    // ── Rendering ──
+    let token = 0;          // bumps on every page change; stale callbacks check it
+    let timerHandle = null;
+    let rafHandle = null;
+    const preloaded = new Set();
+
+    function clearTimer() {
+      clearTimeout(timerHandle);
+      cancelAnimationFrame(rafHandle);
+      $('timer').hidden = true;
+    }
+
+    function run(fn) {
+      try {
+        const page = fn();
+        if (page) render(page); else finish();
+      } catch (e) {
+        fail(e.message);
+      }
+    }
+
+    function render(page) {
+      const my = ++token;
+      clearTimer();
+      const stage = $('stage');
+      const media = $('media');
+      media.replaceChildren();
+
+      const kind = page.media ? E.mediaKind(page.media) : null;
+      const timerSpec = rt.timerSeconds();
+      let video = null;
+      if (kind === 'image') {
+        const img = document.createElement('img');
+        img.src = mediaUrl(page.media);
+        img.alt = '';
+        media.append(img);
+      } else if (kind === 'video') {
+        video = document.createElement('video');
+        video.src = mediaUrl(page.media);
+        video.autoplay = true;
+        video.playsInline = true;
+        video.loop = !page.media_once && timerSpec !== 'media';
+        video.muted = muted;
+        video.addEventListener('click', () => (video.paused ? video.play() : video.pause()));
+        media.append(video);
+        video.play().catch(() => {});
+      }
+      stage.classList.toggle('text-only', !kind);
+
+      setAudio(page);
+      $('text').innerHTML = rt.text();
+
+      const choices = $('choices');
+      choices.replaceChildren();
+      const buttons = page.end ? [] : rt.buttons();
+      buttons.forEach((b, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn choice primary';
+        btn.append(document.createTextNode(interpolateLabel(b.label)));
+        if (i < 9) {
+          const k = document.createElement('kbd');
+          k.textContent = ' ' + (i + 1);
+          btn.append(k);
+        }
+        btn.addEventListener('click', () => run(() => rt.press(b)));
+        choices.append(btn);
+      });
+
+      if (page.end) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn choice go';
+        btn.textContent = 'Finish';
+        btn.addEventListener('click', finish);
+        choices.append(btn);
+      } else if (timerSpec === 'media') {
+        const target = video || (page.audio && page.audio !== 'stop' ? audio : null);
+        if (target) target.addEventListener('ended', () => { if (token === my) run(() => rt.timerFire()); }, { once: true });
+        else timerHandle = setTimeout(() => { if (token === my) run(() => rt.timerFire()); }, 0);
+      } else if (timerSpec !== null) {
+        startTimer(timerSpec, page.timer.hidden, my);
+      } else if (!buttons.length) {
+        // No buttons, no timer: a plain slide — offer a way forward.
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn choice primary';
+        btn.textContent = 'Continue';
+        btn.addEventListener('click', () => run(() => rt.press({ goto: [], set: [] })));
+        choices.append(btn);
+      }
+
+      preloadFrom(page);
+      updateDebug();
+      const first = choices.querySelector('button');
+      if (first && !('ontouchstart' in window)) first.focus({ preventScroll: true });
+    }
+
+    function interpolateLabel(label) {
+      const div = document.createElement('div');
+      div.innerHTML = E.renderText(label, rt.ctx);
+      return div.textContent;
+    }
+
+    function startTimer(seconds, hidden, my) {
+      const ms = Math.max(0, seconds * 1000);
+      const began = performance.now();
+      timerHandle = setTimeout(() => { if (token === my) run(() => rt.timerFire()); }, ms);
+      if (hidden || ms === 0) return;
+      $('timer').hidden = false;
+      const tick = (now) => {
+        if (token !== my) return;
+        const left = Math.max(0, ms - (now - began));
+        $('timer-fill').style.transform = 'scaleX(' + (left / ms) + ')';
+        $('timer-label').textContent = Math.ceil(left / 1000) + 's';
+        if (left > 0) rafHandle = requestAnimationFrame(tick);
+      };
+      rafHandle = requestAnimationFrame(tick);
+    }
+
+    function preloadFrom(page) {
+      const ids = new Set();
+      const add = (list) => (list || []).forEach((t) => { if (!t.includes('*')) ids.add(t === 'next' ? rt.nextId(page.id) : t); });
+      if (!page.buttons.length && !page.timer) ids.add(rt.nextId(page.id));
+      page.buttons.forEach((b) => add(b.goto.length ? b.goto : ['next']));
+      if (page.timer) add(page.timer.goto.length ? page.timer.goto : ['next']);
+      for (const id of ids) {
+        const p = rt.byId.get(id);
+        if (p && p.media && E.mediaKind(p.media) === 'image' && !preloaded.has(p.media)) {
+          preloaded.add(p.media);
+          new Image().src = mediaUrl(p.media);
+        }
+      }
+    }
+
+    function updateDebug() {
+      if (!debug) return;
+      const d = $('debug');
+      d.hidden = false;
+      d.textContent = 'page: ' + (rt.current ? rt.current.id : '—') + '\n' +
+        Object.entries(rt.vars).map(([k, v]) => k + ' = ' + JSON.stringify(v)).join('\n');
+    }
+
+    function show(which) {
+      for (const id of ['intro', 'finished', 'failure']) $(id).hidden = id !== which;
+      $('stage').hidden = which !== null;
+      $('hud').hidden = which !== null;
+    }
+
+    function begin() {
+      show(null);
+      run(() => rt.start(startAt));
+    }
+
+    function finish() {
+      token++;
+      clearTimer();
+      const v = $('media').querySelector('video');
+      if (v) v.pause();
+      audio.pause();
+      audioFile = '';
+      show('finished');
+      $('again').focus();
+    }
+
+    function fail(message) {
+      token++;
+      clearTimer();
+      audio.pause();
+      $('failure-msg').textContent = message;
+      show('failure');
+    }
+
+    $('begin').addEventListener('click', begin);
+    $('again').addEventListener('click', begin);
+    $('fail-again').addEventListener('click', begin);
+    $('restart').addEventListener('click', () => { audio.pause(); audioFile = ''; begin(); });
+
+    document.addEventListener('keydown', (e) => {
+      if ($('stage').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const buttons = [...$('choices').querySelectorAll('button')];
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= 9 && buttons[n - 1]) { e.preventDefault(); buttons[n - 1].click(); }
+    });
+  })();
+  {% endraw %}
+  </script>
+</body>
+</html>

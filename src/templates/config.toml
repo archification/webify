@@ -40,6 +40,10 @@ google_redirect_url = "http://localhost:12345/forum/auth/google/callback"
 # Public IP for WebRTC NAT traversal (set this to your server's public IP for streaming)
 #public_ip = "203.0.113.1"
 
+# Hostnames this server answers for. Any other domain pointed at this IP gets a
+# 421 instead of a copy of the site. Leave empty (or unset) to accept any host.
+#allowed_hosts = ["example.com", "www.example.com"]
+
 # Auth guard: Google OAuth gate for specific paths. Restricts access by email
 # address or email domain. Users are redirected to Google login automatically.
 # guard_redirect_url: where Google redirects after OAuth (must match Google Console)
@@ -95,6 +99,8 @@ max_doers = 5
 
 [routes]
 "/" = ["static/home.html"]
+# Interactive presentations (invite-only; create accounts in the admin dashboard)
+#"/present" = ["unused", "presentation"]
 "/stuff" = ["static/stuff.html", "static/media", "random"]
 "/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]

@@ -115,6 +115,10 @@ pub struct Config {
     pub google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
     pub public_ip: Option<String>,
+    /// Hostnames this server answers for (lowercase, no port). Requests whose
+    /// Host doesn't match get a 421 so stray domains pointed at our IP don't
+    /// mirror the site. Empty means accept any host.
+    pub allowed_hosts: Vec<String>,
     pub auth_guards: Vec<AuthGuard>,
     pub guard_redirect_url: Option<String>,
     pub guard_login_page: Option<String>,
@@ -185,6 +189,8 @@ struct RawConfig {
     google_redirect_url: Option<String>,
     pub permanent_rooms: Option<Vec<PermanentRoom>>,
     pub public_ip: Option<String>,
+    #[serde(default)]
+    pub allowed_hosts: Vec<String>,
     pub guard_redirect_url: Option<String>,
     #[serde(default)]
     pub guard_login_page: Option<String>,
@@ -225,6 +231,8 @@ struct RawSecrets {
     stripe_secret_key: Option<String>,
     #[serde(default)]
     stripe_webhook_secret: Option<String>,
+    #[serde(default)]
+    google_client_secret: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -260,6 +268,9 @@ pub fn read_config() -> Option<Config> {
                 }
                 if secrets.stripe_webhook_secret.is_some() {
                     raw.stripe_webhook_secret = secrets.stripe_webhook_secret;
+                }
+                if secrets.google_client_secret.is_some() {
+                    raw.google_client_secret = secrets.google_client_secret;
                 }
             }
             Err(e) => {
@@ -332,6 +343,7 @@ pub fn read_config() -> Option<Config> {
         google_redirect_url: raw.google_redirect_url,
         permanent_rooms: raw.permanent_rooms,
         public_ip: raw.public_ip,
+        allowed_hosts: raw.allowed_hosts.iter().map(|h| h.trim().to_lowercase()).collect(),
         auth_guards: raw.auth_guard,
         guard_redirect_url: raw.guard_redirect_url,
         guard_login_page: raw.guard_login_page,

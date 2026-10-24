@@ -21,6 +21,8 @@ A configurable, single-binary web server designed to host an entire online commu
 * **Static File Serving:** Serve any directory as static files using the `"static"` route mode (useful for wikis, documentation, etc.).
 * **Live Log Viewer:** Watch a file in real-time via HTMX polling with the `"live"` route mode.
 * **PDF Viewer:** Built-in PDF rendering and document gallery support.
+* **Interactive Presentations:** Branching, media-rich presentations (image/video + audio per page, buttons, timers, variables and conditions) built in a browser-based visual builder or a plain-text script format. Invite-only accounts are managed from the admin dashboard; media is served only to signed-in accounts.
+* **Private Media:** A members-only page of audio, video and images served from a directory outside `static/`. Username/password accounts are created by dashboard owners (no registration, no email); every page and file request is checked against the signed-in account, and the server refuses to mount a media directory that any public route could reach.
 
 ### Forum
 * **Full Forum System:** Category-based threaded forum with registration, email verification, and role-based permissions (Member, Admin, Owner).
@@ -77,6 +79,8 @@ Routes are configured in `config.toml` under `[routes]`. Each route maps a URL p
 | `["/dir", "static"]` | Static | Serve a directory as static files |
 | `["/template.html", "/file/to/watch", "live"]` | Live | Live log/file viewer with HTMX polling |
 | `["/doc/root", "fpm_addr", "php"]` | PHP | Proxy to PHP-FPM via FastCGI |
+| `["unused", "presentation"]` | Presentations | Mount the interactive presentation builder/player at this path |
+| `["static/private.html", "private", "private"]` | Private Media | Members-only media page; files live in `private/{image,video,audio}` and are served at `<path>/files/...` |
 
 ### Built-in Routes
 

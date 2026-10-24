@@ -391,7 +391,9 @@
   <nav class="tab-nav neu-inset" aria-label="Dashboard sections">
     <button class="tab-btn active" data-tab="rules" onclick="switchTab('rules', this)">Access Rules</button>
     <button class="tab-btn" data-tab="file-gates" onclick="switchTab('file-gates', this)">File Gates</button>
+    <button class="tab-btn" data-tab="presentations" onclick="switchTab('presentations', this)">Presentations</button>
     {% if is_owner %}
+    <button class="tab-btn" data-tab="private" onclick="switchTab('private', this)">Private Media</button>
     <button class="tab-btn" data-tab="editors" onclick="switchTab('editors', this)">Dashboard Editors</button>
     {% endif %}
   </nav>
@@ -600,6 +602,254 @@
   </div><!-- /panel-file-gates -->
 
   <!-- ═══════════════════════════════════════════════════════════
+       Panel: Interactive Presentations (invite-only accounts)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="panel-presentations" class="tab-panel">
+
+    <div class="card neu-raised">
+      <p class="card-title">Interactive Presentations</p>
+      {% if present_path %}
+      <div class="form-note" style="margin-bottom:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Accounts sign in at <a href="{{ present_path }}/login" style="color:var(--neu-teal);font-family:'JetBrains Mono',monospace">{{ present_path }}/login</a>. There is no self-registration: accounts only exist if they are created here.</span>
+      </div>
+      {% else %}
+      <div class="form-note" style="margin-bottom:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Not mounted yet. Add <code style="font-family:'JetBrains Mono',monospace;color:var(--neu-teal)">"/present" = ["unused", "presentation"]</code> under <code style="font-family:'JetBrains Mono',monospace;color:var(--neu-teal)">[routes]</code> in config.toml and restart. Accounts created here will work once it is.</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if is_owner %}
+    <div class="card neu-raised">
+      <p class="card-title">Create Account</p>
+      <form action="{{ dashboard_path }}/present-accounts/create" method="post">
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="pa-user">Username <span style="color:var(--red-err)">*</span></label>
+            <input id="pa-user" class="field-input" type="text" name="username" placeholder="alex" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_.\-]+" autocomplete="off">
+          </div>
+          <div class="field-group">
+            <label for="pa-name">Display Name</label>
+            <input id="pa-name" class="field-input" type="text" name="display_name" placeholder="Alex — defaults to username" maxlength="64">
+          </div>
+          <div class="field-group" style="grid-column:1/-1">
+            <label for="pa-pass">Initial Password <span style="color:var(--red-err)">*</span></label>
+            <div class="form-row">
+              <input id="pa-pass" class="field-input" type="text" name="password" placeholder="at least 8 characters" required minlength="8" autocomplete="new-password">
+              <button type="button" class="neu-btn neu-raised-sm btn-primary" style="background:none;color:var(--text-secondary);box-shadow:none" onclick="document.getElementById('pa-pass').value = genPassword()">Generate</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Send the username and password to the person yourself. They can change the password after signing in.
+        </div>
+        <button type="submit" class="neu-btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Create Account
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="card neu-raised">
+      <p class="card-title">Accounts ({{ present_accounts | length }})</p>
+      {% if present_accounts | length == 0 %}
+      <div class="empty-state">
+        <div class="empty-icon">🎞</div>
+        No presentation accounts yet.{% if is_owner %}<br>Create one above to give someone access.{% endif %}
+      </div>
+      {% else %}
+      <div class="table-wrap neu-inset">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Presentations</th>
+              <th>Media</th>
+              <th>Last Sign-in</th>
+              <th>Created</th>
+              {% if is_owner %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in present_accounts %}
+            <tr>
+              <td class="td-mono">{{ a.username | escape }}</td>
+              <td>{{ a.display_name | escape }}</td>
+              <td>
+                {% if a.status == "active" %}
+                <span class="domain-chip">active</span>
+                {% else %}
+                <span class="allowed-chip" style="background:rgba(239,68,68,0.1);color:var(--red-err);border-color:rgba(239,68,68,0.25)">suspended</span>
+                {% endif %}
+              </td>
+              <td class="td-mono">{{ a.presentation_count }}{% if a.shared_count > 0 %} <span class="td-muted">({{ a.shared_count }} shared)</span>{% endif %}</td>
+              <td class="td-muted">{{ a.media_bytes | filesizeformat }}</td>
+              <td class="td-muted">{% if a.last_login_at %}{{ a.last_login_at | truncate(length=16, end="") | replace(from="T", to=" ") }}{% else %}never{% endif %}</td>
+              <td class="td-muted" title="by {{ a.created_by | escape }}">{{ a.created_at | truncate(length=10, end="") }}</td>
+              {% if is_owner %}
+              <td style="white-space:nowrap">
+                <form class="inline-form" action="{{ dashboard_path }}/present-accounts/password" method="post"
+                      onsubmit="return askPassword(this, '{{ a.username | escape }}')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <input type="hidden" name="password" value="">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Reset password" aria-label="Reset password for {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </button>
+                </form>
+                {% if a.status == "active" %}
+                <form class="inline-form" action="{{ dashboard_path }}/present-accounts/suspend" method="post"
+                      onsubmit="return confirm('Suspend {{ a.username | escape }}? They are signed out immediately.')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Suspend" aria-label="Suspend {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  </button>
+                </form>
+                {% else %}
+                <form class="inline-form" action="{{ dashboard_path }}/present-accounts/unsuspend" method="post">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Reactivate" aria-label="Reactivate {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  </button>
+                </form>
+                {% endif %}
+                <form class="inline-form" action="{{ dashboard_path }}/present-accounts/delete" method="post"
+                      onsubmit="return confirm('Delete {{ a.username | escape }} and all {{ a.presentation_count }} of their presentations and media? This cannot be undone.')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Delete account" aria-label="Delete {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /panel-presentations -->
+
+  {% if is_owner %}
+  <!-- ═══════════════════════════════════════════════════════════
+       Panel: Private Media (owners only, invite-only accounts)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="panel-private" class="tab-panel">
+
+    <div class="card neu-raised">
+      <p class="card-title">Private Media</p>
+      <div class="form-note" style="margin-bottom:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        {% if private_path %}
+        <span>Accounts sign in at <a href="{{ private_path }}/login" style="color:var(--neu-teal);font-family:'JetBrains Mono',monospace">{{ private_path }}/login</a>. Only these accounts can open the page or any file under it. There is no self-registration and no email: accounts only exist if they are created here. Suspending, deleting or resetting a password signs the person out immediately.</span>
+        {% else %}
+        <span>Not mounted yet. Add <code style="font-family:'JetBrains Mono',monospace;color:var(--neu-teal)">"/private" = ["static/private.html", "private", "private"]</code> under <code style="font-family:'JetBrains Mono',monospace;color:var(--neu-teal)">[routes]</code> in config.toml and restart. Accounts created here will work once it is.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card neu-raised">
+      <p class="card-title">Create Account</p>
+      <form action="{{ dashboard_path }}/private-accounts/create" method="post">
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="pm-user">Username <span style="color:var(--red-err)">*</span></label>
+            <input id="pm-user" class="field-input" type="text" name="username" placeholder="alex" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_.\-]+" autocomplete="off">
+          </div>
+          <div class="field-group">
+            <label for="pm-pass">Initial Password <span style="color:var(--red-err)">*</span></label>
+            <div class="form-row">
+              <input id="pm-pass" class="field-input" type="text" name="password" placeholder="at least 8 characters" required minlength="8" autocomplete="new-password">
+              <button type="button" class="neu-btn neu-raised-sm btn-primary" style="background:none;color:var(--text-secondary);box-shadow:none" onclick="document.getElementById('pm-pass').value = genPassword()">Generate</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Send the username and password to the person yourself. They can change the password after signing in.
+        </div>
+        <button type="submit" class="neu-btn btn-primary">Create Account</button>
+      </form>
+    </div>
+
+    <div class="card neu-raised">
+      <p class="card-title">Accounts ({{ private_accounts | length }})</p>
+      {% if private_accounts | length == 0 %}
+      <div class="empty-state">
+        <div class="empty-icon">🔒</div>
+        No private media accounts yet.<br>Create one above to give someone access.
+      </div>
+      {% else %}
+      <div class="table-wrap neu-inset">
+        <table>
+          <thead>
+            <tr><th>Username</th><th>Status</th><th>Last Sign-in</th><th>Created</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for a in private_accounts %}
+            <tr>
+              <td class="td-mono">{{ a.username | escape }}</td>
+              <td>
+                {% if a.status == "active" %}
+                <span class="domain-chip">active</span>
+                {% else %}
+                <span class="allowed-chip" style="background:rgba(239,68,68,0.1);color:var(--red-err);border-color:rgba(239,68,68,0.25)">suspended</span>
+                {% endif %}
+              </td>
+              <td class="td-muted">{% if a.last_login_at %}{{ a.last_login_at | truncate(length=16, end="") | replace(from="T", to=" ") }}{% else %}never{% endif %}</td>
+              <td class="td-muted" title="by {{ a.created_by | escape }}">{{ a.created_at | truncate(length=10, end="") }}</td>
+              <td style="white-space:nowrap">
+                <form class="inline-form" action="{{ dashboard_path }}/private-accounts/password" method="post"
+                      onsubmit="return askPassword(this, '{{ a.username | escape }}')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <input type="hidden" name="password" value="">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Reset password" aria-label="Reset password for {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </button>
+                </form>
+                {% if a.status == "active" %}
+                <form class="inline-form" action="{{ dashboard_path }}/private-accounts/suspend" method="post"
+                      onsubmit="return confirm('Suspend {{ a.username | escape }}? They are signed out immediately.')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Suspend" aria-label="Suspend {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  </button>
+                </form>
+                {% else %}
+                <form class="inline-form" action="{{ dashboard_path }}/private-accounts/unsuspend" method="post">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Reactivate" aria-label="Reactivate {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  </button>
+                </form>
+                {% endif %}
+                <form class="inline-form" action="{{ dashboard_path }}/private-accounts/delete" method="post"
+                      onsubmit="return confirm('Delete {{ a.username | escape }}? This cannot be undone.')">
+                  <input type="hidden" name="id" value="{{ a.id }}">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Delete account" aria-label="Delete {{ a.username | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /panel-private -->
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════════════════════
        Panel: Dashboard Editors (owners only)
   ═══════════════════════════════════════════════════════════ -->
   {% if is_owner %}
@@ -702,6 +952,21 @@
       setTimeout(function() { el.remove(); }, 400);
     }, 4000);
   });
+
+  // Presentation accounts: generated initial password + reset prompt
+  function genPassword() {
+    var chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var buf = new Uint32Array(14);
+    crypto.getRandomValues(buf);
+    return Array.prototype.map.call(buf, function (n) { return chars[n % chars.length]; }).join('');
+  }
+  function askPassword(form, username) {
+    var pw = prompt('New password for ' + username + ' (at least 8 characters).\nThey will be signed out everywhere.', genPassword());
+    if (!pw) return false;
+    if (pw.length < 8) { alert('Password must be at least 8 characters.'); return false; }
+    form.elements.password.value = pw;
+    return true;
+  }
 
   // Logout confirmation
   function confirmLogout() {
