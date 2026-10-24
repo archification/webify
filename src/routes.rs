@@ -229,7 +229,6 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     );
                 }
                 [dir_path, mode] if mode == "static" => {
-                    println!("The correct mode is selected for wiki");
                     let serve_dir = ServeDir::new(dir_path);
                     let path_no_slash = path.trim_end_matches('/').to_string();
                     let path_slash = format!("{}/", path_no_slash);

@@ -110,7 +110,6 @@ max_doers = 5
 "/upload" = ["static/upload.html"]
 "/files" = ["static/uploads.html", "uploads"]
 "/slideshow" = ["slideshow", "static/slides"]
-"/blog" = ["static/blog.html", "static/posts"]
 "/forum" = ["static/forum.html", "forum"]
 "/wiki" = ["static/wiki", "static"]
 # PHP-FPM proxy route: [document_root, fpm_address, "php"]
