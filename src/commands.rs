@@ -1,4 +1,4 @@
-use crate::interaction::InteractionState;
+use crate::interaction::{oob_append, system_line, InteractionState};
 use tokio::sync::broadcast;
 use tokio::time::{sleep, Duration};
 use std::future::Future;
@@ -19,24 +19,14 @@ fn countdown(args: Vec<String>, tx: broadcast::Sender<String>) -> impl Future<Ou
                 "guacamole".to_string()
         };
         let seconds = seconds.clamp(1, 60);
-        let start_msg = format!(
-            r#"<div hx-swap-oob="beforeend:#chat-container"><div class="system-msg">Starting countdown from {}...</div></div>"#,
-            seconds
-        );
-        let _ = tx.send(start_msg);
+        // Only the final message is user text; system_line escapes it.
+        let finished: String = finished.chars().take(100).collect();
+        let _ = tx.send(oob_append(&system_line(&format!("Starting countdown from {}...", seconds))));
         for i in (1..=seconds).rev() {
             sleep(Duration::from_secs(1)).await;
-            let tick_msg = format!(
-                r#"<div hx-swap-oob="beforeend:#chat-container"><div class="system-msg">... {}</div></div>"#,
-                i
-            );
-            let _ = tx.send(tick_msg);
+            let _ = tx.send(oob_append(&system_line(&format!("... {}", i))));
         }
         sleep(Duration::from_secs(1)).await;
-        let go_msg = format!(
-            r#"<div hx-swap-oob="beforeend:#chat-container"><div class="system-msg" style="color: #dc322f; font-weight: bold;">{}</div></div>"#,
-            finished
-        );
-        let _ = tx.send(go_msg);
+        let _ = tx.send(oob_append(&system_line(&finished)).replace("chat-system", "chat-system chat-alert"));
     }
 }

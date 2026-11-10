@@ -25,6 +25,10 @@ mod npi;
 mod payments;
 mod presentation;
 mod private_media;
+mod roles;
+mod metrics;
+mod lab;
+mod board;
 
 use crate::config::read_config;
 use crate::generate::*;
@@ -54,9 +58,6 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 use webbrowser;
 use rustls::crypto::ring;
-use tokio::sync::broadcast;
-use chrono::Utc;
-use std::collections::HashMap;
 
 async fn bind_with_backlog(addr: &str) -> std::io::Result<tokio::net::TcpListener> {
     let addr: std::net::SocketAddr = addr
@@ -188,6 +189,10 @@ async fn main() {
         tera.autoescape_on(vec![]);
         let config_arc = Arc::new(config);
         let forum_db: ForumDb = init_db().await;
+        // Before access rules are cached: migrates old writer rules out of access_rules.
+        crate::roles::init_tables(&forum_db).await;
+        crate::blog::init_tables(&forum_db).await;
+        crate::lab::init_tables(&forum_db).await;
         let access_rules = Arc::new(tokio::sync::RwLock::new(
             crate::auth_guard::load_access_rules(&forum_db).await,
         ));
@@ -204,21 +209,14 @@ async fn main() {
             for room_config in permanent_rooms {
                 // Generate a simple ID from the name (slugify)
                 let room_id = room_config.name.trim().to_lowercase().replace(" ", "-");
-                let (tx, _rx) = broadcast::channel(100);
-                
-                let room = Room {
-                    id: room_id.clone(),
-                    label: room_config.name.clone(),
-                    tx,
-                    created_at: Utc::now(),
-                    users: HashMap::new(),
-                    max_controllers: room_config.max_controllers,
-                    max_doers: room_config.max_doers,
-                    current_color: "#808080".to_string(),
-                    password: room_config.password.clone(),
-                    uploaded_files: Vec::new(),
-                };
-                
+                let room = Room::new(
+                    room_id.clone(),
+                    room_config.name.clone(),
+                    room_config.max_controllers,
+                    room_config.max_doers,
+                    room_config.password.clone(),
+                    true,
+                );
                 rooms.insert(room_id, room);
             }
         }
@@ -236,6 +234,7 @@ async fn main() {
             stream,
             acme_challenges: crate::acme::new_store(),
         });
+        crate::interaction::spawn_cleanup(state.clone());
         let app = app(state.clone()).await;
         if state.config.ssl_enabled {
             // Two-listener model: plain HTTP on `port`, HTTPS on `ssl_port`. They

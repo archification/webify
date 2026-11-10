@@ -81,13 +81,11 @@ pub struct SetSubscriptionForm {
 }
 
 #[derive(Deserialize)]
-pub struct GrantWriterForm {
+pub struct SetRoleForm {
     pub email: String,
-}
-
-#[derive(Deserialize)]
-pub struct RevokeWriterForm {
-    pub email: String,
+    pub role: String,
+    /// "grant" or "revoke".
+    pub action: String,
 }
 
 #[derive(Deserialize)]
@@ -145,11 +143,10 @@ pub struct AccountRow {
     pub organization: Option<String>,
     pub sources: Vec<String>,
     pub forum_role: Option<String>,
-    pub is_writer: bool,
-    /// Whether `is_writer` came from a DB access_rules row targeting this
-    /// exact email (and can therefore be revoked from the dashboard), as
-    /// opposed to a config.toml auth_guard or an email_domain-wide rule.
-    pub writer_removable: bool,
+    /// Roles granted from the Users tab (see `roles::ROLES`).
+    pub roles: Vec<String>,
+    /// Dashboard owner from config.toml: implicitly holds every role.
+    pub is_owner: bool,
     pub is_internal: bool,
     pub sub_status: String,
     pub sub_tier: String,
@@ -228,8 +225,8 @@ fn get_or_insert<'a>(rows: &'a mut HashMap<String, AccountRow>, email_raw: &str)
         organization: None,
         sources: vec![],
         forum_role: None,
-        is_writer: false,
-        writer_removable: false,
+        roles: vec![],
+        is_owner: false,
         is_internal: false,
         sub_status: "none".to_string(),
         sub_tier: String::new(),
@@ -293,6 +290,10 @@ pub async fn build_account_rows(state: &Arc<AppState>) -> Vec<AccountRow> {
         }
     }
 
+    for (email, roles) in crate::roles::all_roles(&state.forum_db).await {
+        get_or_insert(&mut rows, &email).roles = roles;
+    }
+
     let today = Utc::now().date_naive();
     let subs: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
         "SELECT email, tier, status, expires_at FROM account_subscriptions",
@@ -317,18 +318,12 @@ pub async fn build_account_rows(state: &Arc<AppState>) -> Vec<AccountRow> {
         row.sub_expires_at = expires_at;
     }
 
-    let access_rules = state.access_rules.read().await.clone();
     for row in rows.values_mut() {
         if row.display_name.is_empty() {
             row.display_name = row.email.clone();
         }
-        row.is_writer = auth_guard::email_is_writer(&state.config.auth_guards, &access_rules, &row.email);
         row.is_internal = auth_guard::is_internal_email(&state.config.domain, &row.email);
-        let email_lc = row.email.to_ascii_lowercase();
-        row.writer_removable = access_rules.iter().any(|r| {
-            auth_guard::path_matches_write_route(&r.path)
-                && r.email.as_deref().map(|e| e.eq_ignore_ascii_case(&email_lc)).unwrap_or(false)
-        });
+        row.is_owner = crate::roles::is_owner(&state.config, &row.email);
     }
 
     let mut out: Vec<AccountRow> = rows.into_values().collect();
@@ -387,6 +382,7 @@ pub async fn dashboard_page(
     ctx.insert("config_file_guards", &state.config.file_guards);
     ctx.insert("db_file_guards", &db_file_guards);
     ctx.insert("accounts", &accounts);
+    ctx.insert("roles", &crate::roles::role_list());
     ctx.insert("present_accounts", &crate::presentation::admin_account_rows(&state.forum_db).await);
     ctx.insert("present_path", &crate::presentation::configured_path(&state.config));
     ctx.insert("private_accounts", &crate::private_media::admin_account_rows(&state.forum_db).await);
@@ -661,11 +657,13 @@ pub async fn set_subscription(
     Redirect::to(&format!("{}?flash=Subscription+updated&tab=accounts", dash_path)).into_response()
 }
 
-pub async fn grant_writer(
+/// Grant or revoke one role for one email. Owners only; owners themselves
+/// come from config.toml and implicitly hold every role, so they're skipped.
+pub async fn set_role(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
     headers: HeaderMap,
-    Form(form): Form<GrantWriterForm>,
+    Form(form): Form<SetRoleForm>,
     dash_path: String,
 ) -> impl IntoResponse {
     let (email, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
@@ -673,66 +671,29 @@ pub async fn grant_writer(
         Err(r) => return r,
     };
     if !owner {
-        return (StatusCode::FORBIDDEN, "Only owners can manage the Writer tag").into_response();
+        return (StatusCode::FORBIDDEN, "Only owners can manage roles").into_response();
     }
 
     let target = form.email.trim().to_lowercase();
-    if target.is_empty() || !target.contains('@') {
-        let url = format!("{}?flash_error=Invalid+email+address&tab=accounts", dash_path);
-        return Redirect::to(&url).into_response();
-    }
-
-    // Skip the insert if this email is already a writer (via config.toml or
-    // an existing DB rule) so repeated clicks don't pile up duplicate rows.
-    let already_writer = {
-        let rules = state.access_rules.read().await;
-        auth_guard::email_is_writer(&state.config.auth_guards, &rules, &target)
+    let role = form.role.trim();
+    let flash = if target.is_empty() || !target.contains('@') {
+        Err("Invalid email address")
+    } else if !crate::roles::is_known_role(role) {
+        Err("Unknown role")
+    } else if crate::roles::is_owner(&state.config, &target) {
+        Err("Owners hold every role - change owners in the config file")
+    } else if form.action == "grant" {
+        crate::roles::grant(&state.forum_db, &target, role, &email).await;
+        Ok("Role granted")
+    } else {
+        crate::roles::revoke(&state.forum_db, &target, role).await;
+        Ok("Role removed")
     };
-    if !already_writer {
-        let id = Uuid::new_v4().to_string();
-        let now = Utc::now().to_rfc3339();
-        let _ = sqlx::query(
-            "INSERT INTO access_rules (id, domain, path, email, email_domain, tag_type, tag_value, created_by, created_at) \
-             VALUES (?, '', '/blog/new', ?, NULL, NULL, NULL, ?, ?)",
-        )
-        .bind(&id)
-        .bind(&target)
-        .bind(&email)
-        .bind(&now)
-        .execute(&*state.forum_db)
-        .await;
-        *state.access_rules.write().await = auth_guard::load_access_rules(&state.forum_db).await;
-    }
-
-    Redirect::to(&format!("{}?flash=Writer+access+granted&tab=accounts", dash_path)).into_response()
-}
-
-pub async fn revoke_writer(
-    State(state): State<Arc<AppState>>,
-    jar: CookieJar,
-    headers: HeaderMap,
-    Form(form): Form<RevokeWriterForm>,
-    dash_path: String,
-) -> impl IntoResponse {
-    let (_, owner) = match require_dashboard_access(&state, &jar, &headers, &dash_path).await {
-        Ok(v) => v,
-        Err(r) => return r,
+    let query = match flash {
+        Ok(msg) => format!("flash={}", urlencode(msg)),
+        Err(e) => format!("flash_error={}", urlencode(e)),
     };
-    if !owner {
-        return (StatusCode::FORBIDDEN, "Only owners can manage the Writer tag").into_response();
-    }
-
-    // Only ever deletes a DB access_rules row for this exact email — a
-    // config.toml auth_guard or an email_domain-wide rule can't be touched
-    // from here, so a writer status coming from either of those is left as-is.
-    let target = form.email.trim().to_lowercase();
-    let _ = sqlx::query("DELETE FROM access_rules WHERE path = '/blog/new' AND email = ?")
-        .bind(&target)
-        .execute(&*state.forum_db)
-        .await;
-    *state.access_rules.write().await = auth_guard::load_access_rules(&state.forum_db).await;
-
-    Redirect::to(&format!("{}?flash=Writer+access+removed&tab=accounts", dash_path)).into_response()
+    Redirect::to(&format!("{}?{}&tab=users", dash_path, query)).into_response()
 }
 
 fn private_redirect(dash_path: &str, result: Result<&str, String>) -> axum::response::Response {

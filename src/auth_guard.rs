@@ -69,7 +69,8 @@ pub struct AccessRule {
     pub email_domain: Option<String>,
     /// One of "writer" / "internal" / "external" / "tier", or None for a
     /// plain email/email_domain rule. Grants access to every account that
-    /// currently carries the given Accounts-tab tag, rather than one email.
+    /// currently carries the given tag ("writer" = the Writer role), rather
+    /// than one email.
     pub tag_type: Option<String>,
     /// Only meaningful when `tag_type == Some("tier")`: the subscription
     /// tier name (e.g. "premium") the rule grants access to.
@@ -102,32 +103,6 @@ pub fn has_db_rule(rules: &[AccessRule], host: &str, path: &str) -> bool {
         let prefix = rule.path.trim_end_matches('/');
         let path_match = path == prefix || path.starts_with(&format!("{}/", prefix));
         site_match && path_match
-    })
-}
-
-pub fn path_matches_write_route(p: &str) -> bool {
-    const WRITE_PATH: &str = "/blog/new";
-    let prefix = p.trim_end_matches('/');
-    WRITE_PATH == prefix || WRITE_PATH.starts_with(&format!("{}/", prefix))
-}
-
-/// Whether `email` currently qualifies as a blog "Writer": either a config
-/// auth_guard covering `/blog/new` allows it, or a DB access_rules row
-/// (email/email_domain match, any site) covers that path. Shared by the
-/// Accounts-tab "Writer" badge and by "writer" tag-based access rules.
-pub fn email_is_writer(config_guards: &[AuthGuard], access_rules: &[AccessRule], email: &str) -> bool {
-    let config_hit = config_guards.iter().any(|g| {
-        g.paths.iter().any(|p| path_matches_write_route(p)) && email_allowed(g, email)
-    });
-    if config_hit {
-        return true;
-    }
-    let email_lc = email.to_ascii_lowercase();
-    let user_domain = email_lc.split('@').nth(1).unwrap_or("");
-    access_rules.iter().any(|rule| {
-        path_matches_write_route(&rule.path)
-            && (rule.email.as_deref().map(|e| e.eq_ignore_ascii_case(&email_lc)).unwrap_or(false)
-                || rule.email_domain.as_deref().map(|d| d.eq_ignore_ascii_case(user_domain)).unwrap_or(false))
     })
 }
 
@@ -167,10 +142,10 @@ pub async fn db_rule_allows(
     host: &str,
     path: &str,
     email: &str,
-    site_domain: &str,
-    config_guards: &[AuthGuard],
+    config: &crate::config::Config,
     db: &ForumDb,
 ) -> bool {
+    let site_domain = config.domain.as_str();
     let email_lc = email.to_ascii_lowercase();
     let user_domain = email_lc.split('@').nth(1).unwrap_or("");
     for rule in rules {
@@ -202,7 +177,7 @@ pub async fn db_rule_allows(
                 }
             }
             Some("writer") => {
-                if email_is_writer(config_guards, rules, &email_lc) {
+                if crate::roles::has_role(config, db, &email_lc, crate::roles::WRITER).await {
                     return true;
                 }
             }

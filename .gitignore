@@ -10,3 +10,4 @@ Cargo.lock
 testing.sh
 note
 todo
+deploy.sh

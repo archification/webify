@@ -13,6 +13,8 @@ use chrono::Utc;
 
 use crate::AppState;
 use crate::auth_guard;
+use crate::forum::ForumDb;
+use crate::roles;
 
 const POSTS_DIR: &str = "static/posts";
 const DRAFTS_DIR: &str = "drafts";
@@ -129,6 +131,8 @@ pub struct PostMeta {
     pub date: Option<String>,
     /// Human-readable UTC fallback text shown before client-side localization.
     pub date_display: Option<String>,
+    /// Whether the current viewer may edit this post (set per request).
+    pub editable: bool,
 }
 
 /// List every `.md` file in `dir` as PostMeta, newest first (by date, then title).
@@ -151,7 +155,7 @@ async fn list_dir(dir: &str) -> Vec<PostMeta> {
         let (fm, _body) = parse_front_matter(&content);
         let title = fm.title.unwrap_or_else(|| deslugify(&slug));
         let date_display = fm.date.as_deref().and_then(humanize_date);
-        out.push(PostMeta { slug, title, image: fm.image, date: fm.date, date_display });
+        out.push(PostMeta { slug, title, image: fm.image, date: fm.date, date_display, editable: false });
     }
     out.sort_by(|a, b| {
         b.date.cmp(&a.date).then_with(|| a.title.to_lowercase().cmp(&b.title.to_lowercase()))
@@ -170,26 +174,105 @@ fn host_from_headers(headers: &HeaderMap) -> String {
         .to_string()
 }
 
-/// True if the request carries a valid guard session whose email is permitted by the
-/// same auth guard that protects the authoring routes (`/blog/new`).
-pub async fn viewer_can_edit(state: &Arc<AppState>, headers: &HeaderMap) -> bool {
-    let host = host_from_headers(headers);
+/// Who is looking at a blog page, as far as authoring goes.
+pub struct Viewer {
+    pub email: Option<String>,
+    /// Holds the writer role (owners always do).
+    pub writer: bool,
+    /// Dashboard owner from config.toml: may edit every post.
+    pub owner: bool,
+}
+
+impl Viewer {
+    /// Owners edit anything; writers edit only posts recorded as theirs. Posts
+    /// with no recorded author (legacy files, or ones rsynced in) are owner-only.
+    pub fn can_edit(&self, author: Option<&str>) -> bool {
+        if self.owner {
+            return true;
+        }
+        match (&self.email, author) {
+            (Some(e), Some(a)) => self.writer && e.eq_ignore_ascii_case(a),
+            _ => false,
+        }
+    }
+}
+
+pub async fn viewer(state: &Arc<AppState>, headers: &HeaderMap) -> Viewer {
     let cookie_header = headers
         .get(header::COOKIE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    let token = match auth_guard::extract_cookie_value(cookie_header, auth_guard::GUARD_COOKIE) {
-        Some(t) => t,
-        None => return false,
+    let email = match auth_guard::extract_cookie_value(cookie_header, auth_guard::GUARD_COOKIE) {
+        Some(t) => auth_guard::validate_session(&state.forum_db, &t).await,
+        None => None,
     };
-    let email = match auth_guard::validate_session(&state.forum_db, &token).await {
-        Some(e) => e,
-        None => return false,
+    let Some(email) = email else {
+        return Viewer { email: None, writer: false, owner: false };
     };
-    match auth_guard::find_guard(&state.config.auth_guards, &host, "/blog/new") {
-        Some(guard) => auth_guard::email_allowed(guard, &email),
-        None => false,
+    let owner = roles::is_owner(&state.config, &email);
+    let writer = roles::has_role(&state.config, &state.forum_db, &email, roles::WRITER).await;
+    Viewer { email: Some(email), writer, owner }
+}
+
+/// Gate for every authoring route: sends signed-out visitors to the login page
+/// (returning to `next`) and refuses signed-in users without the writer role.
+async fn require_writer(
+    state: &Arc<AppState>,
+    headers: &HeaderMap,
+    next: &str,
+) -> Result<Viewer, axum::response::Response> {
+    let v = viewer(state, headers).await;
+    if v.email.is_none() {
+        let url = format!(
+            "/auth/login?next={}&host={}",
+            urlencoding::encode(next),
+            urlencoding::encode(&host_from_headers(headers)),
+        );
+        return Err(Redirect::to(&url).into_response());
     }
+    if !v.writer {
+        return Err((StatusCode::FORBIDDEN, "You need the Writer role to write blog posts").into_response());
+    }
+    Ok(v)
+}
+
+pub async fn init_tables(db: &ForumDb) {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS blog_authors (
+            slug TEXT PRIMARY KEY,
+            email TEXT NOT NULL
+        )"
+    ).execute(&**db).await.unwrap();
+}
+
+/// Email of the writer who created `slug`, if one was recorded.
+pub async fn post_author(db: &ForumDb, slug: &str) -> Option<String> {
+    sqlx::query_scalar("SELECT email FROM blog_authors WHERE slug = ?")
+        .bind(slug)
+        .fetch_optional(&**db)
+        .await
+        .unwrap_or(None)
+}
+
+async fn set_post_author(db: &ForumDb, slug: &str, email: &str) {
+    let _ = sqlx::query("INSERT OR REPLACE INTO blog_authors (slug, email) VALUES (?, ?)")
+        .bind(slug)
+        .bind(email.to_ascii_lowercase())
+        .execute(&**db)
+        .await;
+}
+
+/// Follow a post to its new slug, dropping any stale row already there.
+async fn move_post_author(db: &ForumDb, from: &str, to: &str) {
+    if from == to {
+        return;
+    }
+    let _ = sqlx::query("DELETE FROM blog_authors WHERE slug = ?").bind(to).execute(&**db).await;
+    let _ = sqlx::query("UPDATE blog_authors SET slug = ? WHERE slug = ?")
+        .bind(to)
+        .bind(from)
+        .execute(&**db)
+        .await;
 }
 
 // ─── Read handlers ───────────────────────────────────────────────────────────
@@ -199,9 +282,22 @@ pub async fn blog_index(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    let can_edit = viewer_can_edit(&state, &headers).await;
-    let posts = list_dir(POSTS_DIR).await;
-    let drafts = if can_edit { list_dir(DRAFTS_DIR).await } else { Vec::new() };
+    let v = viewer(&state, &headers).await;
+    let can_edit = v.writer;
+    let mut posts = list_dir(POSTS_DIR).await;
+    for p in &mut posts {
+        p.editable = v.can_edit(post_author(&state.forum_db, &p.slug).await.as_deref());
+    }
+    // Writers only see their own drafts; owners see everyone's.
+    let mut drafts = Vec::new();
+    if can_edit {
+        for mut d in list_dir(DRAFTS_DIR).await {
+            if v.can_edit(post_author(&state.forum_db, &d.slug).await.as_deref()) {
+                d.editable = true;
+                drafts.push(d);
+            }
+        }
+    }
 
     let mut ctx = tera::Context::new();
     ctx.insert("port", &state.config.port);
@@ -229,8 +325,11 @@ fn render_editor(state: &Arc<AppState>, ctx: tera::Context) -> axum::response::R
     }
 }
 
-/// GET /blog/new — empty authoring form (auth-guarded in the router fallback).
-pub async fn new_post_form(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+/// GET /blog/new — empty authoring form (writer role required).
+pub async fn new_post_form(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
+    if let Err(r) = require_writer(&state, &headers, "/blog/new").await {
+        return r;
+    }
     let mut ctx = tera::Context::new();
     ctx.insert("port", &state.config.port);
     ctx.insert("domain", &state.config.domain);
@@ -247,10 +346,18 @@ pub async fn new_post_form(State(state): State<Arc<AppState>>) -> impl IntoRespo
 /// GET /blog/edit/{slug} — pre-filled authoring form for an existing post or draft.
 pub async fn edit_post_form(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Query(q): Query<std::collections::HashMap<String, String>>,
     AxumPath(slug): AxumPath<String>,
 ) -> impl IntoResponse {
     let slug = sanitize_filename::sanitize(&slug);
+    let v = match require_writer(&state, &headers, &format!("/blog/edit/{}", slug)).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if !v.can_edit(post_author(&state.forum_db, &slug).await.as_deref()) {
+        return (StatusCode::FORBIDDEN, "You can only edit your own posts").into_response();
+    }
     let (content, status) = match fs::read_to_string(format!("{}/{}.md", POSTS_DIR, slug)).await {
         Ok(c) => (c, "published"),
         Err(_) => match fs::read_to_string(format!("{}/{}.md", DRAFTS_DIR, slug)).await {
@@ -336,17 +443,24 @@ async fn save_image(slug: &str, bytes: &[u8], original: &str) -> Option<String> 
     Some(format!("/{}/{}", IMAGES_DIR, filename))
 }
 
-/// Find a slug not already used by a different file in `dir` (skips `exclude`).
-async fn ensure_unique_slug(base: &str, dir: &str, exclude: &str) -> String {
+/// Find a slug not already used by a file in any of `dirs`.
+async fn ensure_unique_slug(base: &str, dirs: &[&str]) -> String {
     let mut slug = base.to_string();
     let mut n = 2;
-    while slug != exclude
-        && fs::try_exists(format!("{}/{}.md", dir, slug)).await.unwrap_or(false)
-    {
+    loop {
+        let mut taken = false;
+        for dir in dirs {
+            if fs::try_exists(format!("{}/{}.md", dir, slug)).await.unwrap_or(false) {
+                taken = true;
+                break;
+            }
+        }
+        if !taken {
+            return slug;
+        }
         slug = format!("{}-{}", base, n);
         n += 1;
     }
-    slug
 }
 
 /// Map a stored status string to its on-disk directory ("" if unknown).
@@ -368,8 +482,9 @@ async fn read_prior_fm(status: &str, slug: &str) -> Option<FrontMatter> {
     Some(parse_front_matter(&content).0)
 }
 
-/// Shared save routine for create + update. Returns a redirect.
-async fn save_post(form: PostForm) -> axum::response::Response {
+/// Shared save routine for create + update. Returns a redirect. `author` is the
+/// creating writer, recorded for new posts only.
+async fn save_post(db: &ForumDb, form: PostForm, author: &str) -> axum::response::Response {
     if form.title.trim().is_empty() {
         return (StatusCode::BAD_REQUEST, "Title is required").into_response();
     }
@@ -396,14 +511,15 @@ async fn save_post(form: PostForm) -> axum::response::Response {
             .and_then(|fm| fm.date.clone())
             .unwrap_or_else(now_iso);
         let slug = if status_dir(&form.orig_status) != target_dir {
-            ensure_unique_slug(&form.orig_slug, target_dir, "").await
+            ensure_unique_slug(&form.orig_slug, &[target_dir]).await
         } else {
             form.orig_slug.clone()
         };
         (slug, date)
     } else {
         let created = now_iso();
-        let slug = ensure_unique_slug(&slugify(&form.title), target_dir, "").await;
+        // Unique across drafts and posts so authorship (keyed by slug) can't collide.
+        let slug = ensure_unique_slug(&slugify(&form.title), &[POSTS_DIR, DRAFTS_DIR]).await;
         (slug, created)
     };
 
@@ -421,6 +537,12 @@ async fn save_post(form: PostForm) -> axum::response::Response {
     let new_path = format!("{}/{}.md", target_dir, slug);
     if fs::write(&new_path, md).await.is_err() {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to write post").into_response();
+    }
+
+    if is_edit {
+        move_post_author(db, &form.orig_slug, &slug).await;
+    } else {
+        set_post_author(db, &slug, author).await;
     }
 
     // Remove the old file if the location (status and/or slug) changed.
@@ -441,14 +563,22 @@ async fn save_post(form: PostForm) -> axum::response::Response {
     }
 }
 
-/// POST /blog/create — create a new post or draft (auth-guarded).
-pub async fn create_post(multipart: Multipart) -> impl IntoResponse {
+/// POST /blog/create — create a new post or draft (writer role required).
+pub async fn create_post(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> impl IntoResponse {
+    let v = match require_writer(&state, &headers, "/blog/new").await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match parse_post_form(multipart).await {
         Ok(mut form) => {
             // Creation never carries an original; ignore any stray fields.
             form.orig_slug.clear();
             form.orig_status.clear();
-            save_post(form).await
+            save_post(&state.forum_db, form, v.email.as_deref().unwrap_or_default()).await
         }
         Err(e) => {
             eprintln!("create_post: {}", e);
@@ -457,12 +587,25 @@ pub async fn create_post(multipart: Multipart) -> impl IntoResponse {
     }
 }
 
-/// POST /blog/update — update an existing post or draft (auth-guarded).
-pub async fn update_post(multipart: Multipart) -> impl IntoResponse {
+/// POST /blog/update — update an existing post or draft (its author or an owner).
+pub async fn update_post(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> impl IntoResponse {
+    let v = match require_writer(&state, &headers, "/blog").await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match parse_post_form(multipart).await {
         Ok(mut form) => {
             form.orig_slug = sanitize_filename::sanitize(&form.orig_slug);
-            save_post(form).await
+            if form.orig_slug.is_empty()
+                || !v.can_edit(post_author(&state.forum_db, &form.orig_slug).await.as_deref())
+            {
+                return (StatusCode::FORBIDDEN, "You can only edit your own posts").into_response();
+            }
+            save_post(&state.forum_db, form, v.email.as_deref().unwrap_or_default()).await
         }
         Err(e) => {
             eprintln!("update_post: {}", e);
@@ -472,11 +615,16 @@ pub async fn update_post(multipart: Multipart) -> impl IntoResponse {
 }
 
 /// POST /blog/upload-image — store one image, return its URL as JSON (for the WYSIWYG
-/// editor's inline-image hook). Auth-guarded.
+/// editor's inline-image hook). Writer role required.
 pub async fn upload_image(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     _q: Query<std::collections::HashMap<String, String>>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
+    if let Err(r) = require_writer(&state, &headers, "/blog/new").await {
+        return r;
+    }
     while let Ok(Some(field)) = multipart.next_field().await {
         if field.file_name().is_some() {
             let original = field.file_name().unwrap_or("image").to_string();

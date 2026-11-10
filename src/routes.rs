@@ -127,10 +127,11 @@ pub async fn app(state: Arc<AppState>) -> Router {
                 .post(file_gate::file_gate_submit)
                 .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
             )
-            .route("/interaction", get(render_interaction_page))
+            .route("/interaction", get(interaction::lobby_page))
             .route("/interaction/create", post(interaction::create_room))
             .route("/interaction/join", post(interaction::join_room))
-            .route("/interaction/list/{role}", get(interaction::list_rooms))
+            .route("/interaction/rooms", get(interaction::list_rooms))
+            .route("/interaction/file/{room_id}/{name}", get(interaction::serve_file))
             .route("/interaction/upload/{room_id}",
                 post(interaction::upload_file)
                     .layer(DefaultBodyLimit::max(interaction_upload_limit))
@@ -196,6 +197,12 @@ pub async fn app(state: Arc<AppState>) -> Router {
                         .route("/subscribe/return", get(crate::payments::subscribe_return))
                         .route("/subscribe/{tier}", get(crate::payments::subscribe));
                     router = router.nest(path, portal_routes);
+                }
+                [template_path, mode] if mode == "lab" => {
+                    router = router.nest(path, crate::lab::router(path, template_path, state.forum_db.clone()));
+                }
+                [template_path, mode] if mode == "status" => {
+                    router = router.nest(path, crate::metrics::router(template_path));
                 }
                 [_template_path, mode] if mode == "presentation" => {
                     let media_upload_limit = match parse_upload_limit(&state.config.upload_size_limit).await {
@@ -411,28 +418,16 @@ pub async fn app(state: Arc<AppState>) -> Router {
                     async move { admin::set_subscription(s, j, h, f, path).await }
                 }));
 
-                // POST grant writer tag
-                let dp_grant_writer = dp.clone();
-                router = router.route(&format!("{}/accounts/grant-writer", dp), post(move |
+                // POST grant/revoke a user role
+                let dp_set_role = dp.clone();
+                router = router.route(&format!("{}/users/role", dp), post(move |
                     s: State<Arc<AppState>>,
                     j: CookieJar,
                     h: HeaderMap,
-                    f: Form<admin::GrantWriterForm>,
+                    f: Form<admin::SetRoleForm>,
                 | {
-                    let path = dp_grant_writer.clone();
-                    async move { admin::grant_writer(s, j, h, f, path).await }
-                }));
-
-                // POST revoke writer tag
-                let dp_revoke_writer = dp.clone();
-                router = router.route(&format!("{}/accounts/revoke-writer", dp), post(move |
-                    s: State<Arc<AppState>>,
-                    j: CookieJar,
-                    h: HeaderMap,
-                    f: Form<admin::RevokeWriterForm>,
-                | {
-                    let path = dp_revoke_writer.clone();
-                    async move { admin::revoke_writer(s, j, h, f, path).await }
+                    let path = dp_set_role.clone();
+                    async move { admin::set_role(s, j, h, f, path).await }
                 }));
 
                 // POST create portal account
@@ -750,8 +745,7 @@ Router::new()
                                         &hostname,
                                         &path,
                                         e,
-                                        &gs.config.domain,
-                                        &gs.config.auth_guards,
+                                        &gs.config,
                                         &gs.forum_db,
                                     ).await
                             }
@@ -797,6 +791,7 @@ Router::new()
             }
         }
     })
+    .layer(axum::middleware::from_fn(crate::metrics::track))
 }
 
 async fn render_post(
@@ -819,7 +814,8 @@ async fn render_post(
     html::push_html(&mut html_output, parser);
 
     let display_title = front_matter.title.unwrap_or_else(|| post_name.clone());
-    let can_edit = crate::blog::viewer_can_edit(&state, &headers).await;
+    let can_edit = crate::blog::viewer(&state, &headers).await
+        .can_edit(crate::blog::post_author(&state.forum_db, &post_name).await.as_deref());
     let post_date_display = front_matter.date.as_deref().and_then(crate::blog::humanize_date);
 
     let mut context = tera::Context::new();
@@ -858,14 +854,6 @@ async fn render_post(
 </html>
     "#, post_name, html_output);
     Html(template).into_response()
-}
-
-async fn render_interaction_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let context = tera::Context::new();
-    match state.tera.render("interaction.html", &context) {
-        Ok(html) => Html(html),
-        Err(e) => Html(format!("Error rendering interaction: {}", e)),
-    }
 }
 
 async fn render_tera_template(

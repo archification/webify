@@ -101,6 +101,11 @@ max_doers = 5
 "/" = ["static/home.html"]
 # Interactive presentations (invite-only; create accounts in the admin dashboard)
 #"/present" = ["unused", "presentation"]
+# Live status page: the template at the mount, a JSON snapshot at /status/json
+#"/status" = ["static/status.html", "status"]
+# Public dev tools (request inspector, webhook catcher, pastebin, live canvas).
+# Also needs lab-inspect.html, lab-hooks.html, lab-paste.html, lab-board.html.
+#"/lab" = ["static/lab.html", "lab"]
 "/stuff" = ["static/stuff.html", "static/media", "random"]
 "/thumb" = ["static/thumb.html", "static/media/"]
 "/pdf" = ["static/pdf.html", "static/documents"]

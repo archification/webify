@@ -391,6 +391,7 @@
   <nav class="tab-nav neu-inset" aria-label="Dashboard sections">
     <button class="tab-btn active" data-tab="rules" onclick="switchTab('rules', this)">Access Rules</button>
     <button class="tab-btn" data-tab="file-gates" onclick="switchTab('file-gates', this)">File Gates</button>
+    <button class="tab-btn" data-tab="users" onclick="switchTab('users', this)">Users</button>
     <button class="tab-btn" data-tab="presentations" onclick="switchTab('presentations', this)">Presentations</button>
     {% if is_owner %}
     <button class="tab-btn" data-tab="private" onclick="switchTab('private', this)">Private Media</button>
@@ -600,6 +601,98 @@
     </div>
 
   </div><!-- /panel-file-gates -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       Panel: Users & Roles (everyone views, owners change roles)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="panel-users" class="tab-panel">
+
+    {% if is_owner %}
+    <div class="card neu-raised">
+      <p class="card-title">Grant a Role</p>
+      <form action="{{ dashboard_path }}/users/role" method="post">
+        <input type="hidden" name="action" value="grant">
+        <div class="form-row" style="margin-bottom:14px">
+          <input class="field-input" type="email" name="email" placeholder="person@example.com" required aria-label="Email">
+          <select class="field-input" name="role" aria-label="Role" style="flex:0 0 auto">
+            {% for r in roles %}<option value="{{ r.id }}">{{ r.label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="neu-btn btn-primary">Grant</button>
+        </div>
+        <div class="form-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Roles apply to whoever signs in with Google using that email, so you can grant one before they've signed in.
+          {% for r in roles %}<strong>{{ r.label }}:</strong> {{ r.description }}. {% endfor %}
+          Owners are set in the server config file and hold every role.
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="card neu-raised">
+      <p class="card-title">Users ({{ accounts | length }})</p>
+      {% if accounts | length == 0 %}
+      <div class="empty-state">
+        <div class="empty-icon">👤</div>
+        No users yet. People appear here once they sign in, register on the forum, or are granted a role.
+      </div>
+      {% else %}
+      <div class="table-wrap neu-inset">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Seen Via</th>
+              {% for r in roles %}<th>{{ r.label }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in accounts %}
+            <tr>
+              <td class="td-mono">{{ a.email | escape }}</td>
+              <td>{% if a.display_name != a.email %}{{ a.display_name | escape }}{% endif %}</td>
+              <td class="td-muted">{{ a.sources | join(sep=", ") }}</td>
+              {% for r in roles %}
+              <td style="white-space:nowrap">
+                {% if a.is_owner %}
+                <span class="domain-chip" title="Owners hold every role">owner</span>
+                {% elif r.id in a.roles %}
+                <span class="domain-chip">{{ r.id }}</span>
+                {% if is_owner %}
+                <form class="inline-form" action="{{ dashboard_path }}/users/role" method="post"
+                      onsubmit="return confirm('Remove the {{ r.label }} role from {{ a.email | escape }}?')">
+                  <input type="hidden" name="email" value="{{ a.email | escape }}">
+                  <input type="hidden" name="role" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="revoke">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Remove role" aria-label="Remove {{ r.label }} role from {{ a.email | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </form>
+                {% endif %}
+                {% elif is_owner %}
+                <form class="inline-form" action="{{ dashboard_path }}/users/role" method="post">
+                  <input type="hidden" name="email" value="{{ a.email | escape }}">
+                  <input type="hidden" name="role" value="{{ r.id }}">
+                  <input type="hidden" name="action" value="grant">
+                  <button type="submit" class="neu-btn neu-inset btn-delete" title="Grant role" aria-label="Grant {{ r.label }} role to {{ a.email | escape }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                </form>
+                {% else %}
+                <span class="td-muted">—</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /panel-users -->
 
   <!-- ═══════════════════════════════════════════════════════════
        Panel: Interactive Presentations (invite-only accounts)

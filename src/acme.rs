@@ -47,7 +47,7 @@ fn log_err(msg: &str) {
 }
 
 /// Read the `notAfter` of the first certificate in a PEM file as a unix timestamp.
-fn parse_not_after(pem_bytes: &[u8]) -> Option<i64> {
+pub fn parse_not_after(pem_bytes: &[u8]) -> Option<i64> {
     for pem in x509_parser::pem::Pem::iter_from_buffer(pem_bytes) {
         let pem = pem.ok()?;
         if pem.label == "CERTIFICATE" {
@@ -58,20 +58,62 @@ fn parse_not_after(pem_bytes: &[u8]) -> Option<i64> {
     None
 }
 
-/// True when the cert file is missing/unreadable, unparseable, or expires within
-/// `renewal_days` of now.
-pub async fn cert_needs_renewal(cert_path: &str, renewal_days: u32) -> bool {
+/// DNS names (subjectAltName) of the first certificate in a PEM file, lowercased.
+pub fn parse_dns_names(pem_bytes: &[u8]) -> Option<Vec<String>> {
+    for pem in x509_parser::pem::Pem::iter_from_buffer(pem_bytes) {
+        let pem = pem.ok()?;
+        if pem.label == "CERTIFICATE" {
+            let cert = pem.parse_x509().ok()?;
+            let names = match cert.subject_alternative_name().ok()? {
+                Some(san) => san
+                    .value
+                    .general_names
+                    .iter()
+                    .filter_map(|n| match n {
+                        x509_parser::extensions::GeneralName::DNSName(d) => Some(d.to_ascii_lowercase()),
+                        _ => None,
+                    })
+                    .collect(),
+                None => Vec::new(),
+            };
+            return Some(names);
+        }
+    }
+    None
+}
+
+/// True when the cert file is missing/unreadable, unparseable, expires within
+/// `renewal_days` of now, or doesn't cover every name in `domains` (so adding a
+/// domain to `acme_domains` triggers a reissue on the next start).
+pub async fn cert_needs_renewal(cert_path: &str, renewal_days: u32, domains: &[String]) -> bool {
     let pem = match tokio::fs::read(cert_path).await {
         Ok(p) => p,
         Err(_) => return true,
     };
-    match parse_not_after(&pem) {
+    let expiring = match parse_not_after(&pem) {
         Some(not_after) => {
             let threshold = Utc::now().timestamp() + (renewal_days as i64) * 86_400;
             not_after <= threshold
         }
         None => true,
+    };
+    if expiring {
+        return true;
     }
+    let names = parse_dns_names(&pem).unwrap_or_default();
+    let missing: Vec<&str> = domains
+        .iter()
+        .map(|d| d.as_str())
+        .filter(|d| !names.contains(&d.trim().to_ascii_lowercase()))
+        .collect();
+    if !missing.is_empty() {
+        log_info(&format!(
+            "certificate does not cover [{}]; requesting a new one",
+            missing.join(", "),
+        ));
+        return true;
+    }
+    false
 }
 
 fn directory_url(production: bool) -> String {
@@ -165,7 +207,7 @@ pub async fn ensure_certificate(config: &Config, store: &ChallengeStore) -> anyh
         ));
     }
 
-    if !cert_needs_renewal(cert_path, config.acme_renewal_days).await {
+    if !cert_needs_renewal(cert_path, config.acme_renewal_days, &config.acme_domains).await {
         log_info("existing certificate is still valid; skipping ACME request");
         return Ok(false);
     }

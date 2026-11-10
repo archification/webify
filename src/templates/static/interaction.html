@@ -1,118 +1,616 @@
 {% extends "base.html" %}
 
-{% block title %}Interaction{% endblock %}
+{% block title %}INTERACTION // ARCHIFICATION{% endblock %}
+
+{% block head %}
+<style>
+    /* ============================================================
+       SHARED: BUTTONS / INPUTS (mirrors forum_index.html / topic.html)
+    ============================================================ */
+    .btn-cyber {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        padding: 0.55rem 1rem;
+        border-radius: 2px;
+        border: 1px solid;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: color 0.18s, border-color 0.18s, box-shadow 0.18s, text-shadow 0.18s;
+        background: transparent;
+        line-height: 1.2;
+    }
+    .btn-c { color: var(--c); border-color: rgba(0,229,255,0.28); background: rgba(0,229,255,0.03); }
+    .btn-c:hover { color: #fff; border-color: rgba(0,229,255,0.65); box-shadow: 0 0 14px rgba(0,229,255,0.2); text-shadow: var(--glow-c); }
+    .btn-g { color: var(--g); border-color: rgba(0,255,65,0.28); background: rgba(0,255,65,0.03); }
+    .btn-g:hover { color: #fff; border-color: rgba(0,255,65,0.6); box-shadow: 0 0 14px rgba(0,255,65,0.2); text-shadow: var(--glow-g); }
+    .btn-p { color: var(--p); border-color: rgba(255,61,107,0.28); background: rgba(255,61,107,0.03); }
+    .btn-p:hover { color: #fff; border-color: rgba(255,61,107,0.65); box-shadow: 0 0 14px rgba(255,61,107,0.22); text-shadow: 0 0 8px var(--p); }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.54rem; }
+    .btn-block { display: block; width: 100%; }
+
+    .field-label {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.56rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        display: block;
+        margin-bottom: 0.4rem;
+        margin-top: 1rem;
+    }
+    .field-label:first-child { margin-top: 0; }
+
+    .cyber-input, .cyber-select {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border-radius: 2px;
+        border: 1px solid rgba(0,229,255,0.16);
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.78rem;
+        letter-spacing: 0.03em;
+        color: var(--text-hi);
+        background: linear-gradient(145deg, #060910, #090d1c);
+        box-shadow: inset 4px 4px 12px rgba(0,0,0,0.72), inset -4px -4px 12px rgba(0,229,255,0.018);
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+    }
+    .cyber-input::placeholder { color: #2a3f58; }
+    .cyber-input:focus, .cyber-select:focus {
+        border-color: rgba(0,229,255,0.38);
+        box-shadow: inset 4px 4px 12px rgba(0,0,0,0.72), inset -4px -4px 12px rgba(0,229,255,0.018),
+                    0 0 0 1px rgba(0,229,255,0.14), 0 0 18px rgba(0,229,255,0.07);
+    }
+    .cyber-select { appearance: none; cursor: pointer; }
+
+    .status-banner {
+        padding: 1.1rem;
+        text-align: center;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        border: 1px solid;
+        margin-top: 0.75rem;
+    }
+    .status-error { color: var(--p); border-color: rgba(255,61,107,0.28); background: rgba(255,61,107,0.03); }
+    .status-error .btn-cyber { margin-top: 0.75rem; }
+    .status-neutral { color: var(--text-dim); border-color: var(--border); background: var(--bg-card); }
+
+    /* ============================================================
+       PAGE HEADER
+    ============================================================ */
+    .f-page-header { margin-bottom: 2rem; }
+    .f-page-title {
+        font-family: 'Orbitron', monospace;
+        font-weight: 900;
+        font-size: clamp(1.1rem, 3vw, 1.6rem);
+        letter-spacing: 0.12em;
+        color: var(--text-hi);
+        text-shadow: 0 0 30px rgba(0,229,255,0.1);
+        margin: 0 0 0.35rem;
+    }
+    .f-page-title .ta { color: var(--c); text-shadow: var(--glow-c); }
+    .f-page-sub {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.66rem;
+        letter-spacing: 0.1em;
+        color: var(--text-dim);
+    }
+
+    /* ============================================================
+       LOBBY LAYOUT
+    ============================================================ */
+    .lobby-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; }
+    .lobby-panel { flex: 1; min-width: 320px; }
+
+    /* ============================================================
+       ROOM LIST
+    ============================================================ */
+    .room-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
+    .room-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-left: 2px solid var(--c);
+        padding: 0.75rem 1rem;
+        transition: background 0.18s, border-color 0.18s;
+    }
+    .room-row:hover { background: var(--bg-card-h); border-color: rgba(0,229,255,0.16); }
+    .room-info { min-width: 0; }
+    .room-name {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        color: var(--text-hi);
+    }
+    .room-name .lock { color: var(--p); }
+    .room-meta {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.6rem;
+        color: var(--text-dim);
+        margin-top: 0.2rem;
+    }
+    .room-form { flex-shrink: 0; }
+    .empty-state {
+        text-align: center;
+        padding: 1.75rem 1rem;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        margin-top: 0.75rem;
+    }
+    .empty-state::before { content: '// '; color: var(--g); opacity: 0.45; }
+
+    /* ============================================================
+       ROOM / CHAT VIEW (populated by server-rendered fragments)
+    ============================================================ */
+    .room-view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-hi);
+        padding-bottom: 0.9rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .room-view-title {
+        font-family: 'Orbitron', monospace;
+        font-weight: 700;
+        font-size: 1.1rem;
+        letter-spacing: 0.06em;
+        color: var(--text-hi);
+        margin: 0;
+    }
+    .room-view-title .role-tag { color: var(--g); font-size: 0.65rem; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.14em; }
+
+    .signal-panel { text-align: center; margin-bottom: 1.75rem; }
+    .signal-btn-row { display: inline-flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+    .signal-btn {
+        width: 62px;
+        height: 62px;
+        border-radius: 3px;
+        cursor: pointer;
+        color: transparent;
+        opacity: 0.55;
+        transition: opacity 0.18s, transform 0.12s, box-shadow 0.18s;
+        border: 2px solid transparent;
+    }
+    .signal-btn:hover { opacity: 0.85; }
+    .signal-btn.active { opacity: 1; transform: scale(1.08); border-color: #fff; }
+    .sig-red    { background-color: var(--p); box-shadow: 0 0 10px rgba(255,61,107,0.35); }
+    .sig-green  { background-color: var(--g); box-shadow: 0 0 10px rgba(0,255,65,0.35); }
+    .sig-blue   { background-color: var(--c); box-shadow: 0 0 10px rgba(0,229,255,0.35); }
+    .sig-yellow { background-color: #ffb347; box-shadow: 0 0 10px rgba(255,179,71,0.35); }
+
+    .signal-circle {
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        margin: 0 auto 0.75rem;
+        transition: background-color 0.3s, box-shadow 0.3s;
+        border: 2px solid var(--border-hi);
+    }
+    .signal-watch-label {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.6rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    .chat-label {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.6rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--g);
+        text-shadow: 0 0 6px rgba(0,255,65,0.22);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .chat-label::before { content: '>_ '; opacity: 0.5; }
+
+    .chat-container {
+        height: 380px;
+        overflow-y: auto;
+        border: 1px solid rgba(0,229,255,0.16);
+        border-radius: 2px;
+        background: linear-gradient(145deg, #060910, #090d1c);
+        box-shadow: inset 4px 4px 12px rgba(0,0,0,0.72), inset -4px -4px 12px rgba(0,229,255,0.018);
+        padding: 0.9rem;
+        margin-bottom: 0.9rem;
+        font-family: 'Rajdhani', sans-serif;
+    }
+    .chat-msg { margin-bottom: 0.5rem; line-height: 1.5; word-break: break-word; }
+    .chat-msg .sender { font-weight: 600; color: var(--c); }
+    .chat-msg img { max-width: 100%; max-height: 300px; border-radius: 3px; margin-top: 0.3rem; border: 1px solid var(--border); }
+    .chat-msg a { color: var(--c); }
+    .chat-system {
+        color: #ffb347;
+        font-style: italic;
+        font-size: 0.85rem;
+        opacity: 0.85;
+        margin-bottom: 0.4rem;
+    }
+
+    .chat-input-row { display: flex; gap: 0.6rem; align-items: stretch; }
+    .chat-text-input { flex-grow: 1; }
+    .upload-form { display: flex; align-items: center; gap: 0.4rem; }
+    .upload-label {
+        cursor: pointer;
+        padding: 0.6rem 0.75rem;
+        font-size: 1.15rem;
+        border: 1px solid rgba(0,229,255,0.16);
+        border-radius: 2px;
+        background: var(--bg-card);
+        transition: border-color 0.18s;
+    }
+    .upload-label:hover { border-color: rgba(0,229,255,0.4); }
+    .upload-label input { display: none; }
+    .upload-status { min-height: 1rem; margin-top: 0.35rem; font-size: 0.62rem; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.06em; }
+    .upload-status .ok { color: var(--g); }
+    .upload-status .err { color: var(--p); }
+
+    .chat-form { display: flex; gap: 0.6rem; flex: 1 1 auto; min-width: 0; }
+    .chat-msg time, .chat-system time {
+        font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--text-dim);
+        font-style: normal; margin-right: 0.2rem;
+    }
+    .chat-msg .text { color: var(--text-body); }
+    .chat-me { font-style: italic; color: var(--text-body); }
+    .chat-alert { color: var(--p); font-weight: 700; font-style: normal; opacity: 1; }
+    .chat-msg .file-size { color: var(--text-dim); font-size: 0.85rem; }
+    .conn-status { margin-left: auto; color: var(--text-dim); text-shadow: none; letter-spacing: 0.12em; }
+    .conn-status.on { color: var(--g); }
+    .conn-status.off { color: var(--p); }
+
+    .room-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .room-view-title .lock { font-size: 0.8rem; }
+    .room-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 1.5rem; align-items: start; }
+    @media (max-width: 820px) { .room-layout { grid-template-columns: minmax(0, 1fr); } }
+    .room-side { display: flex; flex-direction: column; gap: 0.6rem; }
+    .side-title {
+        font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 0.22em;
+        text-transform: uppercase; color: var(--g);
+    }
+    .side-title:not(:first-child) { margin-top: 0.9rem; }
+    .user-list {
+        list-style: none; margin: 0; padding: 0.6rem 0.8rem; min-height: 2.5rem;
+        background: var(--bg-card); border: 1px solid var(--border);
+    }
+    .user-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; min-width: 0; }
+    .user-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--g); box-shadow: 0 0 6px var(--g); flex: none; }
+    .user-name { color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-role {
+        margin-left: auto; font-family: 'Share Tech Mono', monospace; font-size: 0.58rem;
+        letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
+    }
+
+    .voice-panel {
+        padding: 0.8rem; background: var(--bg-card); border: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: 0.6rem;
+    }
+    .voice-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .voice-status { font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; letter-spacing: 0.06em; color: var(--text-dim); line-height: 1.5; }
+    .voice-status.on { color: var(--g); }
+    .voice-status.err { color: var(--p); }
+    #remote-audio-container { display: flex; flex-direction: column; gap: 0.4rem; }
+    #remote-audio-container audio { width: 100%; height: 30px; }
+
+    .invite-card { max-width: 460px; margin: 0 auto 1.5rem; }
+    #lobby-error:empty { display: none; }
+    #lobby-error { margin-bottom: 1rem; }
+</style>
+{% endblock %}
 
 {% block content %}
-<style>
-    .color-btn {
-        width: 60px;
-        height: 60px;
-        border: none;
-        border-radius: 5px;
-        margin: 5px;
-        cursor: pointer;
-        opacity: 0.6;
-        transition: opacity 0.2s, transform 0.1s;
-        color: transparent;
-    }
-    .color-btn:hover { opacity: 0.8; }
-    .color-btn.active { opacity: 1; border: 3px solid #fff; transform: scale(1.1); }
-    .btn-red { background-color: #dc322f; }
-    .btn-green { background-color: #859900; }
-    .btn-blue { background-color: #268bd2; }
-    .btn-yellow { background-color: #b58900; }
 
-    .interaction-container {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-    .panel {
-        background: #073642;
-        padding: 20px;
-        border-radius: 5px;
-        flex: 1;
-        min-width: 300px;
-    }
-    .room-list-item {
-        background: #002b36;
-        transition: background 0.2s;
-    }
-    .room-list-item:hover {
-        background: #073642;
-    }
-    input[type="text"], input[type="number"], input[type="password"], select {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 10px;
-        background: #002b36;
-        border: 1px solid #586e75;
-        color: #93a1a1;
-    }
-</style>
+<div class="f-page-header">
+    <h1 class="f-page-title"><span class="ta">//</span> REALTIME<span class="ta">.</span>INTERACTION</h1>
+    <div class="f-page-sub">Rooms with chat, file sharing, colour signals and voice. Controllers pick a colour; doers see it live.</div>
+</div>
 
 <div id="main-container">
-    <div class="header">
-        <h1>Real-time Interaction</h1>
-        <p>Create a room or join an existing one.</p>
+    <div id="lobby-error" role="alert"></div>
+
+    {% if invite %}
+    <div class="cyber-card invite-card">
+        <div class="card-title">You're invited to {{ invite.label | escape }}{% if invite.locked %} 🔒{% endif %}</div>
+        <form hx-post="/interaction/join" hx-target="#main-container">
+            <input type="hidden" name="room_id" value="{{ invite.id | escape }}">
+            <label class="field-label" for="invite-username">Your name</label>
+            <input class="cyber-input" type="text" id="invite-username" name="username" maxlength="32" placeholder="Enter your name" required autofocus>
+            <label class="field-label" for="invite-role">Join as</label>
+            <select class="cyber-select" id="invite-role" name="role">
+                <option value="doer">Doer (watch the colour)</option>
+                <option value="controller">Controller (pick the colour)</option>
+            </select>
+            {% if invite.locked %}
+            <label class="field-label" for="invite-password">Password</label>
+            <input class="cyber-input" type="password" id="invite-password" name="password" required>
+            {% endif %}
+            <button type="submit" class="btn-cyber btn-g btn-block" style="margin-top: 1.25rem;">[ Join room ]</button>
+        </form>
     </div>
+    {% elif invite_missing %}
+    <div class="status-banner status-neutral" style="margin: 0 0 1.5rem;">That invite's room has closed. Rooms close a couple of minutes after everyone leaves.</div>
+    {% endif %}
 
-    <div class="interaction-container">
-        <div class="panel">
-            <h2>Create New Room</h2>
+    <div class="lobby-grid">
+        <div class="lobby-panel cyber-card">
+            <div class="card-title">Create a room</div>
             <form hx-post="/interaction/create" hx-target="#main-container">
-                <label>Username</label>
-                <input type="text" name="username" placeholder="Enter your name" required>
+                <label class="field-label" for="create-username">Your name</label>
+                <input class="cyber-input" type="text" id="create-username" name="username" maxlength="32" placeholder="Enter your name" required>
 
-                <label>Role</label>
-                <select name="role">
-                    <option value="controller">Controller (Control colors)</option>
-                    <option value="doer">Doer (Watch colors)</option>
+                <label class="field-label" for="create-name">Room name (optional)</label>
+                <input class="cyber-input" type="text" id="create-name" name="name" maxlength="40" placeholder="Defaults to &quot;your name's room&quot;">
+
+                <label class="field-label" for="create-role">Your role</label>
+                <select class="cyber-select" id="create-role" name="role">
+                    <option value="controller">Controller (pick the colour)</option>
+                    <option value="doer">Doer (watch the colour)</option>
                 </select>
 
-                <label>Max Controllers</label>
-                <input type="number" name="max_controllers" value="5" min="1" max="50">
+                <label class="field-label" for="create-maxc">Max controllers</label>
+                <input class="cyber-input" type="number" id="create-maxc" name="max_controllers" value="5" min="1" max="50" required>
 
-                <label>Max Doers</label>
-                <input type="number" name="max_doers" value="20" min="1" max="100">
+                <label class="field-label" for="create-maxd">Max doers</label>
+                <input class="cyber-input" type="number" id="create-maxd" name="max_doers" value="20" min="1" max="100" required>
 
-                <label>Password (Optional)</label>
-                <input type="password" name="password" placeholder="Leave empty for public room">
+                <label class="field-label" for="create-password">Password (optional)</label>
+                <input class="cyber-input" type="password" id="create-password" name="password" maxlength="128" placeholder="Leave empty for a public room" autocomplete="new-password">
 
-                <button type="submit" style="width: 100%; margin-top: 10px;">Create Room</button>
+                <button type="submit" class="btn-cyber btn-g btn-block" style="margin-top: 1.25rem;">[ Create room ]</button>
             </form>
         </div>
 
-        <div class="panel">
-            <h2>Join Existing Room</h2>
-            <div style="margin-bottom: 15px;">
-                <label>Username</label>
-                <input type="text" id="join-username" name="username" placeholder="Enter your name" 
-                       hx-get="/interaction/list/controller" 
-                       hx-trigger="keyup changed delay:500ms, load" 
-                       hx-target="#room-list-container"
-                       hx-include="[name='role-filter']"
-                       required>
-                
-                <label>Filter by Role</label>
-                <select name="role-filter" 
-                        hx-get="/interaction/list/ignore" 
-                        hx-target="#room-list-container"
-                        hx-trigger="change"
-                        onchange="
-                            let val = this.value; 
-                            let user = document.getElementById('join-username').value;
-                            htmx.ajax('GET', '/interaction/list/' + val + '?username=' + encodeURIComponent(user), '#room-list-container');
-                        ">
-                    <option value="controller">Join as Controller</option>
-                    <option value="doer">Join as Doer</option>
-                </select>
-            </div>
+        <div class="lobby-panel cyber-card">
+            <div class="card-title">Join a room</div>
 
-            <div id="room-list-container">
-                <p>Loading rooms...</p>
+            <label class="field-label" for="join-username">Your name</label>
+            <input class="cyber-input" type="text" id="join-username" name="username" maxlength="32" placeholder="Enter your name" required>
+
+            <label class="field-label" for="role-filter">Join as</label>
+            <select class="cyber-select" id="role-filter" name="role"
+                    hx-get="/interaction/rooms"
+                    hx-trigger="load, change, every 10s"
+                    hx-target="#room-list-container">
+                <option value="controller">Controller (pick the colour)</option>
+                <option value="doer">Doer (watch the colour)</option>
+            </select>
+
+            <div id="room-list-container" style="margin-top: 0.75rem;">
+                <div class="empty-state">Loading rooms…</div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    'use strict';
+    // Everything below runs when a room view is swapped into the page. Leaving
+    // is a full page load, which closes the socket, the mic and any calls.
+    htmx.onLoad(function (el) {
+        var room = el.id === 'room-container' ? el : el.querySelector && el.querySelector('#room-container');
+        if (room && !room.dataset.ready) {
+            room.dataset.ready = '1';
+            initRoom(room);
+        }
+    });
+
+    function initRoom(room) {
+        var chat = room.querySelector('#chat-container');
+        var stick = true;
+
+        // Keep the chat pinned to the newest message unless the reader scrolled up.
+        chat.addEventListener('scroll', function () {
+            stick = chat.scrollHeight - chat.scrollTop - chat.clientHeight <= 24;
+        });
+        function toBottom() { if (stick) chat.scrollTop = chat.scrollHeight; }
+        new MutationObserver(function () {
+            chat.querySelectorAll('time[data-t]:not([data-local])').forEach(function (t) {
+                var d = new Date(Number(t.dataset.t));
+                t.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                t.title = d.toLocaleString();
+                t.dataset.local = '1';
+            });
+            chat.querySelectorAll('img:not([data-watched])').forEach(function (img) {
+                img.dataset.watched = '1';
+                img.addEventListener('load', toBottom);
+            });
+            toBottom();
+        }).observe(chat, { childList: true, subtree: true });
+
+        var form = room.querySelector('#chat-form');
+        var input = form.querySelector('input');
+        // The ws extension reads the form during the submit event, so clear it after.
+        form.addEventListener('submit', function () { setTimeout(function () { form.reset(); input.focus(); }, 0); });
+        input.focus();
+
+        var upload = room.querySelector('#upload-form');
+        upload.querySelector('input[type=file]').addEventListener('change', function () {
+            if (this.files.length) {
+                room.querySelector('#upload-status').textContent = 'Uploading ' + this.files[0].name + '…';
+                htmx.trigger(upload, 'submit');
+            }
+        });
+        upload.addEventListener('htmx:afterRequest', function () { upload.reset(); });
+
+        room.querySelector('#invite-btn').addEventListener('click', function () {
+            var btn = this;
+            var url = location.origin + '/interaction?room=' + encodeURIComponent(room.dataset.room);
+            (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+                .catch(function () { window.prompt('Copy this invite link:', url); })
+                .then(function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy invite link'; }, 1500); });
+        });
+
+        var conn = room.querySelector('#conn-status');
+        room.addEventListener('htmx:wsOpen', function () { conn.textContent = 'live'; conn.className = 'conn-status on'; });
+        room.addEventListener('htmx:wsClose', function () { conn.textContent = 'reconnecting…'; conn.className = 'conn-status off'; });
+
+        initVoice(room);
+    }
+
+    // Voice is peer to peer. The server only relays offers, answers and ICE
+    // candidates between people in the room, as JSON messages starting with "{".
+    function initVoice(room) {
+        var myId = null, inVoice = false, stream = null, muted = false;
+        var peers = {};
+        var ice = { iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        ] };
+        var btn = room.querySelector('#voice-btn');
+        var muteBtn = room.querySelector('#mute-btn');
+        var status = room.querySelector('#voice-status');
+        var audios = room.querySelector('#remote-audio-container');
+        var sigForm = room.querySelector('#webrtc-form');
+        var sigInput = room.querySelector('#webrtc-signal-input');
+
+        function setStatus(text, cls) { status.textContent = text; status.className = 'voice-status' + (cls ? ' ' + cls : ''); }
+        function updateStatus() {
+            if (!inVoice) return;
+            var n = Object.keys(peers).length;
+            setStatus(n ? 'In voice with ' + n + (n === 1 ? ' person' : ' people') + (muted ? ' (muted)' : '') : 'In voice. Waiting for others to join voice' + (muted ? ' (muted)' : '') + '.', 'on');
+        }
+
+        function send(target, type, data) {
+            var payload = { target: target, type: type };
+            for (var k in data) payload[k] = data[k];
+            sigInput.value = JSON.stringify(payload);
+            htmx.trigger(sigForm, 'submit');
+        }
+
+        function closePeer(id) {
+            if (peers[id]) { peers[id].close(); delete peers[id]; }
+            var a = document.getElementById('audio-' + id);
+            if (a) a.remove();
+            updateStatus();
+        }
+
+        function peer(id) {
+            if (peers[id]) return peers[id];
+            var pc = new RTCPeerConnection(ice);
+            peers[id] = pc;
+            stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+            pc.onicecandidate = function (e) { if (e.candidate) send(id, 'ice', { candidate: e.candidate }); };
+            pc.ontrack = function (e) {
+                var a = document.getElementById('audio-' + id);
+                if (!a) {
+                    a = document.createElement('audio');
+                    a.id = 'audio-' + id;
+                    a.autoplay = true;
+                    a.controls = true;
+                    audios.appendChild(a);
+                }
+                a.srcObject = e.streams[0] || new MediaStream([e.track]);
+                a.play().catch(function () { setStatus('Your browser blocked audio. Press play on the player below.', 'err'); });
+            };
+            pc.onconnectionstatechange = function () {
+                if (pc.connectionState === 'failed' || pc.connectionState === 'closed') closePeer(id);
+            };
+            updateStatus();
+            return pc;
+        }
+
+        async function onSignal(from, s) {
+            if (from === myId || (s.target && s.target !== myId)) return;
+            if (s.type === 'leave') { closePeer(from); return; }
+            if (!inVoice) return;
+            try {
+                if (s.type === 'join') {
+                    var pc = peer(from);
+                    await pc.setLocalDescription(await pc.createOffer());
+                    send(from, 'offer', { sdp: pc.localDescription });
+                } else if (s.type === 'offer') {
+                    var pc2 = peer(from);
+                    await pc2.setRemoteDescription(s.sdp);
+                    await pc2.setLocalDescription(await pc2.createAnswer());
+                    send(from, 'answer', { sdp: pc2.localDescription });
+                } else if (s.type === 'answer' && peers[from]) {
+                    await peers[from].setRemoteDescription(s.sdp);
+                } else if (s.type === 'ice' && peers[from]) {
+                    await peers[from].addIceCandidate(s.candidate);
+                }
+            } catch (err) {
+                console.warn('voice signalling error', err);
+            }
+        }
+
+        room.addEventListener('htmx:wsBeforeMessage', function (e) {
+            var m = e.detail.message;
+            if (typeof m !== 'string' || m.charAt(0) !== '{') return;
+            e.preventDefault();
+            var d;
+            try { d = JSON.parse(m); } catch (err) { return; }
+            if (d.webrtc_welcome) {
+                myId = d.webrtc_welcome;
+                // A reconnect gets a new id; rejoin so others connect to it.
+                if (inVoice) { Object.keys(peers).forEach(closePeer); send(null, 'join', {}); }
+            } else if (d.webrtc) {
+                try { onSignal(d.sender_id, JSON.parse(d.webrtc)); } catch (err) {}
+            }
+        });
+
+        async function join() {
+            btn.disabled = true;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                btn.disabled = false;
+                setStatus("Couldn't use your microphone. Check the browser's permission for this site.", 'err');
+                return;
+            }
+            inVoice = true;
+            muted = false;
+            btn.disabled = false;
+            btn.textContent = 'Leave voice';
+            btn.className = 'btn-cyber btn-p btn-sm';
+            muteBtn.hidden = false;
+            muteBtn.textContent = 'Mute';
+            send(null, 'join', {});
+            updateStatus();
+        }
+
+        function leave() {
+            inVoice = false;
+            send(null, 'leave', {});
+            Object.keys(peers).forEach(closePeer);
+            if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+            stream = null;
+            btn.textContent = 'Join voice';
+            btn.className = 'btn-cyber btn-g btn-sm';
+            muteBtn.hidden = true;
+            setStatus('Off. Your mic is only used after you join.');
+        }
+
+        btn.addEventListener('click', function () { inVoice ? leave() : join(); });
+        muteBtn.addEventListener('click', function () {
+            muted = !muted;
+            stream.getAudioTracks().forEach(function (t) { t.enabled = !muted; });
+            muteBtn.textContent = muted ? 'Unmute' : 'Mute';
+            updateStatus();
+        });
+    }
+}());
+</script>
 {% endblock %}
